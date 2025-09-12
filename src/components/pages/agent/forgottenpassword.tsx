@@ -4,55 +4,39 @@ import { Input } from "../../UI/Input";
 import { Button } from "../../UI/Bottons";
 import CardHeader from "../../UI/CardHeader";
 import Label from "../../UI/Label";
+import useAgentStore from '../../../stores/agentstore';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [token, setToken] = useState('');
   const [step, setStep] = useState(1);
+  
+  const { forgotPassword, resetPassword, isLoading, error, clearError } = useAgentStore();
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/send-reset-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      if (response.ok) {
-        setStep(2);
-      } else {
-        alert('Failed to send reset email. Please try again.');
-      }
+      clearError();
+      await forgotPassword(email);
+      setStep(2);
     } catch (error) {
       console.error('Error sending reset email:', error);
-      alert('An error occurred. Please try again later.');
     }
   };
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token, password }),
-      });
-
-      if (response.ok) {
-        alert('Password has been reset successfully!');
-        setStep(1);
-      } else {
-        alert('Failed to reset password. Please try again.');
-      }
+      clearError();
+      await resetPassword(token, password);
+      alert('Password has been reset successfully!');
+      setStep(1);
+      setEmail('');
+      setToken('');
+      setPassword('');
     } catch (error) {
       console.error('Error resetting password:', error);
-      alert('An error occurred. Please try again later.');
     }
   };
 
@@ -61,6 +45,12 @@ const ForgotPassword = () => {
       <Card className="w-full max-w-md">
         <CardHeader>{step === 1 ? 'Forgot Password' : 'Reset Password'}</CardHeader>
         <CardContent>
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              {error}
+            </div>
+          )}
+          
           {step === 1 ? (
             <form onSubmit={handleEmailSubmit}>
               <Label htmlFor="email">Email</Label>
@@ -70,8 +60,11 @@ const ForgotPassword = () => {
                 value={email}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 required
+                disabled={isLoading}
               />
-              <Button type="submit">Send Reset Link</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? 'Sending...' : 'Send Reset Link'}
+              </Button>
             </form>
           ) : (
             <form onSubmit={handlePasswordReset}>
@@ -82,6 +75,8 @@ const ForgotPassword = () => {
                 value={token}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setToken(e.target.value)}
                 required
+                disabled={isLoading}
+                placeholder="Enter the token sent to your email"
               />
               <Label htmlFor="password">New Password</Label>
               <Input
@@ -90,8 +85,12 @@ const ForgotPassword = () => {
                 value={password}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 required
+                disabled={isLoading}
+                placeholder="Enter your new password"
               />
-              <Button type="submit">Reset Password</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? 'Resetting...' : 'Reset Password'}
+              </Button>
             </form>
           )}
         </CardContent>

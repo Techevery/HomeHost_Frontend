@@ -4,7 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 import * as Yup from "yup";
 import Button from "../../UI/Button";
 import BecomeAgentModal from "./BecomeAgentModal";
-import { Eye, EyeOff, User, Plus, IdCard } from 'lucide-react'; // Import IdCard icon
+import { Eye, EyeOff, User, Plus, IdCard } from 'lucide-react';
+import useAgentStore from "../../../stores/agentstore";
 
 const BecomeAgent = () => {
   const navigate = useNavigate();
@@ -12,10 +13,13 @@ const BecomeAgent = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  
+  const { registerAgent, isLoading, error, clearError } = useAgentStore();
 
   const handleCancel = (e: any) => {
     e.preventDefault();
     setDisplay(false);
+    clearError();
   };
 
   const handleModal = () => {
@@ -30,14 +34,13 @@ const BecomeAgent = () => {
 
   const initialData = {
     name: "",
-    email: localStorage.getItem("remember") === "true" ? localStorage.getItem("username") : "",
+    email: localStorage.getItem("remember") === "true" ? localStorage.getItem("username") || "" : "",
     phone_number: "",
     address: "",
     gender: "",
     status: "",
     bank_name: "",
     account_number: "",
-    // personal_url: "",
     password: "",
     confirmPassword: "",
     next_of_kin: "",
@@ -46,9 +49,9 @@ const BecomeAgent = () => {
     kin_address: "",
     kin_occupation: "",
     kin_status: "",
-    remember: localStorage.getItem("remember") === "true" ? true : false,
+    remember: localStorage.getItem("remember") === "true",
     image: null,
-    id_card: null, // New field for ID Card
+    id_card: null,
   };
 
   const validation = Yup.object({
@@ -66,42 +69,38 @@ const BecomeAgent = () => {
     confirmPassword: Yup.string()
       .required("Please confirm your password")
       .oneOf([Yup.ref('password')], "Passwords must match"),
-    // personal_url: Yup.string().required("Required"),
     next_of_kin: Yup.string().required("Required"),
     kin_phone: Yup.string().required("Required"),
     kin_email: Yup.string().email("Invalid email address").required("Required"),
     kin_address: Yup.string().required("Required"),
     kin_occupation: Yup.string().required("Required"),
     kin_status: Yup.string().required("Required"),
-    id_card: Yup.mixed().required("ID Card is required"), // Validation for ID Card
+    id_card: Yup.mixed().required("ID Card is required"),
   });
 
   const onSubmit = async (values: any) => {
     try {
+      clearError();
       const formData = new FormData();
+      
       for (const key in values) {
         if (values[key] !== null && values[key] !== "") {
-          formData.append(key, values[key]);
+          if (key === 'image' || key === 'id_card') {
+            formData.append(key, values[key]);
+          } else {
+            formData.append(key, values[key].toString());
+          }
         }
       }
 
-      const response = await fetch('https://homey-host.onrender.com/api/v1/auth/register-agent', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (response.ok) {
-        handleModal();
-        setTimeout(() => {
-          setDisplay(false);
-          navigate("/add-property");
-        }, 2000);
-      } else {
-        const errorData = await response.json();
-        console.error('Form submission failed:', errorData);
-      }
+      await registerAgent(formData);
+      handleModal();
+      setTimeout(() => {
+        setDisplay(false);
+        navigate("/add-property");
+      }, 2000);
     } catch (error) {
-      console.error('Network error:', error);
+      console.error('Registration failed:', error);
     }
   };
 
@@ -135,6 +134,12 @@ const BecomeAgent = () => {
               </Link>
               <h4 className="text-[#002221] text-[20px]">Become Agent</h4>
             </div>
+
+            {error && (
+              <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {error}
+              </div>
+            )}
 
             <Formik
               initialValues={initialData}
@@ -276,12 +281,12 @@ const BecomeAgent = () => {
                     </div>
 
                     <div className="flex gap-4 w-full items-center relative mb-3">
-                      {/* <div className="flex-1">
+                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <h6 className="text-[#8A8787] text-[14px] whitespace-nowrap">
                             https://homeyhost.ng/
-                          </h6> */}
-                          {/* <Field
+                          </h6> 
+                          <Field
                             className="block w-full h-[45px] border pl-3 rounded-[15px] focus:outline-none border-[#8A8787]"
                             name="personal_url"
                             type="text"
@@ -292,7 +297,7 @@ const BecomeAgent = () => {
                         <p className="text-red-700 text-xs mt-1">
                           <ErrorMessage name="personal_url" />
                         </p>
-                      </div> */}
+                      </div> 
                       
                       <div className="flex-1">
                         <div className="relative">

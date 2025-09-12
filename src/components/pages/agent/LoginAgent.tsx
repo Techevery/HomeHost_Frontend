@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { ErrorMessage, Field, Form, Formik } from "formik";
 import { Link, useNavigate } from "react-router-dom";
 import * as Yup from "yup";
@@ -9,56 +9,52 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
+import useAgentStore from "../../../stores/agentstore"; 
 
 const LoginAgent = () => {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  
+  // Use the store
+  const { login, isLoading, error, isAuthenticated, clearError, rememberMe, setRememberMe } = useAgentStore();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/add-property');
+    }
+  }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (error) {
+      setIsModalOpen(true);
+    }
+  }, [error]);
 
   const initialData = useMemo(() => ({
-    email: localStorage.getItem("remember") === "true" ? localStorage.getItem("username") || "" : "",
+    email: rememberMe ? localStorage.getItem("username") || "" : "",
     password: "",
-    remember: localStorage.getItem("remember") === "true",
-  }), []);
+    remember: rememberMe,
+  }), [rememberMe]);
 
   const validationSchema = Yup.object({
     email: Yup.string().email("Invalid email address").required("Required"),
     password: Yup.string().min(6, "Password must be a minimum of 6 characters").required("Required"),
   });
 
-  const handleSubmit = async (values: { email: string; password: string }) => {
-    setIsLoading(true);
+  const handleSubmit = async (values: { email: string; password: string; remember: boolean }) => {
     try {
-      const response = await fetch('https://homey-host.onrender.com/api/v1/auth/agent-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        throw new Error('Login failed');
-      }
-
-      const data = await response.json();
-      localStorage.setItem('token', data.data.token);
-      navigate('/add-property');
+      clearError();
+      await login(values.email, values.password, values.remember);
+      setRememberMe(values.remember);
     } catch (error) {
-      console.error('Error during login:', error);
-      setErrorMessage('Login failed. Please check your credentials and try again.');
-      setIsModalOpen(true);
-    } finally {
-      setIsLoading(false);
+      // Error is handled in the store and will trigger the modal via useEffect
     }
   };
 
   const handleForgotPasswordSubmit = async () => {
-    // Implement the logic to send a password reset email
     console.log(`Sending password reset email to ${forgotPasswordEmail}`);
     setIsForgotPasswordOpen(false);
   };
@@ -117,6 +113,17 @@ const LoginAgent = () => {
                         </p>
                       )}
                     </div>
+                    <div className="flex items-center mb-3">
+                      <Field
+                        type="checkbox"
+                        name="remember"
+                        id="remember"
+                        className="mr-2"
+                      />
+                      <label htmlFor="remember" className="text-sm">
+                        Remember me
+                      </label>
+                    </div>
                     <button
                       type="button"
                       className="text-blue-500 text-xs mt-1"
@@ -143,18 +150,24 @@ const LoginAgent = () => {
 
       <Dialog
         open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          clearError();
+        }}
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
         <DialogTitle id="alert-dialog-title">{"Error"}</DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-            {errorMessage}
+            {error}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button text="Close" action={() => setIsModalOpen(false)} type="button" />
+          <Button text="Close" action={() => {
+            setIsModalOpen(false);
+            clearError();
+          }} type="button" />
         </DialogActions>
       </Dialog>
 

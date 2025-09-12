@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as yup from 'yup';
 import { Eye, EyeOff } from 'lucide-react';
+import useAdminStore from '../../../../stores/admin';
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  
+  const { login, isLoading, error, clearError } = useAdminStore();
 
   const schema = yup.object().shape({
     email: yup.string().email('Invalid email format').required('Email is required'),
@@ -18,39 +18,16 @@ const AdminLogin = () => {
   });
 
   const handleLogin = async () => {
-    setLoading(true);
-    setError('');  
-    setSuccess('');
-
+    clearError();
+    
     try {
       await schema.validate({ email, password });
-
-      const response = await fetch('https://homey-host.onrender.com/api/v1/auth/admin-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const result = await response.json();
-    
-
-      if (result.data.token) {
-        localStorage.setItem('token', result.data.token);
-        setSuccess('Login successful!');
-        setTimeout(() => navigate('/dashboard'), 2000);
-      } else {
-        setError('Authentication failed. Please check your credentials.');
-      }
+      await login(email, password);
+      navigate('/dashboard');
     } catch (validationError) {
       if (validationError instanceof yup.ValidationError) {
-        setError(validationError.message);
-      } else {
-        setError('Please check your Network connectin and try again later')
+        // Validation errors are handled by the store
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -74,7 +51,6 @@ const AdminLogin = () => {
         <div className="w-full max-w-md p-8 space-y-6 bg-white shadow-lg rounded-lg">
           <div className="text-center text-3xl font-bold text-gray-800 mb-6">Admin Login</div>
           {error && <div className="text-red-500 text-center mb-4">{error}</div>}
-          {success && <div className="text-green-500 text-center mb-4">{success}</div>}
           <div>
             <input
               type="email"
@@ -101,9 +77,9 @@ const AdminLogin = () => {
             <button
               onClick={handleLogin}
               className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-300"
-              disabled={loading}
+              disabled={isLoading}
             >
-              {loading ? (
+              {isLoading ? (
                 <svg
                   className="animate-spin h-5 w-5 text-white mx-auto"
                   xmlns="http://www.w3.org/2000/svg"

@@ -32,7 +32,7 @@ const Header: React.FC = () => {
   };
 
   const handleSearch = async () => {
-    if (!search.trim()) return; // Prevent empty search
+    if (!search.trim()) return; 
     setLoading(true);
     try {
       const response = await axios.get(

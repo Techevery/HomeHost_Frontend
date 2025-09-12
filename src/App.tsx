@@ -25,6 +25,7 @@ import AdminLogin from './components/Screens/Admin/auth/AdminLogin';
 import Agent from './components/Screens/Admin/agent/AgentHome';
 import ListOfApartment from './components/Screens/Admin/listOfAppointment/ListOfApartment';
 import Payout from './components/Screens/Admin/payout/PayoutHome';
+
 import Dashboard from './components/Screens/Dashboard';
 import AgentHome from './components/Screens/Admin/agent/AgentHome';
 import AddApartment from './components/Screens/Admin/listOfAppointment/AddApartment';
@@ -32,6 +33,7 @@ import Apartment from './components/pages/agent/AddApartment';
 import Forgottenpassword from './components/pages/agent/forgottenpassword';
 import EditModal from './components/pages/profile/EditModal';
 import ContactUs from './components/shared/ContactUs';
+import BannerList from './components/banner/BannerList';
 
 
 
@@ -86,6 +88,7 @@ function App() {
       <Route path="payout" element={<Payout />} />
       <Route path="list-of-apartment" element={<ListOfApartment />} />
       <Route path="add-apartment" element={<AddApartment />} />
+      <Route path="Banner" element={<BannerList />} />
       </Route>
     </Routes>
 </div>

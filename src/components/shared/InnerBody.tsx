@@ -1,16 +1,16 @@
-import React, { useEffect, useState } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react'
+import { Outlet } from 'react-router-dom';
 import { AiOutlineClose, AiOutlineMenu } from "react-icons/ai";
 import AdminSidebar from '../Sidebar/AdminSidebar';
 import BreadcrumbsDisplay from '../Screens/BreadcrumbsDisplay';
 import Header from './Header';
 
 const InnerBody = () => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
 
   const [openDrawer, setOpenDrawer] = useState(false);
   const [showSideBar, setShowSideBar] = useState(false);
-  const [showNotification, setShowNotification] = useState<boolean>(false);
+  // const [showNotification, setShowNotification] = useState<boolean>(false);
 
 
 
@@ -22,7 +22,7 @@ const InnerBody = () => {
   // open side Drawer
   const open = () => {
     setOpenDrawer(true);
-    setShowNotification(false);
+    // setShowNotification(false);
   };
   return (
     <div className="flex w-full bg-[#E5E5E5] h-screen">
@@ -50,7 +50,7 @@ const InnerBody = () => {
         <div className="flex gap-5 left-0 justify-between row-reverse items-center">
           <button
             onClick={() => {
-              setShowNotification(false);
+              // setShowNotification(false);
               setOpenDrawer(!openDrawer);
               setShowSideBar(!showSideBar);
             }}

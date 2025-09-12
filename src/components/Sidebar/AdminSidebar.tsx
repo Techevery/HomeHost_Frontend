@@ -185,6 +185,33 @@ const AdminSidebar = (props: Props) => {
           </div>
         </div>
 
+
+
+
+            <div className="mt-3">
+          <div>
+            <Link to="/dashboard/banner" className="relative gap-1 ">
+              {/* {['dashboard', 'home'].every(ai => pathnames.includes(ai)) && <div className="absolute top-0 left-0 h-full rounded-r-[10px] border-[3px] border-primary"></div>} */}
+              <div
+                className={`${
+                  ["dashboard", "payout"].every((ai) =>
+                    pathnames.includes(ai)
+                  )
+                  ? "bg-[#EBF2FF] text-[#000000]"
+                  : "bg-white text-[#958F8F]"
+              } gap-x-1 pl-12  flex  items-center  rounded-[15px] py-[10px] `}
+              >
+              
+
+                <h5 className="text-[20px] font-[500]   ">
+                  {" "}
+           Banner
+                </h5>
+              </div>
+            </Link>
+          </div>
+        </div>
+
         <div className="mt-3">
           <div>
             <Link to="/dashboard/list-of-apartment" className="relative gap-1 ">

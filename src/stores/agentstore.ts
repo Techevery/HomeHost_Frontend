@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import axios from 'axios';
@@ -33,6 +32,8 @@ interface AgentActions {
   updateAgentProfile: (updatedData: Partial<AgentState['agentInfo']>) => Promise<void>;
   setRememberMe: (remember: boolean) => void;
   clearError: () => void;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
 }
 
 const initialState: AgentState = {
@@ -101,7 +102,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
         set({ isLoading: true, error: null });
         try {
           const response = await axios.post(
-            `${process.env.REACT_APP_DEV_BASE_URL}api/v1/auth/register-agent`,
+            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/auth/register-agent`,
             formData,
             {
               headers: {
@@ -210,6 +211,40 @@ const useAgentStore = create<AgentState & AgentActions>()(
         } catch (error: any) {
           set({ 
             error: error.response?.data?.message || 'Failed to update profile.',
+          });
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+      
+      forgotPassword: async (email) => {
+        set({ isLoading: true, error: null });
+        try {
+          await axios.post(
+            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/auth/forgot-password`,
+            { email }
+          );
+        } catch (error: any) {
+          set({ 
+            error: error.response?.data?.message || 'Failed to send reset email.',
+          });
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+      
+      resetPassword: async (token, password) => {
+        set({ isLoading: true, error: null });
+        try {
+          await axios.post(
+            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/auth/reset-password`,
+            { token, password }
+          );
+        } catch (error: any) {
+          set({ 
+            error: error.response?.data?.message || 'Failed to reset password.',
           });
           throw error;
         } finally {
