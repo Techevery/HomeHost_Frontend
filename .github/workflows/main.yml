@@ -2,7 +2,7 @@ name: CI Pipeline for Homyhost Frontend
 run-name: Build and Deploy Homyhost Frontend by ${{ github.actor }} 🚀
 
 on:
-  push:
+  push:  
     branches:
       - main
   pull_request:
@@ -34,7 +34,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps || { echo "npm ci failed"; exit 1; }
 
-      - name: Build React Vite
+      - name: Build React CRA
         run: npm run build || { echo "Build failed"; exit 1; }
 
       - name: Run tests
@@ -43,7 +43,7 @@ jobs:
         continue-on-error: true
 
       - name: List built files
-        run: ls -la dist || echo "Build directory not found, check vite.config.js"
+        run: ls -la build || echo "Build directory not found, check package.json"
         shell: bash
         continue-on-error: true
 
@@ -73,7 +73,7 @@ jobs:
             node -v
             npm -v
             git config --global credential.helper store
-            echo "https://${{ secrets.GITH_USERNAME }}:${{ secrets.GITH_PAT }}@github.com" > ~/.git-credentials
+            echo "https://${{ secrets.GIT_USERNAME }}:${{ secrets.GIT_PAT }}@github.com" > ~/.git-credentials
             chmod 600 ~/.git-credentials
             cd /var/www/html/app/homyhost/frontend || { echo "Failed to cd to /var/www/html/app/homyhost/frontend"; exit 1; }
             echo "Current directory: $(pwd)"
@@ -86,6 +86,7 @@ jobs:
             npm ci --legacy-peer-deps || { echo "npm ci failed"; exit 1; }
             npm run build || { echo "Build failed"; exit 1; }
             echo "Built files:"
-            ls -la dist
+            ls -la build
+            pm2 restart homyhost-frontend || pm2 start npm --name homyhost-frontend -- run start --env PORT=3001 || { echo "PM2 restart/start failed"; exit 1; }
             echo "Deployment completed"
             sudo systemctl reload nginx || { echo "Nginx reload failed"; exit 1; }
