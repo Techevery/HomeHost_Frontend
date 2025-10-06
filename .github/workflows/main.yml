@@ -2,7 +2,7 @@ name: CI Pipeline for Homyhost Frontend
 run-name: Build and Deploy Homyhost Frontend by ${{ github.actor }} 🚀
 
 on:
-  push:  
+  push:
     branches:
       - main
   pull_request:
@@ -34,8 +34,8 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps || { echo "npm ci failed"; exit 1; }
 
-      - name: Build React CRA
-        run: npm run build || { echo "Build failed"; exit 1; }
+      - name: Lint and Build React CRA
+        run: npm run lint --silent || echo "Lint warnings ignored"; npm run build || { echo "Build failed"; exit 1; }
 
       - name: Run tests
         run: npm test || echo "No tests defined, skipping"
@@ -45,7 +45,7 @@ jobs:
       - name: List built files
         run: ls -la build || echo "Build directory not found, check package.json"
         shell: bash
-        continue-on-error: true
+        continue-on-error: true  
 
       - name: Job status
         run: 'echo "✅ Job status: ${{ job.status }}"'
