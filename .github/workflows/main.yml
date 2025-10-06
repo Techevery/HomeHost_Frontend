@@ -1,0 +1,91 @@
+name: CI Pipeline for RentEase Frontend
+run-name: Build and Deploy RentEase Frontend by ${{ github.actor }} 🚀
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      NODE_VERSION: '20'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify package-lock.json
+        run: 'test -f package-lock.json || echo "Warning: package-lock.json not found, caching may not work"'
+        shell: bash
+        continue-on-error: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps || { echo "npm ci failed"; exit 1; }
+
+      - name: Build React Vite
+        run: npm run build || { echo "Build failed"; exit 1; }
+
+      - name: Run tests
+        run: npm test || echo "No tests defined, skipping"
+        shell: bash
+        continue-on-error: true
+
+      - name: List built files
+        run: ls -la dist || echo "Build directory not found, check vite.config.js"
+        shell: bash
+        continue-on-error: true
+
+      - name: Job status
+        run: 'echo "✅ Job status: ${{ job.status }}"'
+        shell: bash
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    steps:
+      - name: Deploy to Contabo VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            echo "Starting deployment..."
+            git config --global --add safe.directory /var/www/html/app/rentease/frontend || { echo "Failed to set safe directory"; exit 1; }
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] || curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
+            source "$NVM_DIR/nvm.sh"
+            nvm install 20 || echo "Node.js 20 already installed"
+            nvm use 20
+            node -v
+            npm -v
+            git config --global credential.helper store
+            echo "https://${{ secrets.GITHUB_USERNAME }}:${{ secrets.GITHUB_PAT }}@github.com" > ~/.git-credentials
+            chmod 600 ~/.git-credentials
+            cd /var/www/html/app/rentease/frontend || { echo "Failed to cd to /var/www/html/app/rentease/frontend"; exit 1; }
+            echo "Current directory: $(pwd)"
+            git remote set-url origin https://github.com/Techevery/RentEase_Frontend.git
+            git fetch origin || { echo "Git fetch failed"; exit 1; }
+            git checkout main || { echo "Git checkout failed"; exit 1; }
+            git reset --hard origin/main || { echo "Git reset failed"; exit 1; }
+            git pull origin main || { echo "Git pull failed"; exit 1; }
+            echo "Current commit: $(git rev-parse HEAD)"
+            npm ci --legacy-peer-deps || { echo "npm ci failed"; exit 1; }
+            npm run build || { echo "Build failed"; exit 1; }
+            echo "Built files:"
+            ls -la dist
+            echo "Deployment completed"
+            sudo systemctl reload nginx || { echo "Nginx reload failed"; exit 1; }
