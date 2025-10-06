@@ -1,5 +1,5 @@
-name: CI Pipeline for Homeyhost Frontend
-run-name: Build and Deploy RentEase Frontend by ${{ github.actor }} 🚀
+name: CI Pipeline for Homyhost Frontend
+run-name: Build and Deploy Homyhost Frontend by ${{ github.actor }} 🚀
 
 on:
   push:
@@ -73,11 +73,11 @@ jobs:
             node -v
             npm -v
             git config --global credential.helper store
-            echo "https://${{ secrets.GIT_USERNAME }}:${{ secrets.GIT_PAT }}@github.com" > ~/.git-credentials
+            echo "https://${{ secrets.GITH_USERNAME }}:${{ secrets.GITH_PAT }}@github.com" > ~/.git-credentials
             chmod 600 ~/.git-credentials
             cd /var/www/html/app/homyhost/frontend || { echo "Failed to cd to /var/www/html/app/homyhost/frontend"; exit 1; }
             echo "Current directory: $(pwd)"
-            git remote set-url origin https://github.com/Techevery/HomeHost_Frontend.git
+            git remote set-url origin https://github.com/Techevery/Homyhost_Frontend.git
             git fetch origin || { echo "Git fetch failed"; exit 1; }
             git checkout main || { echo "Git checkout failed"; exit 1; }
             git reset --hard origin/main || { echo "Git reset failed"; exit 1; }
