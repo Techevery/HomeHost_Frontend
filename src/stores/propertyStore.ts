@@ -42,6 +42,9 @@ const initialState: PropertyState = {
   error: null,
 };
 
+
+const API_BASE_URL = process.env.REACT_APP_DEV_BASE_URL || 'https://homeyhost.ng/api'
+
 const usePropertyStore = create<PropertyState & PropertyActions>()(
   persist(
     (set, get) => ({
@@ -51,7 +54,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         set({ loading: true, error: null });
         try {
           const response = await axios.get(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/admin/properties`
+            `${API_BASE_URL}/api/v1/admin/properties`
           );
           set({ properties: response.data.data });
         } catch (error: any) {
@@ -68,7 +71,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         set({ loading: true, error: null });
         try {
           const response = await axios.get(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/admin/properties/${id}`
+            `${API_BASE_URL}/api/v1/admin/properties/${id}`
           );
           set({ currentProperty: response.data.data });
         } catch (error: any) {
@@ -90,7 +93,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
           }
 
           const response = await axios.post(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/admin/upload-property`,
+            `${API_BASE_URL}/api/v1/admin/upload-property`,
             formData,
             {
               headers: {
@@ -125,7 +128,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
           }
 
           const response = await axios.patch(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/admin/properties/${id}`,
+            `${API_BASE_URL}/api/v1/admin/properties/${id}`,
             updatedData,
             {
               headers: {
@@ -164,7 +167,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
           }
 
           await axios.delete(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/admin/properties/${id}`,
+            `${API_BASE_URL}/api/v1/admin/properties/${id}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,

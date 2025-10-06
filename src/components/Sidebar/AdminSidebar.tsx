@@ -1,16 +1,21 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { FaQuestionCircle } from "react-icons/fa";
-import { RiHome6Line } from "react-icons/ri";
-import { MdFormatListBulleted, MdOutlinePayments } from 'react-icons/md';
-import { BsPersonFillCheck } from 'react-icons/bs';
-import { PiBuildingApartmentThin } from "react-icons/pi";
-import { AiOutlineClose, AiOutlineMenu } from 'react-icons/ai';
-import dashboard from "../../assets/dashboard/homeIcon.svg";
-import booking from "../../assets/dashboard/bookingIcon.svg";
-import agent from "../../assets/dashboard/agentIcon.svg";
-import payout from "../../assets/dashboard/payoutIcon.svg";
-import list from "../../assets/dashboard/listIcon.svg";
+import { 
+  AiOutlineClose, 
+  AiOutlineMenu, 
+  AiOutlineLogout, 
+  AiOutlineUserAdd,
+  AiOutlineDashboard,
+  AiOutlineShopping,
+  AiOutlineTeam,
+  AiOutlineDollar,
+  AiOutlinePicture,
+  AiOutlineHome,
+  AiOutlineSetting
+} from 'react-icons/ai';
+import { MdOutlineAdminPanelSettings } from 'react-icons/md';
+import useAdminStore from '../../stores/admin';
+import RegisterAdminModal from '../Screens/Admin/DashBoardComponents/RegisterAdminModal/RegisterAdminModal';
 
 type Props = {
   toggle: () => void;
@@ -22,412 +27,240 @@ const AdminSidebar = (props: Props) => {
   const url = useLocation();
   const { pathname } = url;
   const pathnames = pathname.split("/").filter((x) => x);
-  const [collapseShow, setCollapseShow] = React.useState("hidden");
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  
+  const { adminInfo, logout } = useAdminStore();
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/admin-login';
+  };
+
+  const handleRegisterSuccess = () => {
+    // Optional: Add any success actions here
+    console.log('Admin registered successfully');
+  };
+
+  const menuItems = [
+    {
+      path: ['dashboard', 'home'],
+      label: 'Dashboard',
+      icon: <AiOutlineDashboard className="w-5 h-5" />,
+      activeIcon: <AiOutlineDashboard className="w-5 h-5" />
+    },
+    {
+      path: ['dashboard', 'booking'],
+      label: 'Booking',
+      icon: <AiOutlineShopping className="w-5 h-5" />,
+      activeIcon: <AiOutlineShopping className="w-5 h-5" />
+    },
+    {
+      path: ['dashboard', 'agent'],
+      label: 'Agent Management',
+      icon: <AiOutlineTeam className="w-5 h-5" />,
+      activeIcon: <AiOutlineTeam className="w-5 h-5" />
+    },
+    {
+      path: ['dashboard', 'payout'],
+      label: 'Payout',
+      icon: <AiOutlineDollar className="w-5 h-5" />,
+      activeIcon: <AiOutlineDollar className="w-5 h-5" />
+    },
+    {
+      path: ['dashboard', 'banner'],
+      label: 'Banner Management',
+      icon: <AiOutlinePicture className="w-5 h-5" />,
+      activeIcon: <AiOutlinePicture className="w-5 h-5" />
+    },
+    {
+      path: ['dashboard', 'list-of-apartment'],
+      label: 'Apartment Listings',
+      icon: <AiOutlineHome className="w-5 h-5" />,
+      activeIcon: <AiOutlineHome className="w-5 h-5" />
+    }
+   
+  ];
+
+  const adminManagementItems = [
+    {
+      label: 'Register Admin',
+      icon: <AiOutlineUserAdd className="w-5 h-5" />,
+      onClick: () => setShowRegisterModal(true),
+      show: adminInfo?.isSuperAdmin
+    }
+  ];
+
+  const isActive = (path: string[]) => path.every(ai => pathnames.includes(ai));
 
   return (
     <>
-       <aside
-      className={`${
-        props.DrawerOpen ? "" : "rounded-[20px]"
-      } relative  w-[300px] z-[100]  bg-white border-r border-[#ECEDEF] h-full`}
-    >
-      <div className="flex border-b items-center justify-between px-2 md:px-4">
-        
-        <div></div>
-        <div className="flex justify-center  mx-[14.5px] py-4">
-        <NavLink to="/" className="">
-          <img src="/images/logo2.svg" alt="location" className="md:w-[60%] w-[40%]" />
-        </NavLink>
+      <aside
+        className={`${
+          props.DrawerOpen ? "" : "rounded-[20px]"
+        } relative w-[280px] z-[100] bg-white border-r border-[#ECEDEF] h-full flex flex-col shadow-sm`}
+      >
+        {/* Header with Admin Info */}
+        <div className="flex border-b border-gray-100 items-center justify-between px-6 py-4 bg-gradient-to-r from-gray-50 to-white">
+         
+          <button
+            onClick={props.toggle}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
+          >
+            {props.DrawerOpen ? (
+              <AiOutlineClose className="w-4 h-4" />
+            ) : (
+              <AiOutlineMenu className="w-4 h-4 hidden" />
+            )}
+          </button>
         </div>
 
-        <button
-          onClick={() => {
-            // setShowInfoTag(false)
-            props.toggle();
-          }}
-          className=""
-        >
-          {props.DrawerOpen ? (
-            <AiOutlineClose className="w-4 h-4 md:w-6 md:h-6 font-bold " />
-          ) : (
-            <AiOutlineMenu className="w-4 h-4 md:w-6 md:h-6  font-bold hidden " />
-          )}
-        </button>
-      </div>
-
-      <h1 className=" text-md pt-12 pl-12 text-[#B0B0B0] font-semibold">MAIN MENU</h1>
- 
-      <div className="mt-7">
-        <div className="">
-          <div>
-            <Link to="/dashboard/home" className="relative gap-1  ">
-              {/* {['dashboard', 'home'].every(ai => pathnames.includes(ai)) && <div className="absolute top-0 left-0 h-full rounded-r-[10px] border-[3px] border-primary"></div>} */}
-              <div
-                className={`${
-                  ["dashboard", "home"].every((ai) => pathnames.includes(ai))
-                    ? "bg-[#EBF2FF] text-[#000000]"
-                    : "bg-white text-[#958F8F]"
-                } gap-x-1 pl-12  flex  items-center  rounded-[15px] py-[10px] `}
-              >
-                <img
-                  src={
-                    ["dashboard", "home"].every((ai) => pathnames.includes(ai))
-                      ? dashboard
-                      : dashboard
-                  }
-                  alt="Logo"
-                  className=""
-                />
-
-                <h5 className="text-[20px] font-[500]   ">Dashboard</h5>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-    
-        <div className="mt-3">
-          <div>
-            <Link to="/dashboard/booking" className="relative gap-1 ">
-              {/* {['dashboard', 'home'].every(ai => pathnames.includes(ai)) && <div className="absolute top-0 left-0 h-full rounded-r-[10px] border-[3px] border-primary"></div>} */}
-              <div
-                className={`${
-                  ["dashboard", "booking"].every((ai) =>
-                    pathnames.includes(ai)
-                  )
-                  ? "bg-[#EBF2FF] text-[#000000]"
-                  : "bg-white text-[#958F8F]"
-              } gap-x-1 pl-12  flex  items-center  rounded-[15px] py-[10px] `}
-              >
-                <img
-                  src={
-                    ["dashboard", "booking"].every((ai) =>
-                      pathnames.includes(ai)
-                    )
-                      ? booking
-                      : booking
-                  }
-                  alt="Logo"
-                  className=""
-                />
-
-                <h5 className="text-[20px] font-[500]   ">Booking</h5>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-        <div className="mt-3">
-          <div>
-            <Link to="/dashboard/agent" className="relative gap-1 ">
-              {/* {['dashboard', 'home'].every(ai => pathnames.includes(ai)) && <div className="absolute top-0 left-0 h-full rounded-r-[10px] border-[3px] border-primary"></div>} */}
-              <div
-                className={`${
-                  ["dashboard", "agent"].every((ai) =>
-                    pathnames.includes(ai)
-                  )
-                  ? "bg-[#EBF2FF] text-[#000000]"
-                  : "bg-white text-[#958F8F]"
-              } gap-x-1 pl-12  flex  items-center  rounded-[15px] py-[10px] `}
-              >
-                <img
-                  src={
-                    ["dashboard", "agent"].every((ai) =>
-                      pathnames.includes(ai)
-                    )
-                      ? agent
-                      : agent
-                  }
-                  alt="Logo"
-                  className=""
-                />
-
-                <h5 className="text-[20px] font-[500]   ">
-                  {" "}
-                Agent
-                </h5>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-        <div className="mt-3">
-          <div>
-            <Link to="/dashboard/payout" className="relative gap-1 ">
-              {/* {['dashboard', 'home'].every(ai => pathnames.includes(ai)) && <div className="absolute top-0 left-0 h-full rounded-r-[10px] border-[3px] border-primary"></div>} */}
-              <div
-                className={`${
-                  ["dashboard", "payout"].every((ai) =>
-                    pathnames.includes(ai)
-                  )
-                  ? "bg-[#EBF2FF] text-[#000000]"
-                  : "bg-white text-[#958F8F]"
-              } gap-x-1 pl-12  flex  items-center  rounded-[15px] py-[10px] `}
-              >
-                <img
-                  src={
-                    ["dashboard", "payout"].every((ai) =>
-                      pathnames.includes(ai)
-                    )
-                      ? payout
-                      : payout
-                  }
-                  alt="Logo"
-                  className=""
-                />
-
-                <h5 className="text-[20px] font-[500]   ">
-                  {" "}
-           Payout
-                </h5>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-
-
-
-            <div className="mt-3">
-          <div>
-            <Link to="/dashboard/banner" className="relative gap-1 ">
-              {/* {['dashboard', 'home'].every(ai => pathnames.includes(ai)) && <div className="absolute top-0 left-0 h-full rounded-r-[10px] border-[3px] border-primary"></div>} */}
-              <div
-                className={`${
-                  ["dashboard", "payout"].every((ai) =>
-                    pathnames.includes(ai)
-                  )
-                  ? "bg-[#EBF2FF] text-[#000000]"
-                  : "bg-white text-[#958F8F]"
-              } gap-x-1 pl-12  flex  items-center  rounded-[15px] py-[10px] `}
-              >
-              
-
-                <h5 className="text-[20px] font-[500]   ">
-                  {" "}
-           Banner
-                </h5>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-        <div className="mt-3">
-          <div>
-            <Link to="/dashboard/list-of-apartment" className="relative gap-1 ">
-              {/* {['dashboard', 'home'].every(ai => pathnames.includes(ai)) && <div className="absolute top-0 left-0 h-full rounded-r-[10px] border-[3px] border-primary"></div>} */}
-              <div
-                className={`${
-                  ["dashboard", "list-of-apartment"].every((ai) =>
-                    pathnames.includes(ai)
-                  )
-                  ? "bg-[#EBF2FF] text-[#000000]"
-                  : "bg-white text-[#958F8F]"
-              } gap-x-1 pl-12  flex  items-center  rounded-[15px] py-[10px] `}
-              >
-                <img
-                  src={
-                    ["dashboard", "list-of-apartment"].every((ai) =>
-                      pathnames.includes(ai)
-                    )
-                      ? list
-                      : list
-                  }
-                  alt="Logo"
-                  className=""
-                />
-
-                <h5 className="text-[20px] font-[500]   ">
-                  {" "}
-                  List Of Apartment
-                </h5>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-  
-      </div>
-    </aside>
- 
-    {/* <div className='p-3'>
-    <nav className="bg-white m-3 rounded-2xl md:left-0 md:block md:fixed md:top-0 md:bottom-0 md:overflow-y-auto md:flex-row md:flex-nowrap md:overflow-hidden shadow-xl  flex flex-wrap items-center justify-between relative md:w-[300px] z-10 py-4 px-6">
-      <div className="md:flex-col md:items-stretch md:min-h-full md:flex-nowrap px-0 flex flex-wrap items-center justify-between w-full mx-auto">
-     
-        <button
-          className="cursor-pointer  opacity-50 md:hidden px-3 py-1 text-xl leading-none bg-transparent rounded border border-solid border-transparent"
-          type="button"
-          onClick={() => setCollapseShow("bg-[#000000] m-2 py-3 px-6")}
-        >
-          <b className="fas fa-bars"> ≡ </b>
-        </button>
-     
-        <ul className="md:hidden items-center flex flex-wrap list-none">
-          <li className="inline-block relative">
-      </li>
-          <li className="inline-block relative">
-       </li>
-        </ul>
-      <div
-          className={
-            "bg-white md:flex md:flex-col md:items-stretch md:opacity-100 md:relative md:mt-4 md:shadow-none shadow absolute top-0 left-0 right-0 z-40 overflow-y-auto overflow-x-hidden h-auto items-center flex-1 rounded " +
-            collapseShow
-          }
-        >
-     
-          <div className=" md:min-w-full md:hidden block pb-4 mb-4 border-b border-solid border-blueGray-200">
-            <div className="flex flex-wrap">
-
-              <div className="w-6/12 flex justify-end">
-                <button
-                  type="button"
-                  className="cursor-pointer  opacity-50 md:hidden px-3 py-1 text-xl leading-none bg-transparent rounded border border-solid border-transparent"
-                  onClick={() => setCollapseShow("hidden")}
-                >
-                  <b className="fas fa-times"> X </b>
-                </button>
-              </div>
+        {/* Logo Section */}
+        <div className="flex justify-center py-5 border-b border-gray-100 bg-white">
+          <NavLink to="/" className="flex items-center space-x-2">
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <AiOutlineHome className="w-5 h-5 text-white" />
             </div>
-          </div>
-    
-
-
-          <div className=" py-2">
-    
             <div>
-            <NavLink to="/" className="">
-          <img src="/images/logo2.svg" alt="location" className="md:w-[60%] w-[40%]" />
-        </NavLink>
-      
+              <img 
+                src="/images/logo2.svg" 
+                alt="HomeyHost" 
+                className="h-6" 
+              />
+              <p className="text-xs text-gray-400 text-center mt-1">Admin Portal</p>
             </div>
-            <h1 className=" text-md pt-12 text-[#B0B0B0] font-semibold">MAIN MENU</h1>
+          </NavLink>
+        </div>
 
-       
+        {/* Quick Actions - Register Admin Only */}
+        {adminInfo?.isSuperAdmin && (
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 mx-4 mt-4 rounded-xl p-4 shadow-lg">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                <AiOutlineUserAdd className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-white font-semibold text-sm mb-1">Add Team Member</h3>
+              <p className="text-blue-100 text-xs mb-3">Register a new administrator</p>
+              
+              <button
+                onClick={() => setShowRegisterModal(true)}
+                className="w-full bg-white text-blue-600 rounded-lg py-2.5 px-4 hover:bg-blue-50 transition-all duration-200 group shadow-sm font-medium flex items-center justify-center space-x-2"
+              >
+                <AiOutlineUserAdd className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                <span>Register Admin</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Main Navigation */}
+        <div className="flex-1 overflow-y-auto py-4">
+          <h1 className="text-xs uppercase tracking-wider text-gray-400 font-semibold px-6 mb-3">
+            Navigation
+          </h1>
+
+          <nav className="space-y-1 px-3">
+            {menuItems.map((item, index) => (
+              <Link
+                key={index}
+                to={`/${item.path.join('/')}`}
+                className="block"
+              >
+                <div
+                  className={`${
+                    isActive(item.path)
+                      ? "bg-blue-50 text-blue-700 border-r-2 border-blue-600 shadow-sm"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+                  } flex items-center px-4 py-3 rounded-xl transition-all duration-200 group mx-2`}
+                >
+                  <div className={`${
+                    isActive(item.path) 
+                      ? "text-blue-600" 
+                      : "text-gray-400 group-hover:text-gray-600"
+                  } transition-colors`}>
+                    {item.icon}
+                  </div>
+                  <span className="font-medium text-sm ml-3">{item.label}</span>
+                </div>
+              </Link>
+            ))}
+          </nav>
+
+          {/* Admin Management Section */}
+          {adminInfo?.isSuperAdmin && (
+            <>
+              <h1 className="text-xs uppercase tracking-wider text-gray-400 font-semibold px-6 mb-3 mt-6">
+                Administration
+              </h1>
+
+              <div className="space-y-1 px-3">
+                {adminManagementItems.map((item, index) => (
+                  item.show && (
+                    <button
+                      key={index}
+                      onClick={item.onClick}
+                      className="w-full flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-gray-800 rounded-xl transition-all duration-200 group mx-2 border border-dashed border-gray-300 hover:border-blue-300"
+                    >
+                      <div className="text-gray-400 group-hover:text-blue-500 mr-3">
+                        {item.icon}
+                      </div>
+                      <span className="font-medium text-sm">{item.label}</span>
+                    </button>
+                  )
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* User Profile & Logout Section */}
+        <div className="border-t border-gray-100 p-4 bg-gray-50">
+          <div className="flex items-center space-x-3 mb-3 px-2">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-sm">
+              {adminInfo?.profilePicture ? (
+                <img
+                  src={adminInfo.profilePicture}
+                  alt={adminInfo.name}
+                  className="w-10 h-10 rounded-full"
+                />
+              ) : (
+                <span className="text-white text-sm font-semibold">
+                  {adminInfo?.name?.charAt(0).toUpperCase() || 'A'}
+                </span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-800 truncate">
+                {adminInfo?.name || 'Admin User'}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {adminInfo?.email || 'admin@example.com'}
+              </p>
+              {adminInfo?.isSuperAdmin && (
+                <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full mt-1">
+                  Super Admin
+                </span>
+              )}
+            </div>
           </div>
 
-
-          <ul className="md:flex-col md:min-w-full flex flex-col list-none md:mt-6 mt-6">
-          <li className="items-center">
-              <NavLink
-                style={({ isActive }) =>
-                  isActive ? { backgroundColor: '#EBF2FF', paddingLeft: "12px", borderRadius: "12px", fontSize: "18px", fontWeight: '800' } : { color: '#000000', fontSize: "18px", fontWeight: '400' }
-                }
-                className={
-                  "text-sm  py-2 pl-3 font-light flex gap-2  items-center" +
-                  (window.location.href.indexOf("/admin-dashboard") !== -1
-                    ? "text-[#000000] hover:text-lightBlue-600"
-                    : "text-[#000000] hover:text-blueGray-500")
-                }
-                to="/admin-dashboard"
-              >
-            <RiHome6Line />
-                <p>Dashboard</p>
-              </NavLink>
-            </li> 
-
-               <li className="items-center mt-3">
-              <NavLink
-                style={({ isActive }) =>
-                  isActive ? { backgroundColor: '#EBF2FF', paddingLeft: "12px", borderRadius: "12px",fontSize: "18px", fontWeight: '800' } : { color: '#000000', fontSize: "18px", fontWeight: '400' }
-                }
-                className={
-                  "text-sm  py-2 pl-3 font-light flex gap-2 items-center" +
-                  (window.location.href.indexOf("/admin/booking") !== -1
-                    ? "text-[#000000] hover:text-lightBlue-600"
-                    : "text-[#000000] hover:text-blueGray-500")
-                }
-                to="/admin/booking"
-              >
-             <MdFormatListBulleted />
-                <p>Booking</p>
-              </NavLink>
-            </li> 
-
-            <li className="items-center mt-3">
-              <NavLink
-                style={({ isActive }) =>
-                  isActive ? { backgroundColor: '#EBF2FF', paddingLeft: "12px", borderRadius: "12px",fontSize: "18px", fontWeight: '800' } : { color: '#000000', fontSize: "18px", fontWeight: '400' }
-                }
-                className={
-                  "text-sm  py-2 pl-3 font-light flex gap-2 items-center" +
-                  (window.location.href.indexOf("/admin/agent") !== -1
-                    ? "text-[#000000] hover:text-lightBlue-600"
-                    : "text-[#000000] hover:text-blueGray-500")
-                }
-                to="/admin/agent"
-              >
-             <BsPersonFillCheck />
-                <p>Agent</p>
-              </NavLink>
-            </li> 
-
-            <li className="items-center mt-3">
-              <NavLink
-                style={({ isActive }) =>
-                  isActive ? { backgroundColor: '#EBF2FF', paddingLeft: "12px", borderRadius: "12px",fontSize: "18px", fontWeight: '800' } : { color: '#000000', fontSize: "18px", fontWeight: '400' }
-                }
-                className={
-                  "text-sm  py-2 pl-3 font-light flex gap-2 items-center" +
-                  (window.location.href.indexOf("/admin/payout") !== -1
-                    ? "text-[#000000] hover:text-lightBlue-600"
-                    : "text-white hover:text-blueGray-500")
-                }
-                to="/admin/payout"
-              >
-           <MdOutlinePayments />
-                <p>Payout</p>
-              </NavLink>
-            </li> 
-
-            <li className="items-center mt-3">
-              <NavLink
-                style={({ isActive }) =>
-                  isActive ? { backgroundColor: '#EBF2FF', paddingLeft: "12px", borderRadius: "12px",fontSize: "18px", fontWeight: '800' } : { color: '#000000', fontSize: "18px", fontWeight: '400' }
-                }
-                className={
-                  "text-sm  py-2 pl-3 font-light flex gap-2 items-center" +
-                  (window.location.href.indexOf("/admin/list-of-apartment") !== -1
-                    ? "text-[#000000] hover:text-lightBlue-600"
-                    : "text-white hover:text-blueGray-500")
-                }
-                to="/admin/list-of-apartment"
-              >
-             <PiBuildingApartmentThin />
-                <p>List of Apartment</p>
-              </NavLink>
-            </li> 
-           
-      
-            <li className="flex justify-start py-10" style={{ cursor: 'pointer' }} 
-      
-            >
-
-              <svg width="20" className="mr-2" height="21" viewBox="0 0 20 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M13.3337 11.3334V9.66675H5.83366V7.16675L1.66699 10.5001L5.83366 13.8334V11.3334H13.3337Z" fill="white" />
-                <path d="M16.6667 3H9.16667C8.2475 3 7.5 3.7475 7.5 4.66667V8H9.16667V4.66667H16.6667V16.3333H9.16667V13H7.5V16.3333C7.5 17.2525 8.2475 18 9.16667 18H16.6667C17.5858 18 18.3333 17.2525 18.3333 16.3333V4.66667C18.3333 3.7475 17.5858 3 16.6667 3Z" fill="white" />
-              </svg>
-
-              <span className=" ">Logout</span>
-
-            </li>
-          </ul>
-
-
-
-
-
-
-
-
-
-
-
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center px-4 py-2.5 text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all duration-200 group shadow-sm"
+          >
+            <AiOutlineLogout className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+            <span className="font-medium text-sm">Sign Out</span>
+          </button>
         </div>
-      </div>
-    </nav>
-  </div> */}
-  </>
-  )
-}
+      </aside>
 
-export default AdminSidebar
+      {/* Register Admin Modal */}
+      <RegisterAdminModal
+        isOpen={showRegisterModal}
+        onClose={() => setShowRegisterModal(false)}
+        onSuccess={handleRegisterSuccess}
+      />
+    </>
+  );
+};
+
+export default AdminSidebar;

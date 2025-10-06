@@ -25,6 +25,8 @@ import AdminLogin from './components/Screens/Admin/auth/AdminLogin';
 import Agent from './components/Screens/Admin/agent/AgentHome';
 import ListOfApartment from './components/Screens/Admin/listOfAppointment/ListOfApartment';
 import Payout from './components/Screens/Admin/payout/PayoutHome';
+import Agentprofile from './components/pages/profile/AgentProfile'
+import EditProfileModal from './components/pages/profile/EditAdminProfile';
 
 import Dashboard from './components/Screens/Dashboard';
 import AgentHome from './components/Screens/Admin/agent/AgentHome';
@@ -60,13 +62,16 @@ function App() {
       <Route path="/become-agent" element={<BecomeAgent />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/personal-info" element={<PersonalInfo />} /> 
+      <Route path = "/Agentprofile" element={<Agentprofile/>} />
       <Route path="/security" element={<Security />} />
       <Route path="/earnings" element={<Earnings />} />
       <Route path="/earnings-report" element={<EarningsReport />} />
       <Route path="/admin-login" element={<AdminLogin />} />
       <Route path="/forgotten-password" element={<Forgottenpassword />} />
       <Route path="/contact-us" element={<ContactUs />} />
+      <Route path="/edit-profile" element={<EditProfileModal open={true} onClose={handleCancel} />} />
       <Route path="/edit-modal" element={<EditModal handleCancel={handleCancel} />} />
+
 
 
       {/* Admin section */}

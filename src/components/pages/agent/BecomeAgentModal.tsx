@@ -2,9 +2,28 @@ import React from 'react'
 import { Link } from 'react-router-dom';
 import useAgentStore from '../../../stores/agentstore';
 
-const BecomeAgentModal = (props: any) => {
+interface BecomeAgentModalProps {
+  handleCancel: (e: React.MouseEvent) => void;
+}
+
+const BecomeAgentModal: React.FC<BecomeAgentModalProps> = (props) => {
     const { handleCancel } = props;
-    const { agentInfo } = useAgentStore();
+    const { agentInfo, isLoading } = useAgentStore();
+
+    if (isLoading) {
+        return (
+            <div className='py-10 px-6'>
+                <div className='flex justify-center'>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+                </div>
+                <div className='flex justify-center mt-4'>
+                    <p className="text-gray-600 text-center">
+                        Processing your application...
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
   return (
     <div className='py-10 px-6'>
@@ -21,15 +40,15 @@ const BecomeAgentModal = (props: any) => {
         <div className='flex justify-center gap-4 mt-8'>
             <button
               onClick={handleCancel}
-              className="bg-gray-300 text-gray-700 rounded-[5px] px-6 py-2 hover:bg-gray-400 transition-colors"
+              className="bg-gray-300 text-gray-700 rounded-[5px] px-6 py-2 hover:bg-gray-400 transition-colors duration-200"
             >
               Close
             </button>
             <Link 
-              to={'/agent-dashboard'}
-              className="bg-[#000000] text-white rounded-[5px] px-6 py-2 hover:bg-gray-800 transition-colors"
+              to={'/agent-profile'}
+              className="bg-[#000000] text-white rounded-[5px] px-6 py-2 hover:bg-gray-800 transition-colors duration-200"
             >
-              Go to Dashboard
+              View Profile
             </Link>
         </div>
     </div>

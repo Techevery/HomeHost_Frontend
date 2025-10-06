@@ -25,6 +25,10 @@ interface EarningsState {
   fetchEarningsData: () => Promise<void>;
 }
 
+
+
+const API_BASE_URL = process.env.REACT_APP_DEV_BASE_URL || 'https://homeyhost.ng/api'
+
 export const useEarningsStore = create<EarningsState>()(
   persist(
     (set, get) => ({
@@ -44,7 +48,7 @@ export const useEarningsStore = create<EarningsState>()(
       fetchEarningsData: async () => {
         set({ isLoading: true, error: null });
         try {
-          const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/earnings`);
+          const response = await axios.get(`${API_BASE_URL}/earnings`);
           set({ 
             earningsData: response.data,
             isLoading: false 

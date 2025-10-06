@@ -1,173 +1,374 @@
+// AdminProfile.tsx
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import EditModal from "../profile/EditModal";
-import CircularProgress from "@mui/material/CircularProgress";
+import {
+  CircularProgress,
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Avatar,
+  Button,
+  Chip,
+  Divider,
+  Grid,
+  Paper,
+} from "@mui/material";
+import {
+  Edit,
+  ArrowBack,
+  Person,
+  Email,
+  Phone,
+  LocationOn,
+  CalendarToday,
+  Security,
+} from "@mui/icons-material";
+import useAdminStore from "../../../stores/admin";
 
-const PersonalInfo = () => {
-  const [userInfo, setUserInfo] = useState({
-    legalName: "",
-    preferredName: "",
-    email: "",
-    phoneNumber: "",
-    address: "",
-    gender: "",
-    profilePicture: "",
-  });
-
+const AdminProfile = () => {
+  const { adminInfo, fetchAdminProfile, isLoading } = useAdminStore();
   const [loading, setLoading] = useState(true);
 
-  // Fetch user information from the backend
   useEffect(() => {
-    const fetchUserInfo = async () => {
+    const loadProfile = async () => {
       try {
-        const response = await axios.get(
-          `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/admin/edit-profile`
-        );
-        if (response.status === 200) {
-          const data = response.data.data;
-          setUserInfo({
-            legalName: data.name || "",
-            preferredName: data.name || "",
-            email: data.email || "",
-            phoneNumber: data.phoneNumber || "",
-            address: data.address || "",
-            gender: data.gender || "",
-            profilePicture: data.profilePicture || "",
-          });
-        }
+        await fetchAdminProfile();
       } catch (error) {
-        console.error("Error fetching user info:", error);
+        console.error("Error fetching admin profile:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUserInfo();
-  }, []);
+    loadProfile();
+  }, [fetchAdminProfile]);
 
-   if (loading) {
-     return (
-       <div className="text-center mt-10">
-         <CircularProgress />
-       </div>
-     );
-   }
+  if (loading || isLoading) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="80vh"
+      >
+        <CircularProgress size={60} />
+      </Box>
+    );
+  }
+
+  if (!adminInfo) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="80vh"
+        flexDirection="column"
+        gap={3}
+      >
+        <Typography variant="h5" color="error">
+          Failed to load profile data
+        </Typography>
+        <Button variant="contained" onClick={fetchAdminProfile}>
+          Retry
+        </Button>
+      </Box>
+    );
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
+    <Box display="flex" alignItems="center" gap={2} py={2}>
+      <Box
+        sx={{
+          backgroundColor: "primary.light",
+          borderRadius: "50%",
+          p: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {icon}
+      </Box>
+      <Box flex={1}>
+        <Typography variant="caption" color="text.secondary" fontWeight={500}>
+          {label}
+        </Typography>
+        <Typography variant="body1" fontWeight={500}>
+          {value || "Not provided"}
+        </Typography>
+      </Box>
+    </Box>
+  );
+
   return (
-    <div className="w-[80%] px-3 lg:px-10 mx-auto lg:gap-8 xl:gap-12">
-      {/* Header Section */}
-      <div className="pt-[40px] flex justify-between items-center">
-        <div className="flex gap-4 items-center">
-          <Link to="/profile">
-            <img
-              src="/images/Frame 67.svg"
-              alt="Back to Profile"
-              className="w-[35px] h-[35px]"
-            />
-          </Link>
-          <h4 className="text-[#002221] text-[20px]">Personal Info</h4>
-        </div>
-        <Link
-          to="/profile"
-          className="bg-[#002221] text-white px-4 py-2 rounded-md text-sm font-medium"
+    <Box sx={{ maxWidth: 1200, margin: "0 auto", p: 3 }}>
+      {/* Header */}
+      <Box display="flex" alignItems="center" justifyContent="space-between" mb={4}>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Button
+            component={Link}
+            to="/dashboard"
+            startIcon={<ArrowBack />}
+            variant="outlined"
+            sx={{
+              borderRadius: "50%",
+              minWidth: "auto",
+              width: 48,
+              height: 48,
+              p: 0,
+            }}
+          />
+          <Typography variant="h4" fontWeight="bold" color="text.primary">
+            Hello Admin {adminInfo.name}
+          </Typography>
+        </Box>
+        <Button
+          component={Link}
+          to="/edit-profile"
+          variant="contained"
+          startIcon={<Edit />}
+          sx={{
+            backgroundColor: "#002221",
+            "&:hover": {
+              backgroundColor: "#003833",
+            },
+            px: 3,
+            py: 1,
+            borderRadius: 2,
+          }}
         >
-          Edit
-        </Link>
-      </div>
+          Edit Profile
+        </Button>
+      </Box>
 
-      {/* Profile Picture Section */}
-      <div className="flex justify-center mt-8">
-        <div className="w-24 h-24 rounded-full overflow-hidden border border-gray-300">
-          {userInfo.profilePicture ? (
-            <img
-              src={userInfo.profilePicture}
-              alt="Profile"
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-200">
-              <span className="text-gray-500 text-sm">No Image</span>
-            </div>
-          )}
-        </div>
-      </div>
+      <Grid container spacing={4}>
+        {/* Left Column - Profile Card */}
+        <Grid item xs={12} md={4}>
+          <Card
+            sx={{
+              borderRadius: 3,
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+              overflow: "visible",
+            }}
+          >
+            <CardContent sx={{ p: 0 }}>
+              {/* Profile Header */}
+              <Box
+                sx={{
+                  backgroundColor: "primary.main",
+                  height: 120,
+                  position: "relative",
+                  borderTopLeftRadius: 12,
+                  borderTopRightRadius: 12,
+                }}
+              />
+              
+              {/* Profile Picture */}
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  mt: -8,
+                  position: "relative",
+                  zIndex: 2,
+                }}
+              >
+                <Avatar
+                  src={adminInfo.profilePicture}
+                  sx={{
+                    width: 120,
+                    height: 120,
+                    border: "4px solid white",
+                    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
+                  }}
+                >
+                  {adminInfo.name?.charAt(0).toUpperCase() || "A"}
+                </Avatar>
+                
+                <Typography variant="h5" fontWeight="bold" mt={2}>
+                  {adminInfo.name}
+                </Typography>
+                
+                <Chip
+                  label={adminInfo.role}
+                  color="primary"
+                  variant="filled"
+                  sx={{ mt: 1, fontWeight: 600 }}
+                />
+                
+                {adminInfo.isSuperAdmin && (
+                  <Chip
+                    label="Super Admin"
+                    color="secondary"
+                    variant="filled"
+                    sx={{ mt: 1, fontWeight: 600 }}
+                  />
+                )}
+              </Box>
 
-      {/* User Information Section */}
-      <div className="pt-10 pb-16">
-        {/* Legal Name */}
-        <div className="flex items-center md:pl-5 md:pr-8 px-3 justify-between border-b-[3px] pb-2">
-          <div className="flex flex-col">
-            <h4 className="text-[#000000] md:text-[24px] text-[18px] font-[500]">
-              Legal name
-            </h4>
-            <h4 className="text-[#000000] md:text-[20px] text-[16px]">
-              {userInfo.legalName}
-            </h4>
-          </div>
-        </div>
+              {/* Quick Stats */}
+              <Box p={3}>
+                <Divider sx={{ my: 2 }} />
+                <Box display="flex" justifyContent="space-between" textAlign="center">
+                  <Box>
+                    <Typography variant="h6" fontWeight="bold" color="primary">
+                      {adminInfo.permissions?.length || 0}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Permissions
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" fontWeight="bold" color="primary">
+                      {Math.ceil(
+                        (new Date().getTime() - new Date(adminInfo.createdAt).getTime()) / 
+                        (1000 * 60 * 60 * 24)
+                      )}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Days Active
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
 
-        {/* Preferred Name */}
-        <div className="flex items-center pt-2 md:pt-4 md:pl-5 md:pr-8 px-3 justify-between border-b-[3px] pb-2">
-          <div className="flex flex-col">
-            <h4 className="text-[#000000] md:text-[24px] text-[18px] font-[500]">
-              Preferred name
-            </h4>
-            <h4 className="text-[#000000] md:text-[20px] text-[16px]">
-              {userInfo.preferredName}
-            </h4>
-          </div>
-        </div>
+          {/* Permissions Card */}
+          <Card sx={{ mt: 3, borderRadius: 3, boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" gap={1} mb={2}>
+                <Security color="primary" />
+                <Typography variant="h6" fontWeight="bold">
+                  Permissions
+                </Typography>
+              </Box>
+              <Box display="flex" flexWrap="wrap" gap={1}>
+                {adminInfo.permissions?.map((permission: any, index: any) => (
+                  <Chip
+                    key={index}
+                    label={permission}
+                    variant="outlined"
+                    color="primary"
+                    size="small"
+                  />
+                )) || (
+                  <Typography variant="body2" color="text.secondary">
+                    No specific permissions assigned
+                  </Typography>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
 
-        {/* Email Address */}
-        <div className="flex items-center pt-2 md:pt-4 md:pl-5 md:pr-8 px-3 justify-between border-b-[3px] pb-2">
-          <div className="flex flex-col">
-            <h4 className="text-[#000000] md:text-[24px] text-[18px] font-[500]">
-              Email address
-            </h4>
-            <h4 className="text-[#000000] md:text-[20px] text-[16px]">
-              {userInfo.email}
-            </h4>
-          </div>
-        </div>
+        {/* Right Column - Detailed Information */}
+        <Grid item xs={12} md={8}>
+          <Card sx={{ borderRadius: 3, boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }}>
+            <CardContent sx={{ p: 4 }}>
+              <Typography variant="h5" fontWeight="bold" mb={3}>
+                Personal Information
+              </Typography>
 
-        {/* Phone Number */}
-        <div className="flex items-center pt-2 md:pt-4 md:pl-5 md:pr-8 px-3 justify-between border-b-[3px] pb-2">
-          <div className="flex flex-col">
-            <h4 className="text-[#000000] md:text-[24px] text-[18px] font-[500]">
-              Phone Number
-            </h4>
-            <h4 className="text-[#000000] md:text-[20px] text-[16px]">
-              {userInfo.phoneNumber}
-            </h4>
-          </div>
-        </div>
+              <Box>
+                <InfoRow
+                  icon={<Person />}
+                  label="Full Name"
+                  value={adminInfo.name}
+                />
+                <Divider />
+                
+                <InfoRow
+                  icon={<Email />}
+                  label="Email Address"
+                  value={adminInfo.email}
+                />
+                <Divider />
+                
+                <InfoRow
+                  icon={<Phone />}
+                  label="Phone Number"
+                  value={adminInfo.phoneNumber || "Not provided"}
+                />
+                <Divider />
+                
+                <InfoRow
+                  icon={<LocationOn />}
+                  label="Address"
+                  value={adminInfo.address || "Not provided"}
+                />
+                <Divider />
+                
+                <InfoRow
+                  icon={<Person />}
+                  label="Gender"
+                  value={adminInfo.gender || "Not specified"}
+                />
+                <Divider />
+                
+                <InfoRow
+                  icon={<CalendarToday />}
+                  label="Member Since"
+                  value={formatDate(adminInfo.createdAt)}
+                />
+              </Box>
+            </CardContent>
+          </Card>
 
-        {/* Address */}
-        <div className="flex items-center pt-2 md:pt-4 md:pl-5 md:pr-8 px-3 justify-between border-b-[3px] pb-2">
-          <div className="flex flex-col">
-            <h4 className="text-[#000000] md:text-[24px] text-[18px] font-[500]">
-              Address
-            </h4>
-            <h4 className="text-[#000000] md:text-[20px] text-[16px]">
-              {userInfo.address}
-            </h4>
-          </div>
-        </div>
-
-        {/* Gender */}
-        <div className="flex items-center pt-2 md:pt-4 md:pl-5 md:pr-8 px-3 justify-between border-b-[3px] pb-2">
-          <div className="flex flex-col">
-            <h4 className="text-[#000000] md:text-[24px] text-[18px] font-[500]">
-              Gender
-            </h4>
-            <h4 className="text-[#000000] md:text-[20px] text-[16px]">
-              {userInfo.gender}
-            </h4>
-          </div>
-        </div>
-      </div>
-    </div>
+          {/* System Information
+          <Card sx={{ mt: 3, borderRadius: 3, boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }}>
+            <CardContent sx={{ p: 4 }}>
+              <Typography variant="h5" fontWeight="bold" mb={3}>
+                System Information
+              </Typography>
+              
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6}>
+                  <Paper
+                    variant="outlined"
+                    sx={{ p: 3, borderRadius: 2, textAlign: "center" }}
+                  >
+                    <Typography variant="h4" fontWeight="bold" color="primary">
+                      {adminInfo.role}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Role
+                    </Typography>
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <Paper
+                    variant="outlined"
+                    sx={{ p: 3, borderRadius: 2, textAlign: "center" }}
+                  >
+                    <Typography variant="h4" fontWeight="bold" color="secondary">
+                      {adminInfo.isSuperAdmin ? "Yes" : "No"}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Super Admin
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card> */}
+        </Grid>
+      </Grid>
+    </Box>
   );
 };
 
-export default PersonalInfo;
+export default AdminProfile;

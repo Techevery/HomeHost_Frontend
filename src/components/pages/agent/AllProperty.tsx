@@ -2,17 +2,17 @@ import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../Navbar";
 import { MdOutlineFavoriteBorder } from "react-icons/md";
-import usePropertyStore from "../../../stores/propertyStore";
+import useAgentStore from "../../../stores/agentstore";
 import { CircularProgress } from "@mui/material";
 
 const AllProperty = () => {
-  const { properties, loading, fetchProperties } = usePropertyStore();
+  const { enlistedProperties,isLoading, fetchEnlistedProperties } = useAgentStore();
 
   useEffect(() => {
-    fetchProperties();
-  }, [fetchProperties]);
+    fetchEnlistedProperties(1, 10);
+  }, [fetchEnlistedProperties]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <CircularProgress />
@@ -33,13 +33,19 @@ const AllProperty = () => {
           <div className="max-w-screen-xl px-3 lg:px-10 mx-auto lg:gap-8 xl:gap-12">
             <div className="flex flex-col gap-2 md:pt-[130px] pt-[100px] h-full text-white">
               <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-2 lg:gap-10 z-10">
-                {properties.length === 0 ? (
+                {enlistedProperties.length === 0 ? (
                   <div className="col-span-3 text-center py-10">
                     <p className="text-xl">No properties found</p>
+                    <Link 
+                      to="/add-apartment" 
+                      className="mt-4 inline-block bg-white text-black px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      Add Your First Property
+                    </Link>
                   </div>
                 ) : (
-                  properties.map((property) => (
-                    <div key={property.id} className="rounded-[15px] overflow-hidden">
+                  enlistedProperties.map((property) => (
+                    <div key={property.id || property.apartmentId} className="rounded-[15px] overflow-hidden">
                       <div className="relative h-[200px]">
                         {property.images && property.images.length > 0 ? (
                           <img
@@ -64,7 +70,7 @@ const AllProperty = () => {
                       <div className="bg-white text-[#000000] pt-2 px-2 pb-5">
                         <div className="flex flex-col gap-2">
                           <h5 className="text-[16px] md:text-[18px] font-[600]">
-                            {property.name}
+                            {property.name || "Property Name"}
                           </h5>
 
                           <div className="flex justify-between">
@@ -74,21 +80,21 @@ const AllProperty = () => {
                                 alt="Location"
                                 className=""
                               />
-                              <h6 className="text-[16px]">{property.location || property.address}</h6>
+                              <h6 className="text-[16px]">{property.location || property.address || "Location not specified"}</h6>
                             </div>
                             <div className="flex items-center gap-1">
-                              <h6 className="text-[16px] capitalize">{property.status}</h6>
-                              <div className={`h-3 w-3 rounded-full ${property.status === 'available' ? 'bg-[#44D003]' : 'bg-[#FF0909]'}`}></div>
+                              <h6 className="text-[16px] capitalize">{property.status || "available"}</h6>
+                              <div className={`h-3 w-3 rounded-full ${(property.status || "available") === 'available' ? 'bg-[#44D003]' : 'bg-[#FF0909]'}`}></div>
                             </div>
                           </div>
 
                           <div className="flex justify-between items-center">
                             <h4 className="text-[16px] font-[700]">
-                              NGN {property.price}/Night
+                              NGN {property.price || property.markedUpPrice}/Night
                             </h4>
 
                             <Link
-                              to={`/agent-view-property/${property.id}`}
+                              to={`/agent-view-property/${property.id || property.apartmentId}`}
                               className="bg-[#000000] text-white rounded-[5px] md:rounded-[10px] md:px-7 px-5 md:py-3 py-2"
                             >
                               View

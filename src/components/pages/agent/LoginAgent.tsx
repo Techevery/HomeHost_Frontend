@@ -23,7 +23,7 @@ const LoginAgent = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/add-property');
+      navigate('/AgentProfile');
     }
   }, [isAuthenticated, navigate]);
 

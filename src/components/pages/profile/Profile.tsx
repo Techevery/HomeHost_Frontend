@@ -1,34 +1,36 @@
 import React, { useEffect } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { BsPersonVcard } from "react-icons/bs";
 import { MdPayment, MdSecurity } from "react-icons/md";
 import { GoCreditCard } from "react-icons/go";
 import useAdminStore from "../../../stores/admin";
-import useAgentStore from "../../../stores/agentstore";
 
 const Profile = () => {
   const { 
     adminInfo, 
-    isAuthenticated: isAdminAuthenticated, 
-    fetchAdminProfile 
+    isAuthenticated, 
+    fetchAdminProfile,
+    logout 
   } = useAdminStore();
   
-  const { 
-    agentInfo, 
-    isAuthenticated: isAgentAuthenticated, 
-    fetchAgentProfile 
-  } = useAgentStore();
-
-  const isAuthenticated = isAdminAuthenticated || isAgentAuthenticated;
-  const userInfo = adminInfo || agentInfo;
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAdminAuthenticated) {
+    if (isAuthenticated) {
       fetchAdminProfile();
-    } else if (isAgentAuthenticated) {
-      fetchAgentProfile();
     }
-  }, [isAdminAuthenticated, isAgentAuthenticated, fetchAdminProfile, fetchAgentProfile]);
+  }, [isAuthenticated, fetchAdminProfile]);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
+  const handleProfilePictureClick = () => {
+    navigate("/personal-info");
+  };
+       
+  
 
   if (!isAuthenticated) {
     return (
@@ -62,33 +64,43 @@ const Profile = () => {
           </div>
           
           <div className="flex items-center gap-4 mt-6">
-            {userInfo?.profilePicture ? (
-              <img 
-                src={userInfo.profilePicture} 
-                alt="Profile" 
-                className="w-16 h-16 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-amber-400 flex items-center justify-center text-white text-2xl font-semibold">
-                {userInfo?.name?.charAt(0)?.toUpperCase() || 'U'}
-              </div>
-            )}
+            <div 
+              onClick={handleProfilePictureClick}
+              className="cursor-pointer"
+            >
+              {adminInfo?.profilePicture ? (
+                <img 
+                  src={adminInfo.profilePicture} 
+                  alt="Profile" 
+                  className="w-16 h-16 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-amber-400 flex items-center justify-center text-white text-2xl font-semibold">
+                  {adminInfo?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+              )}
+            </div>
             <div>
               <h4 className="text-[#000000] text-[25px] md:text-[30px]">
-                {userInfo?.name || 'User'}
+                {adminInfo?.name || 'User'}
               </h4>
-              <p className="text-gray-600">{userInfo?.email}</p>
+              <p className="text-gray-600">{adminInfo?.email}</p>
               {adminInfo && (
                 <span className="text-sm text-amber-600 bg-amber-100 px-2 py-1 rounded">
                   {adminInfo.role} {adminInfo.isSuperAdmin && '(Super Admin)'}
                 </span>
               )}
-              {agentInfo && (
-                <span className="text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                  Agent {agentInfo.isVerified && '✓ Verified'}
-                </span>
-              )}
             </div>
+          </div>
+
+          {/* Logout Button */}
+          <div className="mt-6">
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg transition-colors"
+            >
+              Logout
+            </button>
           </div>
 
           <div className="md:grid md:grid-cols-12 items-center">
@@ -108,7 +120,7 @@ const Profile = () => {
                   </div>
                 </NavLink>
 
-                <NavLink to="/security">
+                {/* <NavLink to="/security">
                   <div className="p-4 shadow-xl border rounded-[10px] hover:shadow-lg transition-shadow">
                     <div className="flex items-center gap-2">
                       <MdSecurity className="w-10 h-10 text-amber-400" />
@@ -120,61 +132,24 @@ const Profile = () => {
                       Update your password and Secure your Account
                     </h5>
                   </div>
-                </NavLink>
+                </NavLink> */}
 
-                {agentInfo && (
-                  <NavLink to="/earnings">
-                    <div className="p-4 shadow-xl border rounded-[10px] hover:shadow-lg transition-shadow">
-                      <div className="flex items-center gap-2">
-                        <GoCreditCard className="w-10 h-10 text-amber-400" />
-                        <h5 className="text-[#000000] font-[500] text-[20px]">
-                          Earnings
-                        </h5>
-                      </div>
-                      <h5 className="text-[#000000] text-[15px] max-w-[300px] mt-2">
-                        View your earnings and payment history
-                      </h5>
-                    </div>
-                  </NavLink>
-                )}
-
-                {agentInfo && (
-                  <div className="p-4 shadow-xl border rounded-[10px] hover:shadow-lg transition-shadow">
-                    <div className="flex items-center gap-2">
-                      <MdPayment className="w-10 h-10 text-amber-400" />
-                      <h5 className="text-[#000000] font-[500] text-[20px]">
-                        Payout Method
-                      </h5>
-                    </div>
-                    <h5 className="text-[#000000] text-[15px] max-w-[300px] mt-2">
-                      Provide Personal Bank details
+                <div className="p-4 shadow-xl border rounded-[10px] hover:shadow-lg transition-shadow">
+                  <div className="flex items-center gap-2">
+                    <MdSecurity className="w-10 h-10 text-amber-400" />
+                    <h5 className="text-[#000000] font-[500] text-[20px]">
+                      Admin Permissions
                     </h5>
-                    {agentInfo?.bankName && agentInfo?.accountNumber && (
-                      <div className="mt-2 text-sm text-green-600">
-                        Bank: {agentInfo.bankName} ••••{agentInfo.accountNumber.slice(-4)}
-                      </div>
-                    )}
                   </div>
-                )}
-
-                {adminInfo && (
-                  <div className="p-4 shadow-xl border rounded-[10px] hover:shadow-lg transition-shadow">
-                    <div className="flex items-center gap-2">
-                      <MdSecurity className="w-10 h-10 text-amber-400" />
-                      <h5 className="text-[#000000] font-[500] text-[20px]">
-                        Admin Permissions
-                      </h5>
-                    </div>
-                    <h5 className="text-[#000000] text-[15px] max-w-[300px] mt-2">
-                      Manage your administrative permissions and access levels
-                    </h5>
-                    <div className="mt-2">
-                      <span className="text-sm text-gray-600">
-                        Permissions: {adminInfo.permissions?.join(', ') || 'None'}
-                      </span>
-                    </div>
+                  <h5 className="text-[#000000] text-[15px] max-w-[300px] mt-2">
+                    Manage your administrative permissions and access levels
+                  </h5>
+                  <div className="mt-2">
+                    <span className="text-sm text-gray-600">
+                      Permissions: {adminInfo?.permissions?.join(', ') || 'None'}
+                    </span>
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>

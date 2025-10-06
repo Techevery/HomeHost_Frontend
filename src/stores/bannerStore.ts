@@ -41,6 +41,10 @@ const initialState: BannerState = {
   error: null,
 };
 
+
+const API_BASE_URL = process.env.REACT_APP_DEV_BASE_URL || 'https://homeyhost.ng/api'
+
+
 const useBannerStore = create<BannerState & BannerActions>()(
   persist(
     (set, get) => ({
@@ -55,7 +59,7 @@ const useBannerStore = create<BannerState & BannerActions>()(
           }
 
           const response = await axios.get(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/admin/banners`,
+            `${API_BASE_URL }/api/v1/admin/banners`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -83,7 +87,7 @@ const useBannerStore = create<BannerState & BannerActions>()(
           }
 
           const response = await axios.get(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/admin/banners/${id}`,
+            `${API_BASE_URL}/api/v1/admin/banners/${id}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -155,7 +159,7 @@ const useBannerStore = create<BannerState & BannerActions>()(
           };
 
           const response = await axios.patch(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/admin/banners/${id}`,
+            `${API_BASE_URL}/api/v1/admin/banners/${id}`,
             isFormData ? updatedData : JSON.stringify(updatedData),
             config
           );
@@ -190,7 +194,7 @@ const useBannerStore = create<BannerState & BannerActions>()(
           }
 
           await axios.delete(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/admin/banners/${id}`,
+            `${API_BASE_URL}/api/v1/admin/banners/${id}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,

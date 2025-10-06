@@ -72,6 +72,9 @@ const initialState: BookingState = {
   endDate: null,
 };
 
+
+const API_BASE_URL = process.env.REACT_APP_DEV_BASE_URL || 'https://homeyhost.ng/api'
+
 const useBookingStore = create<BookingState & BookingActions>()(
   persist(
     (set, get) => ({
@@ -86,7 +89,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           }
 
           const response = await axios.get(
-            `${process.env.REACT_APP_DEV_BASE_URL}api/v1/bookings`,
+            `${API_BASE_URL }api/v1/bookings`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -114,7 +117,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           }
 
           const response = await axios.get(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/bookings/${id}`,
+            `${API_BASE_URL}/api/v1/bookings/${id}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -156,7 +159,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           };
 
           const response = await axios.post(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/bookings`,
+            `${API_BASE_URL}/api/v1/bookings`,
             data,
             {
               headers: {
@@ -230,7 +233,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           }
 
           await axios.delete(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/bookings/${id}`,
+            `${API_BASE_URL}/api/v1/bookings/${id}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -264,7 +267,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           }
 
           const response = await axios.get(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/bookings/${bookingId}/receipts`,
+            `${API_BASE_URL}/api/v1/bookings/${bookingId}/receipts`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,

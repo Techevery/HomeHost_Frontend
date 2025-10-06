@@ -35,6 +35,11 @@ const Navbar = () => {
     navigate("/");
   };
 
+  const handleManageBooking = () => {
+    navigate("/manage-booking");
+    setIsOpen(false);
+  };
+
   return (
     <div>
       <nav className="bg-[#ffffff] fixed py-4 w-full z-20 top-0 left-0 shadow-md px-2 md:px-4 body-font font-poppins">
@@ -42,7 +47,18 @@ const Navbar = () => {
           <NavLink to="/" className="">
             <img src="/images/logo2.svg" alt="location" className="" />
           </NavLink>
-          
+
+          {/* Move Manage Booking button to the left and style it */}
+          <div className="hidden md:flex items-center space-x-6 flex-1 ml-10">
+            <button
+              onClick={() => navigate("/manage-booking")}
+              className="px-4 py-2 rounded-md bg-amber-400 text-white font-semibold shadow hover:bg-amber-500 transition-colors duration-200 text-sm"
+              style={{ marginRight: "auto" }}
+            >
+              Manage Booking
+            </button>
+          </div>
+
           <div className="md:hidden block">
             <div className="md:order-2 pl-44 md:pl-1">
               <button
@@ -79,21 +95,10 @@ const Navbar = () => {
                     </div>
                   )}
                 </NavLink>
-                <button 
-                  onClick={handleLogout}
-                  className="text-sm text-gray-600 hover:text-amber-400"
-                >
-                  Logout
-                </button>
               </>
             ) : (
               <>
-                <NavLink to="/login" className="text-sm text-gray-600 hover:text-amber-400">
-                  Login
-                </NavLink>
-                <NavLink to="/register" className="text-sm text-gray-600 hover:text-amber-400">
-                  Register
-                </NavLink>
+                {/* Login/Register buttons can go here */}
               </>
             )}
           </div>
@@ -137,6 +142,15 @@ const Navbar = () => {
                 >
                   Book Now
                 </NavLink>
+                
+                {/* Manage Booking Button */}
+                <hr className="pb-3" />
+                <button
+                  onClick={handleManageBooking}
+                  className="block w-full text-left px-4 py-2 rounded-md bg-white text-amber-500 font-semibold shadow hover:bg-gray-100 transition-colors duration-200"
+                >
+                  Manage Booking
+                </button>
                 
                 {isAuthenticated && (
                   <>

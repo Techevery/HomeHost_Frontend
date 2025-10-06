@@ -1,4 +1,4 @@
-// components/BannerCard.tsx
+ // components/BannerCard.tsx
 import React from 'react';
 import { PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
 import useBannerStore from '../../stores/bannerStore';

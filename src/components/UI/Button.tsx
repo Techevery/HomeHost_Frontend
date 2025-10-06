@@ -19,7 +19,7 @@ const Button = (props: Props) => {
             : props.fitWidth
             ? "w-fit" // Use w-full if fullWidth is true
             : "w-full" // Default to w-fit if neither width nor fullWidth is provided
-        } disabled:bg-gray-500 bg-primary hover:bg-primary/80 duration-300 mb-3 text-white px-2 rounded-[15px] py-4 font-bold disabled:cursor-not-allowed`}
+        } disabled:bg-gray-500 bg-primary hover:bg-primary/80 duration-300 mb-3 text-black px-2 rounded-[15px] py-4 font-bold disabled:cursor-not-allowed`}
         onClick={props.action}
         type={props.type}
         disabled={props.disabled}
