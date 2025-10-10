@@ -23,16 +23,10 @@ import {
   FormControl,
   InputLabel,
   Select,
-  FormHelperText,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent
 } from "@mui/material";
 import {
   Add as AddIcon,
   Edit as EditIcon,
-  ArrowBack as ArrowBackIcon,
   LocationOn as LocationIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
@@ -45,18 +39,18 @@ import {
 import useAgentStore from "../../../stores/agentstore";
 import { PropertyCard, Property } from "../../pages/agent/PropertyCard";
 
-interface PropertyFormData {
-  title: string;
-  description: string;
-  price: number;
-  markedUpPrice: number;
-  location: string;
-  type: string;
-  bedrooms: number;
-  bathrooms: number;
-  area: number;
-  agentPercentage: number;
-  status: string;
+interface ProfileFormData {
+  name: string;
+  avatar?: string;
+  email: string;
+  phoneNumber: string;
+  address: string;
+  gender: string;
+  personalUrl: string;
+  nextOfKinName: string;
+  nextOfKinEmail: string;
+  bankName: string;
+  accountNumber: string;
 }
 
 const AgentProfile = () => {
@@ -71,7 +65,7 @@ const AgentProfile = () => {
     clearError,
     removeApartment,
     logout,
-    enlistApartment
+    updateAgentProfile
   } = useAgentStore();
 
   const [activeTab, setActiveTab] = useState("profile");
@@ -80,28 +74,25 @@ const AgentProfile = () => {
   const [propertyToDelete, setPropertyToDelete] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
   
-  // Property Modal States
-  const [addPropertyModalOpen, setAddPropertyModalOpen] = useState(false);
-  const [editPropertyModalOpen, setEditPropertyModalOpen] = useState(false);
-  const [propertyToEdit, setPropertyToEdit] = useState<Property | null>(null);
-  const [activeStep, setActiveStep] = useState(0);
-  
-  // Property Form State
-  const [propertyForm, setPropertyForm] = useState<PropertyFormData>({
-    title: "",
-    description: "",
-    price: 0,
-    markedUpPrice: 0,
-    location: "",
-    type: "Residential",
-    bedrooms: 1,
-    bathrooms: 1,
-    area: 0,
-    agentPercentage: 10,
-    status: "active"
+  // Edit Profile Modal State
+  const [editProfileModalOpen, setEditProfileModalOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState<ProfileFormData>({
+    name: "",
+    avatar: "",
+    email: "",
+    phoneNumber: "",
+    address: "",
+    gender: "",
+    personalUrl: "",
+    nextOfKinName: "",
+    nextOfKinEmail: "",
+    bankName: "",
+    accountNumber: ""
   });
 
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof PropertyFormData, string>>>({});
+  const [profileFormErrors, setProfileFormErrors] = useState<Partial<Record<keyof ProfileFormData, string>>>({});
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>("");
 
   useEffect(() => {
     const loadData = async () => {
@@ -122,9 +113,30 @@ const AgentProfile = () => {
     }
   }, [activeTab, agentInfo?.id]);
 
+  // Initialize profile form when agentInfo is available
+  useEffect(() => {
+    if (agentInfo) {
+      setProfileForm({
+        name: agentInfo.name || "",
+        avatar: agentInfo.profile_picture || "",
+        email: agentInfo.email || "",
+        phoneNumber: agentInfo.phone_number || "",
+        address: agentInfo.address || "",
+        gender: agentInfo.gender || "",
+        personalUrl: agentInfo.personalUrl || "",
+        nextOfKinName: agentInfo.next_of_kin_full_name || "",
+        nextOfKinEmail: agentInfo.next_of_kin_email || "",
+        bankName: agentInfo.bank_name || "",
+        accountNumber: agentInfo.account_number || ""
+      });
+      setAvatarPreview(agentInfo.profile_picture || "");
+    }
+  }, [agentInfo]);
+
   const loadProperties = async () => {
     setPropertiesLoading(true);
     try {
+      // Use fetchEnlistedProperties to get the enlisted apartments
       await fetchEnlistedProperties(1, 12);
     } catch (error) {
       console.error("Error fetching properties:", error);
@@ -135,133 +147,13 @@ const AgentProfile = () => {
   };
 
   const handleAddPropertyClick = () => {
-    setAddPropertyModalOpen(true);
-    setPropertyForm({
-      title: "",
-      description: "",
-      price: 0,
-      markedUpPrice: 0,
-      location: "",
-      type: "Residential",
-      bedrooms: 1,
-      bathrooms: 1,
-      area: 0,
-      agentPercentage: 10,
-      status: "active"
-    });
-    setActiveStep(0);
-    setFormErrors({});
-  };
-
-  const handleEditPropertyClick = (property: Property) => {
-    setPropertyToEdit(property);
-    setPropertyForm({
-      title: property.title ?? "",
-      description: property.description ?? "",
-      price: property.price ?? 0,
-      markedUpPrice: property.markedUpPrice ?? 0,
-      location: property.location ?? "",
-      type: property.type ?? "Residential",
-      bedrooms: property.bedrooms ?? 1,
-      bathrooms: property.bathrooms ?? 1,
-      area: property.area ?? 0,
-      agentPercentage: property.agentPercentage ?? 10,
-      status: property.status ?? "active"
-    });
-    setEditPropertyModalOpen(true);
-    setActiveStep(0);
-    setFormErrors({});
+    // Navigate to view-properties route to add new properties
+    navigate("/view-properties");
   };
 
   const handleDeleteProperty = (propertyId: string) => {
     setPropertyToDelete(propertyId);
     setDeleteDialogOpen(true);
-  };
-
-  const validateForm = (): boolean => {
-    const errors: Partial<Record<keyof PropertyFormData, string>> = {};
-
-    if (!propertyForm.title.trim()) {
-      errors.title = "Title is required";
-    }
-    if (!propertyForm.description.trim()) {
-      errors.description = "Description is required";
-    }
-    if (propertyForm.price <= 0) {
-      errors.price = "Price must be greater than 0";
-    }
-    if (propertyForm.markedUpPrice <= 0) {
-      errors.markedUpPrice = "Marked up price must be greater than 0";
-    }
-    if (!propertyForm.location.trim()) {
-      errors.location = "Location is required";
-    }
-    if (propertyForm.area <= 0) {
-      errors.area = "Area must be greater than 0";
-    }
-    if (propertyForm.agentPercentage < 0 || propertyForm.agentPercentage > 100) {
-      errors.agentPercentage = "Agent percentage must be between 0 and 100";
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleNextStep = () => {
-    if (activeStep === 0 && validateForm()) {
-      setActiveStep(1);
-    }
-  };
-
-  const handleBackStep = () => {
-    setActiveStep(0);
-  };
-
-  const handleSubmitProperty = async () => {
-    if (!validateForm()) return;
-
-    try {
-      // Since the API expects apartmentId, we'll generate a temporary one
-      // In a real app, this would come from selecting an existing apartment or creating a new one
-      const apartmentId = `temp-${Date.now()}`;
-      
-      await enlistApartment(
-        apartmentId,
-        propertyForm.markedUpPrice,
-        propertyForm.agentPercentage
-      );
-
-      showSnackbar("Property added successfully", "success");
-      setAddPropertyModalOpen(false);
-      await loadProperties();
-    } catch (error) {
-      console.error("Error adding property:", error);
-      showSnackbar("Failed to add property", "error");
-    }
-  };
-
-  const handleUpdateProperty = async () => {
-    if (!propertyToEdit || !validateForm()) return;
-
-    try {
-      // For editing, we would typically have an update endpoint
-      // Since it's not in the store, we'll simulate the update by removing and re-adding
-      await removeApartment(propertyToEdit.id);
-      
-      const apartmentId = `temp-${Date.now()}`;
-      await enlistApartment(
-        apartmentId,
-        propertyForm.markedUpPrice,
-        propertyForm.agentPercentage
-      );
-
-      showSnackbar("Property updated successfully", "success");
-      setEditPropertyModalOpen(false);
-      await loadProperties();
-    } catch (error) {
-      console.error("Error updating property:", error);
-      showSnackbar("Failed to update property", "error");
-    }
   };
 
   const confirmDelete = async () => {
@@ -270,7 +162,7 @@ const AgentProfile = () => {
     try {
       await removeApartment(propertyToDelete);
       showSnackbar("Property deleted successfully", "success");
-      await loadProperties();
+      await loadProperties(); // Refresh the properties list
     } catch (error) {
       console.error("Error deleting property:", error);
       showSnackbar("Failed to delete property", "error");
@@ -296,6 +188,77 @@ const AgentProfile = () => {
 
   const handleChangePassword = () => {
     navigate("/security");
+  };
+
+  // Edit Profile Functions
+  const handleEditProfileClick = () => {
+    setEditProfileModalOpen(true);
+    setProfileFormErrors({});
+  };
+
+  // Handle avatar file selection
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setAvatarPreview(previewUrl);
+      setProfileForm(prev => ({ ...prev, avatar: previewUrl }));
+    }
+  };
+
+  const validateProfileForm = (): boolean => {
+    const errors: Partial<Record<keyof ProfileFormData, string>> = {};
+
+    if (!profileForm.name.trim()) {
+      errors.name = "Name is required";
+    }
+    if (!profileForm.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(profileForm.email)) {
+      errors.email = "Email is invalid";
+    }
+    if (!profileForm.phoneNumber.trim()) {
+      errors.phoneNumber = "Phone number is required";
+    }
+
+    setProfileFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!validateProfileForm()) return;
+
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+      
+      // Append all profile data
+      formData.append('name', profileForm.name);
+      formData.append('email', profileForm.email);
+      formData.append('phoneNumber', profileForm.phoneNumber);
+      formData.append('address', profileForm.address);
+      formData.append('gender', profileForm.gender);
+      formData.append('personalUrl', profileForm.personalUrl);
+      formData.append('nextOfKinName', profileForm.nextOfKinName);
+      formData.append('nextOfKinEmail', profileForm.nextOfKinEmail);
+      formData.append('bankName', profileForm.bankName);
+      formData.append('accountNumber', profileForm.accountNumber);
+      
+      // Append avatar file if selected
+      if (avatarFile) {
+        formData.append('avatar', avatarFile);
+      }
+
+      await updateAgentProfile(formData);
+      showSnackbar("Profile updated successfully", "success");
+      setEditProfileModalOpen(false);
+      setAvatarFile(null);
+      await fetchAgentProfile(); // Refresh agent info
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      showSnackbar(error.message || "Failed to update profile", "error");
+    }
   };
 
   const showSnackbar = (message: string, severity: "success" | "error") => {
@@ -327,16 +290,6 @@ const AgentProfile = () => {
     };
   };
 
-  const propertyTypes = [
-    "Residential",
-    "Commercial",
-    "Industrial",
-    "Land",
-    "Special Purpose"
-  ];
-
-  const steps = ['Property Details', 'Review & Submit'];
-
   if (isLoading && !agentInfo) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -362,10 +315,10 @@ const AgentProfile = () => {
         <Box display="flex" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
           <Box display="flex" alignItems="center" gap={3}>
             <Avatar
-              src={agentInfo.profilePicture}
+              src={agentInfo.profile_picture || ""}
               sx={{ width: 120, height: 120, border: 4, borderColor: 'primary.light' }}
             >
-              {!agentInfo.profilePicture && agentInfo.name?.charAt(0).toUpperCase()}
+              {!agentInfo.profile_picture && agentInfo.name?.charAt(0).toUpperCase()}
             </Avatar>
             
             <Box>
@@ -383,7 +336,7 @@ const AgentProfile = () => {
               <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1 }}>
                 <PhoneIcon color="action" fontSize="small" />
                 <Typography variant="body1" color="text.secondary">
-                  {agentInfo.phoneNumber || "Not provided"}
+                  {agentInfo.phone_number || "Not provided"}
                 </Typography>
               </Box>
               
@@ -505,6 +458,15 @@ const AgentProfile = () => {
                       {agentInfo.gender || "Not specified"}
                     </Typography>
                   </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Personal URL
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium">
+                      {agentInfo.personalUrl || "Not specified"}
+                    </Typography>
+                  </Grid>
                   
                   <Grid item xs={12}>
                     <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -520,16 +482,7 @@ const AgentProfile = () => {
                       Phone Number
                     </Typography>
                     <Typography variant="body1" fontWeight="medium">
-                      {agentInfo.phoneNumber || "Not provided"}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                      Profile Slug
-                    </Typography>
-                    <Typography variant="body1" fontWeight="medium" fontFamily="monospace">
-                      {agentInfo.slug}
+                      {agentInfo.phone_number || "Not provided"}
                     </Typography>
                   </Grid>
                   
@@ -539,6 +492,31 @@ const AgentProfile = () => {
                     </Typography>
                     <Typography variant="body1" fontWeight="medium">
                       {agentInfo.address || "Not provided"}
+                    </Typography>
+                  </Grid>
+                </Grid>
+
+                {/* Next of Kin Information */}
+                <Typography variant="h5" gutterBottom fontWeight="bold" sx={{ mt: 4 }}>
+                  Next of Kin Information
+                </Typography>
+                
+                <Grid container spacing={3} sx={{ mt: 1 }}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Full Name
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium">
+                      {agentInfo.next_of_kin_full_name || "Not specified"}
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Email Address
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium">
+                      {agentInfo.next_of_kin_email || "Not specified"}
                     </Typography>
                   </Grid>
                 </Grid>
@@ -558,7 +536,7 @@ const AgentProfile = () => {
                     Bank Name
                   </Typography>
                   <Typography variant="body1" fontWeight="medium">
-                    {agentInfo.bankName || "Not provided"}
+                    {agentInfo.bank_name || "Not provided"}
                   </Typography>
                 </Box>
                 
@@ -567,7 +545,7 @@ const AgentProfile = () => {
                     Account Number
                   </Typography>
                   <Typography variant="body1" fontWeight="medium" fontFamily="monospace">
-                    {agentInfo.accountNumber || "Not provided"}
+                    {agentInfo.account_number || "Not provided"}
                   </Typography>
                 </Box>
               </CardContent>
@@ -583,8 +561,7 @@ const AgentProfile = () => {
                   <Button
                     variant="outlined"
                     startIcon={<EditIcon />}
-                    component={Link}
-                    to="/profile/edit"
+                    onClick={handleEditProfileClick}
                     fullWidth
                   >
                     Edit Profile
@@ -670,7 +647,6 @@ const AgentProfile = () => {
                 <Grid item xs={12} sm={6} md={4} lg={3} key={property.id || property._id}>
                   <PropertyCard
                     property={transformPropertyData(property)}
-                    onEdit={handleEditPropertyClick}
                     onDelete={handleDeleteProperty}
                     onView={handleViewProperty}
                     variant="agent"
@@ -701,10 +677,14 @@ const AgentProfile = () => {
         </Box>
       )}
 
-      {/* Add Property Modal */}
+      {/* Edit Profile Modal */}
       <Dialog
-        open={addPropertyModalOpen}
-        onClose={() => setAddPropertyModalOpen(false)}
+        open={editProfileModalOpen}
+        onClose={() => {
+          setEditProfileModalOpen(false);
+          setAvatarFile(null);
+          setAvatarPreview(agentInfo?.profile_picture || "");
+        }}
         maxWidth="md"
         fullWidth
         scroll="paper"
@@ -712,11 +692,15 @@ const AgentProfile = () => {
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Typography variant="h5" fontWeight="bold">
-              Add New Property
+              Edit Profile
             </Typography>
             <Button
               startIcon={<CloseIcon />}
-              onClick={() => setAddPropertyModalOpen(false)}
+              onClick={() => {
+                setEditProfileModalOpen(false);
+                setAvatarFile(null);
+                setAvatarPreview(agentInfo?.profile_picture || "");
+              }}
               color="inherit"
             >
               Close
@@ -725,376 +709,175 @@ const AgentProfile = () => {
         </DialogTitle>
         
         <DialogContent>
-          <Stepper activeStep={activeStep} orientation="vertical" sx={{ mt: 2 }}>
-            {/* Step 1: Property Details */}
-            <Step>
-              <StepLabel>Property Details</StepLabel>
-              <StepContent>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Property Title"
-                      value={propertyForm.title}
-                      onChange={(e) => setPropertyForm({...propertyForm, title: e.target.value})}
-                      error={!!formErrors.title}
-                      helperText={formErrors.title}
-                      margin="normal"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Description"
-                      multiline
-                      rows={3}
-                      value={propertyForm.description}
-                      onChange={(e) => setPropertyForm({...propertyForm, description: e.target.value})}
-                      error={!!formErrors.description}
-                      helperText={formErrors.description}
-                      margin="normal"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Location"
-                      value={propertyForm.location}
-                      onChange={(e) => setPropertyForm({...propertyForm, location: e.target.value})}
-                      error={!!formErrors.location}
-                      helperText={formErrors.location}
-                      margin="normal"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth margin="normal">
-                      <InputLabel>Property Type</InputLabel>
-                      <Select
-                        value={propertyForm.type}
-                        label="Property Type"
-                        onChange={(e) => setPropertyForm({...propertyForm, type: e.target.value})}
-                      >
-                        {propertyTypes.map((type) => (
-                          <MenuItem key={type} value={type}>
-                            {type}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={4}>
-                    <TextField
-                      fullWidth
-                      label="Base Price ($)"
-                      type="number"
-                      value={propertyForm.price}
-                      onChange={(e) => setPropertyForm({...propertyForm, price: Number(e.target.value)})}
-                      error={!!formErrors.price}
-                      helperText={formErrors.price}
-                      margin="normal"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={4}>
-                    <TextField
-                      fullWidth
-                      label="Marked Up Price ($)"
-                      type="number"
-                      value={propertyForm.markedUpPrice}
-                      onChange={(e) => setPropertyForm({...propertyForm, markedUpPrice: Number(e.target.value)})}
-                      error={!!formErrors.markedUpPrice}
-                      helperText={formErrors.markedUpPrice}
-                      margin="normal"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={4}>
-                    <TextField
-                      fullWidth
-                      label="Agent Percentage (%)"
-                      type="number"
-                      value={propertyForm.agentPercentage}
-                      onChange={(e) => setPropertyForm({...propertyForm, agentPercentage: Number(e.target.value)})}
-                      error={!!formErrors.agentPercentage}
-                      helperText={formErrors.agentPercentage}
-                      margin="normal"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={4}>
-                    <TextField
-                      fullWidth
-                      label="Bedrooms"
-                      type="number"
-                      value={propertyForm.bedrooms}
-                      onChange={(e) => setPropertyForm({...propertyForm, bedrooms: Number(e.target.value)})}
-                      margin="normal"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={4}>
-                    <TextField
-                      fullWidth
-                      label="Bathrooms"
-                      type="number"
-                      value={propertyForm.bathrooms}
-                      onChange={(e) => setPropertyForm({...propertyForm, bathrooms: Number(e.target.value)})}
-                      margin="normal"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={4}>
-                    <TextField
-                      fullWidth
-                      label="Area (sq ft)"
-                      type="number"
-                      value={propertyForm.area}
-                      onChange={(e) => setPropertyForm({...propertyForm, area: Number(e.target.value)})}
-                      error={!!formErrors.area}
-                      helperText={formErrors.area}
-                      margin="normal"
-                    />
-                  </Grid>
-                </Grid>
-                
-                <Box sx={{ mt: 3 }}>
-                  <Button
-                    variant="contained"
-                    onClick={handleNextStep}
-                    disabled={!propertyForm.title || !propertyForm.description}
-                  >
-                    Next
-                  </Button>
-                </Box>
-              </StepContent>
-            </Step>
-
-            {/* Step 2: Review & Submit */}
-            <Step>
-              <StepLabel>Review & Submit</StepLabel>
-              <StepContent>
-                <Paper sx={{ p: 3, mb: 2 }}>
-                  <Typography variant="h6" gutterBottom>Property Summary</Typography>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="subtitle2" color="text.secondary">Title</Typography>
-                      <Typography>{propertyForm.title}</Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="subtitle2" color="text.secondary">Type</Typography>
-                      <Typography>{propertyForm.type}</Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="subtitle2" color="text.secondary">Location</Typography>
-                      <Typography>{propertyForm.location}</Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="subtitle2" color="text.secondary">Price</Typography>
-                      <Typography>${propertyForm.price.toLocaleString()}</Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="subtitle2" color="text.secondary">Marked Up Price</Typography>
-                      <Typography>${propertyForm.markedUpPrice.toLocaleString()}</Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="subtitle2" color="text.secondary">Agent Commission</Typography>
-                      <Typography>{propertyForm.agentPercentage}%</Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={4}>
-                      <Typography variant="subtitle2" color="text.secondary">Bedrooms</Typography>
-                      <Typography>{propertyForm.bedrooms}</Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={4}>
-                      <Typography variant="subtitle2" color="text.secondary">Bathrooms</Typography>
-                      <Typography>{propertyForm.bathrooms}</Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={4}>
-                      <Typography variant="subtitle2" color="text.secondary">Area</Typography>
-                      <Typography>{propertyForm.area} sq ft</Typography>
-                    </Grid>
-                  </Grid>
-                </Paper>
-                
-                <Box sx={{ mt: 2 }}>
-                  <Button onClick={handleBackStep} sx={{ mr: 1 }}>
-                    Back
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={handleSubmitProperty}
-                    startIcon={<AddIcon />}
-                  >
-                    Add Property
-                  </Button>
-                </Box>
-              </StepContent>
-            </Step>
-          </Stepper>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Property Modal */}
-      <Dialog
-        open={editPropertyModalOpen}
-        onClose={() => setEditPropertyModalOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h5" fontWeight="bold">
-              Edit Property
-            </Typography>
-            <Button
-              startIcon={<CloseIcon />}
-              onClick={() => setEditPropertyModalOpen(false)}
-              color="inherit"
+          <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+            Profile Picture
+          </Typography>
+          
+          <Box display="flex" alignItems="center" gap={3} sx={{ mb: 3 }}>
+            <Avatar
+              src={avatarPreview}
+              sx={{ width: 80, height: 80 }}
             >
-              Close
+              {!avatarPreview && profileForm.name?.charAt(0).toUpperCase()}
+            </Avatar>
+            
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<EditIcon />}
+            >
+              Upload Photo
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={handleAvatarChange}
+              />
             </Button>
+            
+            {avatarPreview && (
+              <Button
+                variant="text"
+                color="error"
+                onClick={() => {
+                  setAvatarFile(null);
+                  setAvatarPreview(agentInfo?.profile_picture || "");
+                  setProfileForm(prev => ({ ...prev, avatar: agentInfo?.profile_picture || "" }));
+                }}
+              >
+                Remove
+              </Button>
+            )}
           </Box>
-        </DialogTitle>
-        
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Property Title"
-                value={propertyForm.title}
-                onChange={(e) => setPropertyForm({...propertyForm, title: e.target.value})}
-                error={!!formErrors.title}
-                helperText={formErrors.title}
-                margin="normal"
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Description"
-                multiline
-                rows={3}
-                value={propertyForm.description}
-                onChange={(e) => setPropertyForm({...propertyForm, description: e.target.value})}
-                error={!!formErrors.description}
-                helperText={formErrors.description}
-                margin="normal"
-              />
-            </Grid>
-            
+
+          <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+            Personal Information
+          </Typography>
+          
+          <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Location"
-                value={propertyForm.location}
-                onChange={(e) => setPropertyForm({...propertyForm, location: e.target.value})}
-                error={!!formErrors.location}
-                helperText={formErrors.location}
+                label="Full Name"
+                value={profileForm.name}
+                onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
+                error={!!profileFormErrors.name}
+                helperText={profileFormErrors.name}
                 margin="normal"
               />
             </Grid>
             
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth margin="normal">
-                <InputLabel>Property Type</InputLabel>
+                <InputLabel>Gender</InputLabel>
                 <Select
-                  value={propertyForm.type}
-                  label="Property Type"
-                  onChange={(e) => setPropertyForm({...propertyForm, type: e.target.value})}
+                  value={profileForm.gender}
+                  label="Gender"
+                  onChange={(e) => setProfileForm({...profileForm, gender: e.target.value})}
                 >
-                  {propertyTypes.map((type) => (
-                    <MenuItem key={type} value={type}>
-                      {type}
-                    </MenuItem>
-                  ))}
+                  <MenuItem value="Male">Male</MenuItem>
+                  <MenuItem value="Female">Female</MenuItem>
+                  <MenuItem value="Other">Other</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
-            
-            <Grid item xs={12} sm={4}>
+
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Base Price ($)"
-                type="number"
-                value={propertyForm.price}
-                onChange={(e) => setPropertyForm({...propertyForm, price: Number(e.target.value)})}
-                error={!!formErrors.price}
-                helperText={formErrors.price}
+                label="Personal URL"
+                value={profileForm.personalUrl}
+                onChange={(e) => setProfileForm({...profileForm, personalUrl: e.target.value})}
                 margin="normal"
               />
             </Grid>
             
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Marked Up Price ($)"
-                type="number"
-                value={propertyForm.markedUpPrice}
-                onChange={(e) => setPropertyForm({...propertyForm, markedUpPrice: Number(e.target.value)})}
-                error={!!formErrors.markedUpPrice}
-                helperText={formErrors.markedUpPrice}
+                label="Email Address"
+                type="email"
+                value={profileForm.email}
+                onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
+                error={!!profileFormErrors.email}
+                helperText={profileFormErrors.email}
                 margin="normal"
               />
             </Grid>
             
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Agent Percentage (%)"
-                type="number"
-                value={propertyForm.agentPercentage}
-                onChange={(e) => setPropertyForm({...propertyForm, agentPercentage: Number(e.target.value)})}
-                error={!!formErrors.agentPercentage}
-                helperText={formErrors.agentPercentage}
+                label="Phone Number"
+                value={profileForm.phoneNumber}
+                onChange={(e) => setProfileForm({...profileForm, phoneNumber: e.target.value})}
+                error={!!profileFormErrors.phoneNumber}
+                helperText={profileFormErrors.phoneNumber}
                 margin="normal"
               />
             </Grid>
             
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Bedrooms"
-                type="number"
-                value={propertyForm.bedrooms}
-                onChange={(e) => setPropertyForm({...propertyForm, bedrooms: Number(e.target.value)})}
+                label="Address"
+                multiline
+                rows={2}
+                value={profileForm.address}
+                onChange={(e) => setProfileForm({...profileForm, address: e.target.value})}
+                margin="normal"
+              />
+            </Grid>
+          </Grid>
+
+          <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
+            Next of Kin Information
+          </Typography>
+          
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Next of Kin Full Name"
+                value={profileForm.nextOfKinName}
+                onChange={(e) => setProfileForm({...profileForm, nextOfKinName: e.target.value})}
                 margin="normal"
               />
             </Grid>
             
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Bathrooms"
-                type="number"
-                value={propertyForm.bathrooms}
-                onChange={(e) => setPropertyForm({...propertyForm, bathrooms: Number(e.target.value)})}
+                label="Kin Email Address"
+                type="email"
+                value={profileForm.nextOfKinEmail}
+                onChange={(e) => setProfileForm({...profileForm, nextOfKinEmail: e.target.value})}
+                margin="normal"
+              />
+            </Grid>
+          </Grid>
+
+          <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
+            Bank Information
+          </Typography>
+          
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Bank Name"
+                value={profileForm.bankName}
+                onChange={(e) => setProfileForm({...profileForm, bankName: e.target.value})}
                 margin="normal"
               />
             </Grid>
             
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Area (sq ft)"
-                type="number"
-                value={propertyForm.area}
-                onChange={(e) => setPropertyForm({...propertyForm, area: Number(e.target.value)})}
-                error={!!formErrors.area}
-                helperText={formErrors.area}
+                label="Account Number"
+                value={profileForm.accountNumber}
+                onChange={(e) => setProfileForm({...profileForm, accountNumber: e.target.value})}
                 margin="normal"
               />
             </Grid>
@@ -1102,15 +885,19 @@ const AgentProfile = () => {
         </DialogContent>
         
         <DialogActions>
-          <Button onClick={() => setEditPropertyModalOpen(false)}>
+          <Button onClick={() => {
+            setEditProfileModalOpen(false);
+            setAvatarFile(null);
+            setAvatarPreview(agentInfo?.profile_picture || "");
+          }}>
             Cancel
           </Button>
           <Button
             variant="contained"
-            onClick={handleUpdateProperty}
+            onClick={handleUpdateProfile}
             startIcon={<EditIcon />}
           >
-            Update Property
+            Update Profile
           </Button>
         </DialogActions>
       </Dialog>

@@ -21,7 +21,8 @@ interface FormData {
   price: string;
   images: File[];
   location: string;
-  amenities: string[];
+  amenities: string; // Changed from string[] to string
+  agentPercentage: string; // Changed from percentage to agentPercentage
 }
 
 const AddApartment: React.FC = () => {
@@ -37,7 +38,8 @@ const AddApartment: React.FC = () => {
     price: "",
     images: [],
     location: "",
-    amenities: [],
+    amenities: "",
+    agentPercentage: "",
   });
   
   const [modalOpen, setModalOpen] = useState(false);
@@ -72,7 +74,7 @@ const AddApartment: React.FC = () => {
   };
 
   const validateForm = (): boolean => {
-    const { name, address, type, servicing, bedroom, price, images, location } = formData;
+    const { name, address, type, servicing, bedroom, price, images, location, agentPercentage } = formData;
     
     if (!name.trim() || !address.trim() || !location.trim()) {
       setModalMessage("Please fill in all required fields");
@@ -104,6 +106,12 @@ const AddApartment: React.FC = () => {
       return false;
     }
 
+    if (!agentPercentage || parseFloat(agentPercentage) <= 0) {
+      setModalMessage("Please enter a valid agent percentage");
+      setModalType("error");
+      return false;
+    }
+
     if (images.length === 0) {
       setModalMessage("Please upload at least one image");
       setModalType("error");
@@ -124,12 +132,13 @@ const AddApartment: React.FC = () => {
     try {
       const submitData = new FormData();
       
-      // Append form data systematically
+      // Append form data systematically according to backend schema
       Object.entries(formData).forEach(([key, value]) => {
         if (key === "images") {
           (value as File[]).forEach((image) => submitData.append("images", image));
-        } else if (key === "amenities") {
-          submitData.append(key, JSON.stringify(value));
+        } else if (key === "agentPercentage") {
+          // Convert to number for backend
+          submitData.append(key, value as string);
         } else {
           submitData.append(key, value as string);
         }
@@ -262,18 +271,17 @@ const AddApartment: React.FC = () => {
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select property type" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-slate-900 text-white">
                       <SelectItem value="Flat">Flat</SelectItem>
                       <SelectItem value="House">House</SelectItem>
                       <SelectItem value="Apartment">Apartment</SelectItem>
-                      <SelectItem value="Studio">Studio</SelectItem>
-                      <SelectItem value="Penthouse">Penthouse</SelectItem>
+                 
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Services Included *</label>
+                  <label className="text-sm font-medium text-gray-700">Services*</label>
                   <Textarea 
                     name="servicing" 
                     placeholder="List all services included (e.g., Free WiFi, Netflix, Weekly Cleaning, Utilities)" 
@@ -285,17 +293,17 @@ const AddApartment: React.FC = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Amenities</label>
+                  <label className="text-sm font-medium text-gray-700">Amenities *</label>
                   <Textarea 
                     name="amenities" 
-                    placeholder="List amenities separated by commas (e.g., Swimming Pool, Gym, Parking, Security, Elevator)" 
-                    value={formData.amenities.join(", ")} 
-                    onChange={(e) => setFormData(prev => ({ ...prev, amenities: e.target.value.split(",").map(item => item.trim()) }))} 
+                    placeholder="List amenities (e.g., Swimming Pool, Gym, Parking, Security, Elevator)" 
+                    value={formData.amenities} 
+                    onChange={handleInputChange} 
                     className="min-h-[100px] resize-vertical"
                   />
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">Number of Bedrooms *</label>
                     <Input 
@@ -309,7 +317,7 @@ const AddApartment: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Monthly Price ($) *</label>
+                    <label className="text-sm font-medium text-gray-700"> Price *</label>
                     <Input 
                       name="price" 
                       type="number" 
@@ -318,6 +326,19 @@ const AddApartment: React.FC = () => {
                       onChange={handleInputChange} 
                       required 
                       min="1"
+                      step="0.01"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Agent Percentage (%) *</label>
+                    <Input 
+                      name="agentPercentage" 
+                      type="number" 
+                      placeholder="e.g., 15" 
+                      value={formData.agentPercentage} 
+                      onChange={handleInputChange} 
+                      required 
+                      min="0"
                       step="0.01"
                     />
                   </div>
@@ -334,26 +355,36 @@ const AddApartment: React.FC = () => {
                 <div className="space-y-4">
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
                     <CloudUploadIcon className="text-gray-400 text-4xl mx-auto mb-4" />
-                    <Input 
-                      type="file" 
-                      accept="image/*" 
-                      multiple 
-                      onChange={handleImageChange} 
-                      required 
-                      className="hidden" 
-                      id="image-upload"
-                    />
-                    <label htmlFor="image-upload" className="cursor-pointer">
-                      <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center">
+                      <input
+                        type="file"
+                        id="image-upload"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageChange}
+                        className="hidden"
+                      />
+                      <label 
+                        htmlFor="image-upload" 
+                        className="cursor-pointer flex flex-col items-center"
+                      >
                         <span className="text-lg font-medium text-gray-700">Click to upload images</span>
                         <span className="text-sm text-gray-500 mt-1">
                           PNG, JPG, JPEG up to 5MB each
                         </span>
-                        <Button type="button" variant="outline" className="mt-4">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          className="mt-4"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            document.getElementById('image-upload')?.click();
+                          }}
+                        >
                           Select Files
                         </Button>
-                      </div>
-                    </label>
+                      </label>
+                    </div>
                   </div>
                   
                   {formData.images.length > 0 && (
@@ -371,19 +402,26 @@ const AddApartment: React.FC = () => {
                         {formData.images.map((file, index) => (
                           <div key={index} className="relative group">
                             <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                              <ImageIcon className="text-gray-400 text-2xl" />
+                              <img 
+                                src={URL.createObjectURL(file)} 
+                                alt={file.name}
+                                className="w-full h-full object-cover"
+                              />
                             </div>
                             <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all rounded-lg flex items-center justify-center">
                               <button
                                 type="button"
                                 onClick={() => removeImage(index)}
-                                className="opacity-0 group-hover:opacity-100 bg-red-500 text-white p-1 rounded-full transition-opacity"
+                                className="opacity-0 group-hover:opacity-100 bg-red-500 text-white p-1 rounded-full transition-opacity w-8 h-8 flex items-center justify-center"
                               >
                                 ×
                               </button>
                             </div>
                             <p className="text-xs text-gray-500 mt-1 truncate">
                               {file.name}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {(file.size / (1024 * 1024)).toFixed(2)} MB
                             </p>
                           </div>
                         ))}

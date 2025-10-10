@@ -64,14 +64,13 @@ const useAdminStore = create<AdminState & AdminActions>()(
       login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-          console.log('🔐 Attempting login with:', { email, API_BASE_URL });
+         
           
           const response = await axios.post(
             `${API_BASE_URL}/api/v1/auth/admin-login`,
             { email, password }
           );
-          
-          console.log('✅ Login response:', response.data);
+       
           
           // Handle different response structures
           const responseData = response.data;
@@ -82,7 +81,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error('No token received from server');
           }
           
-          console.log('🔑 Token received:', token);
+    
           
           // Set store state
           set({
@@ -107,13 +106,13 @@ const useAdminStore = create<AdminState & AdminActions>()(
           // Store token in localStorage
           try {
             localStorage.setItem('token', token);
-            console.log('💾 Token stored in localStorage:', localStorage.getItem('token'));
+          
           } catch (storageError) {
-            console.error('❌ Failed to store token in localStorage:', storageError);
+           
           }
           
         } catch (error: any) {
-          console.error('❌ Login error:', error);
+        
           const errorMessage = error.response?.data?.message || 
                              error.response?.data?.error || 
                              error.message || 
@@ -139,7 +138,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          const errorMessage = error.response?.data?.message || 'Admin registration failed. Please try again.';
+          const errorMessage = error.response?.data?.message ;
           set({ 
             error: errorMessage,
             isLoading: false,
@@ -149,14 +148,14 @@ const useAdminStore = create<AdminState & AdminActions>()(
       },
       
       logout: () => {
-        console.log('🚪 Logging out...');
+    
         set(initialState);
         try {
           localStorage.removeItem('token');
           localStorage.removeItem('admin-storage');
-          console.log('✅ Storage cleared');
+         
         } catch (error) {
-          console.error('❌ Error clearing storage on logout:', error);
+         
         }
       },
       
@@ -164,7 +163,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         set({ isLoading: true });
         try {
           const token = get().token || localStorage.getItem('token');
-          console.log('🔑 Token for profile fetch:', token);
+        
           
           if (!token) {
             throw new Error('Authentication token not found');
@@ -179,7 +178,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
             }
           );
           
-          console.log('👤 Profile response:', response.data);
+       
           
           const data = response.data.data || response.data;
           set({
@@ -199,9 +198,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
             isLoading: false,
           });
         } catch (error: any) {
-          console.error('❌ Profile fetch error:', error);
+       
           set({ 
-            error: error.response?.data?.message || 'Failed to fetch profile data.',
+            error: error.response?.data?.message ,
             isLoading: false,
           });
           if (error.response?.status === 401) {
@@ -242,7 +241,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           });
         } catch (error: any) {
           set({ 
-            error: error.response?.data?.message || 'Failed to update profile.',
+            error: error.response?.data?.message ,
             isLoading: false,
           });
           throw error;
@@ -272,7 +271,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           return response.data;
         } catch (error: any) {
           set({ 
-            error: error.response?.data?.message || 'Failed to verify agent.',
+            error: error.response?.data?.message ,
             isLoading: false,
           });
           throw error;
@@ -299,14 +298,14 @@ const useAdminStore = create<AdminState & AdminActions>()(
             }
           );
           
-          console.log('🏠 Properties response:', response.data);
+         
           
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          console.error('❌ List properties error:', error);
+        
           set({ 
-            error: error.response?.data?.message || 'Failed to fetch properties.',
+            error: error.response?.data?.message ,
             isLoading: false,
           });
           
@@ -340,7 +339,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           return response.data;
         } catch (error: any) {
           set({ 
-            error: error.response?.data?.message || 'Failed to fetch agents.',
+            error: error.response?.data?.message ,
             isLoading: false,
           });
           throw error;
@@ -369,7 +368,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           return response.data;
         } catch (error: any) {
           set({ 
-            error: error.response?.data?.message || 'Failed to fetch agent profile.',
+            error: error.response?.data?.message,
             isLoading: false,
           });
           throw error;
@@ -397,7 +396,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           return response.data;
         } catch (error: any) {
           set({ 
-            error: error.response?.data?.message || 'Failed to fetch dashboard stats.',
+            error: error.response?.data?.message,
             isLoading: false,
           });
           throw error;
@@ -427,7 +426,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           return response.data;
         } catch (error: any) {
           set({ 
-            error: error.response?.data?.message || 'Failed to fetch transaction details.',
+            error: error.response?.data?.message,
             isLoading: false,
           });
           throw error;
@@ -455,7 +454,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           return response.data;
         } catch (error: any) {
           set({ 
-            error: error.response?.data?.message || 'Failed to delete apartment.',
+            error: error.response?.data?.message ,
             isLoading: false,
           });
           throw error;
@@ -484,7 +483,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           return response.data;
         } catch (error: any) {
           set({ 
-            error: error.response?.data?.message || 'Failed to search apartments.',
+            error: error.response?.data?.message ,
             isLoading: false,
           });
           throw error;

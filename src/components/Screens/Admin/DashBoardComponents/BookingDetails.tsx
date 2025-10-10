@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Paper, ThemeProvider, createTheme } from '@mui/material'
 import MaterialTable from 'material-table'
 import { Link, useLocation } from 'react-router-dom'
+import useBookingStore from '../../../../stores/bookingStore' // Adjust the import path as needed
 
 const BookingDetails = () => {
   const url = useLocation()
@@ -9,42 +10,72 @@ const BookingDetails = () => {
   const pathnames = pathname.split("/").filter((x) => x)
   
   const [selectedStatus, setSelectedStatus] = useState('all')
+  
+  // Use the booking store
+  const { 
+    bookings, 
+    loading, 
+    error, 
+    fetchBookings 
+  } = useBookingStore()
 
-  const data = [
-    {
-      id: 1,
-      customer: "Mary John",
-      apartment_booked: "Spacious 2Bedroom Lekki, Lagos",
-      date: "21 Sept, 2024, 10am",
-      phone_number: "+234 906 647 4654",
-      check_in: "23 Sept, 2024, 11am",
-      check_out: "25 Sept, 2024, 12pm",
-      apartment_agent: "Akin Sunday",
-      status: "Successful"
-    },
-    {
-      id: 2,
-      customer: "Janet Ade",
-      apartment_booked: "Modern Studio VI, Lagos",
-      date: "20 Sept, 2024, 2pm",
-      phone_number: "+234 816 547 3829",
-      check_in: "22 Sept, 2024, 3pm",
-      check_out: "24 Sept, 2024, 11am",
-      apartment_agent: "Tolu James",
-      status: "Pending"
-    },
-    {
-      id: 3,
-      customer: "Tolu Peace",
-      apartment_booked: "Luxury Penthouse Ikoyi",
-      date: "19 Sept, 2024, 4pm",
-      phone_number: "+234 705 123 4567",
-      check_in: "21 Sept, 2024, 2pm",
-      check_out: "26 Sept, 2024, 10am",
-      apartment_agent: "Blessing Okon",
-      status: "Successful"
-    },
-  ]
+  // Fetch bookings on component mount
+  useEffect(() => {
+    fetchBookings()
+  }, [fetchBookings])
+
+  // Transform store data to match table format based on actual API response
+  const transformBookingData = () => {
+    return bookings.map(booking => ({
+      id: booking.id,
+      customer: booking.guest_name || "Customer", // Fallback if guest_name not in response
+      apartment_booked: booking.apartment?.name || "Apartment",
+      date: formatDate(booking.created_at),
+      phone_number: booking.guest_phone || "+234 000 000 0000",
+      check_in: formatDate(booking.booking_start_date),
+      check_out: formatDate(booking.booking_end_date),
+      apartment_agent: "Agent", // You might want to add agent info to your API
+      status: mapStatus(booking.status)
+    }))
+  }
+
+  // Map backend status to frontend status
+  const mapStatus = (status: string) => {
+    const statusMap: { [key: string]: string } = {
+      'booked': 'Successful',
+      'confirmed': 'Successful',
+      'pending': 'Pending',
+      'cancelled': 'Cancelled',
+      'rejected': 'Rejected'
+    }
+    return statusMap[status] || 'Pending'
+  }
+
+  // Helper function to format dates
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A'
+    
+    try {
+      const date = new Date(dateString)
+      return date.toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      })
+    } catch (error) {
+      return 'Invalid Date'
+    }
+  }
+
+  // Filter data based on selected status
+  const filteredData = selectedStatus === 'all' 
+    ? transformBookingData() 
+    : transformBookingData().filter(booking => 
+        booking.status.toLowerCase() === selectedStatus.toLowerCase()
+      )
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -71,10 +102,10 @@ const BookingDetails = () => {
         <div className="flex items-center">
           <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center mr-3">
             <span className="text-primary-600 font-medium text-sm">
-              {rowData.customer.split(' ').map((n: string) => n[0]).join('')}
+              {rowData.customer?.split(' ').map((n: string) => n[0]).join('') || 'N/A'}
             </span>
           </div>
-          <span className="font-medium text-gray-900">{rowData.customer}</span>
+          <span className="font-medium text-gray-900">{rowData.customer || 'N/A'}</span>
         </div>
       ),
     },
@@ -83,7 +114,7 @@ const BookingDetails = () => {
       field: "apartment_booked",
       cellStyle: { paddingLeft: "20px" },
       render: (rowData: any) => (
-        <div className="font-medium text-gray-700">{rowData.apartment_booked}</div>
+        <div className="font-medium text-gray-700">{rowData.apartment_booked || 'N/A'}</div>
       ),
     },
     {
@@ -91,7 +122,7 @@ const BookingDetails = () => {
       field: "date",
       cellStyle: { paddingLeft: "20px" },
       render: (rowData: any) => (
-        <div className="text-gray-600">{rowData.date}</div>
+        <div className="text-gray-600">{rowData.date || 'N/A'}</div>
       ),
     },
     {
@@ -99,7 +130,7 @@ const BookingDetails = () => {
       field: "phone_number",
       cellStyle: { paddingLeft: "20px" },
       render: (rowData: any) => (
-        <div className="text-gray-600">{rowData.phone_number}</div>
+        <div className="text-gray-600">{rowData.phone_number || 'N/A'}</div>
       ),
     },
     {
@@ -107,7 +138,7 @@ const BookingDetails = () => {
       field: "check_in",
       cellStyle: { paddingLeft: "20px" },
       render: (rowData: any) => (
-        <div className="text-gray-600">{rowData.check_in}</div>
+        <div className="text-gray-600">{rowData.check_in || 'N/A'}</div>
       ),
     },
     {
@@ -115,17 +146,17 @@ const BookingDetails = () => {
       field: "check_out",
       cellStyle: { paddingLeft: "20px" },
       render: (rowData: any) => (
-        <div className="text-gray-600">{rowData.check_out}</div>
+        <div className="text-gray-600">{rowData.check_out || 'N/A'}</div>
       ),
     },
-    {
-      title: "Agent",
-      field: "apartment_agent",
-      cellStyle: { paddingLeft: "20px" },
-      render: (rowData: any) => (
-        <div className="font-medium text-gray-700">{rowData.apartment_agent}</div>
-      ),
-    },
+    // {
+    //   title: "Agent",
+    //   field: "apartment_agent",
+    //   cellStyle: { paddingLeft: "20px" },
+    //   render: (rowData: any) => (
+    //     <div className="font-medium text-gray-700">{rowData.apartment_agent || 'N/A'}</div>
+    //   ),
+    // },
     {
       title: "Status",
       field: "status",
@@ -145,6 +176,38 @@ const BookingDetails = () => {
     },
   })
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="flex justify-center items-center py-12">
+            <div className="text-lg text-gray-600">Loading bookings...</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="flex justify-center items-center py-12">
+            <div className="text-lg text-red-600">Error: {error}</div>
+            <button 
+              onClick={() => fetchBookings()}
+              className="ml-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
@@ -161,6 +224,7 @@ const BookingDetails = () => {
               <option value="successful">Successful</option>
               <option value="pending">Pending</option>
               <option value="rejected">Rejected</option>
+              <option value="cancelled">Cancelled</option>
             </select>
             
             <button className="bg-primary-600 hover:bg-primary-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">
@@ -182,7 +246,7 @@ const BookingDetails = () => {
                   Container: (props) => <Paper {...props} elevation={0} />,
                 }}
                 columns={COLUMNS}
-                data={data}
+                data={filteredData}
                 title=""
                 options={{
                   paging: !["dashboard", "home"].every((ai) =>
@@ -214,7 +278,6 @@ const BookingDetails = () => {
                     width: "300px",
                     height: "40px",
                     backgroundColor: "white",
-                    // padding: "0 12px",
                     marginRight: "16px",
                   },
                   searchFieldVariant: "standard",

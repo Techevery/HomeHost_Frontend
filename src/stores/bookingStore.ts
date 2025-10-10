@@ -4,23 +4,37 @@ import { persist } from 'zustand/middleware';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
+interface Transaction {
+  reference: string;
+}
+
+interface Apartment {
+  name: string;
+  address: string;
+  type: string;
+  servicing: string;
+}
+
 interface Booking {
   id: string;
-  apartment_name: string;
-  date: string;
-  receipt_id: string;
-  amount: string;
-  status: 'Successful' | 'Rejected' | 'Pending';
-  guest_name: string;
-  guest_email: string;
-  guest_phone: string;
-  next_of_kin_name: string;
-  next_of_kin_phone: string;
+  apartment_id: string;
+  availability: boolean;
+  booking_start_date: string;
+  booking_end_date: string;
+  status: string;
+  created_at: string;
+  duration_days: number;
+  transaction_id: string;
+  transaction?: Transaction;
+  apartment?: Apartment;
+  guest_name?: string;
+  guest_phone?: string;
+  guest_email?: string;
+  next_of_kin_name?: string;
+  next_of_kin_phone?: string;
   discount_code?: string;
-  check_in_date: string;
-  check_out_date: string;
-  nights: number;
-  property_id: string;
+  amount?: string;
+  receipt_id?: string;
 }
 
 interface Receipt {
@@ -72,8 +86,7 @@ const initialState: BookingState = {
   endDate: null,
 };
 
-
-const API_BASE_URL = process.env.REACT_APP_DEV_BASE_URL || 'https://homeyhost.ng/api'
+const API_BASE_URL = process.env.REACT_APP_DEV_BASE_URL || 'https://homeyhost.ng/api';
 
 const useBookingStore = create<BookingState & BookingActions>()(
   persist(
@@ -89,7 +102,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           }
 
           const response = await axios.get(
-            `${API_BASE_URL }api/v1/bookings`,
+            `${API_BASE_URL}/api/v1/booking`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -97,18 +110,21 @@ const useBookingStore = create<BookingState & BookingActions>()(
             }
           );
           
-          set({ bookings: response.data.data });
+          // Handle different response structures
+          const bookingsData = response.data.data || response.data || [];
+          set({ bookings: bookingsData });
         } catch (error: any) {
+          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to fetch bookings';
           set({ 
-            error: error.response?.data?.message || 'Failed to fetch bookings',
+            error: errorMessage,
           });
-          toast.error('Failed to fetch bookings');
+          toast.error(errorMessage);
         } finally {
           set({ loading: false });
         }
       },
       
-      fetchBookingById: async (id) => {
+      fetchBookingById: async (id: string) => {
         set({ loading: true, error: null });
         try {
           const token = localStorage.getItem('token');
@@ -125,23 +141,25 @@ const useBookingStore = create<BookingState & BookingActions>()(
             }
           );
           
+          const bookingData = response.data.data || response.data;
           set({ 
-            currentBooking: response.data.data,
-            selectedDates: response.data.data.selected_dates || [],
-            startDate: response.data.data.start_date || null,
-            endDate: response.data.data.end_date || null,
+            currentBooking: bookingData,
+            selectedDates: bookingData.selected_dates || [],
+            startDate: bookingData.start_date ? new Date(bookingData.start_date) : null,
+            endDate: bookingData.end_date ? new Date(bookingData.end_date) : null,
           });
         } catch (error: any) {
+          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to fetch booking details';
           set({ 
-            error: error.response?.data?.message || 'Failed to fetch booking details',
+            error: errorMessage,
           });
-          toast.error('Failed to fetch booking details');
+          toast.error(errorMessage);
         } finally {
           set({ loading: false });
         }
       },
       
-      createBooking: async (bookingData) => {
+      createBooking: async (bookingData: Partial<Booking>) => {
         set({ loading: true, error: null });
         try {
           const token = localStorage.getItem('token');
@@ -168,24 +186,25 @@ const useBookingStore = create<BookingState & BookingActions>()(
             }
           );
           
+          const newBooking = response.data.data || response.data;
           set((state) => ({
-            bookings: [...state.bookings, response.data.data],
-            currentBooking: response.data.data,
+            bookings: [...state.bookings, newBooking],
+            currentBooking: newBooking,
           }));
           
           toast.success('Booking created successfully!');
-          return response.data.data;
+          return newBooking;
         } catch (error: any) {
-          const errorMsg = error.response?.data?.message || 'Failed to create booking';
-          set({ error: errorMsg });
-          toast.error(errorMsg);
+          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to create booking';
+          set({ error: errorMessage });
+          toast.error(errorMessage);
           throw error;
         } finally {
           set({ loading: false });
         }
       },
       
-      updateBooking: async (id, updatedData) => {
+      updateBooking: async (id: string, updatedData: Partial<Booking>) => {
         set({ loading: true, error: null });
         try {
           const token = localStorage.getItem('token');
@@ -194,7 +213,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           }
 
           const response = await axios.patch(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/bookings/${id}`,
+            `${API_BASE_URL}/api/v1/bookings/${id}`,
             updatedData,
             {
               headers: {
@@ -203,19 +222,21 @@ const useBookingStore = create<BookingState & BookingActions>()(
             }
           );
           
+          const updatedBooking = response.data.data || response.data;
           set((state) => ({
             bookings: state.bookings.map(booking => 
-              booking.id === id ? { ...booking, ...response.data.data } : booking
+              booking.id === id ? { ...booking, ...updatedBooking } : booking
             ),
             currentBooking: state.currentBooking?.id === id ? 
-              { ...state.currentBooking, ...response.data.data } : 
+              { ...state.currentBooking, ...updatedBooking } : 
               state.currentBooking,
           }));
           
           toast.success('Booking updated successfully!');
         } catch (error: any) {
+          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to update booking';
           set({ 
-            error: error.response?.data?.message || 'Failed to update booking',
+            error: errorMessage,
           });
           toast.error('Failed to update booking');
           throw error;
@@ -224,7 +245,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
         }
       },
       
-      cancelBooking: async (id) => {
+      cancelBooking: async (id: string) => {
         set({ loading: true, error: null });
         try {
           const token = localStorage.getItem('token');
@@ -248,8 +269,9 @@ const useBookingStore = create<BookingState & BookingActions>()(
           
           toast.success('Booking cancelled successfully!');
         } catch (error: any) {
+          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to cancel booking';
           set({ 
-            error: error.response?.data?.message || 'Failed to cancel booking',
+            error: errorMessage,
           });
           toast.error('Failed to cancel booking');
           throw error;
@@ -258,7 +280,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
         }
       },
       
-      fetchReceipts: async (bookingId) => {
+      fetchReceipts: async (bookingId: string) => {
         set({ loading: true, error: null });
         try {
           const token = localStorage.getItem('token');
@@ -275,21 +297,23 @@ const useBookingStore = create<BookingState & BookingActions>()(
             }
           );
           
+          const receiptsData = response.data.data || response.data || [];
           set({ 
-            receipts: response.data.data,
-            currentReceipt: response.data.data[0] || null,
+            receipts: receiptsData,
+            currentReceipt: receiptsData[0] || null,
           });
         } catch (error: any) {
+          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to fetch receipts';
           set({ 
-            error: error.response?.data?.message || 'Failed to fetch receipts',
+            error: errorMessage,
           });
-          toast.error('Failed to fetch receipts');
+          toast.error(errorMessage);
         } finally {
           set({ loading: false });
         }
       },
       
-      generateReceipt: async (bookingId, type) => {
+      generateReceipt: async (bookingId: string, type: 'download' | 'email') => {
         set({ loading: true, error: null });
         try {
           const token = localStorage.getItem('token');
@@ -298,7 +322,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           }
 
           const response = await axios.post(
-            `${process.env.REACT_APP_DEV_BASE_URL}/api/v1/bookings/${bookingId}/receipts`,
+            `${API_BASE_URL}/api/v1/bookings/${bookingId}/receipts`,
             { type },
             {
               headers: {
@@ -307,36 +331,37 @@ const useBookingStore = create<BookingState & BookingActions>()(
             }
           );
           
-          if (type === 'download') {
+          const newReceipt = response.data.data || response.data;
+          if (type === 'download' && newReceipt.download_url) {
             // Handle PDF download
-            window.open(response.data.data.download_url, '_blank');
+            window.open(newReceipt.download_url, '_blank');
           } else {
             toast.success('Receipt sent to email successfully!');
           }
           
           set((state) => ({
-            receipts: [...state.receipts, response.data.data],
-            currentReceipt: response.data.data,
+            receipts: [...state.receipts, newReceipt],
+            currentReceipt: newReceipt,
           }));
         } catch (error: any) {
-          const errorMsg = error.response?.data?.message || 'Failed to generate receipt';
-          set({ error: errorMsg });
-          toast.error(errorMsg);
+          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to generate receipt';
+          set({ error: errorMessage });
+          toast.error(errorMessage);
           throw error;
         } finally {
           set({ loading: false });
         }
       },
       
-      setSelectedDates: (dates) => {
+      setSelectedDates: (dates: Date[]) => {
         set({ selectedDates: dates });
       },
       
-      setStartDate: (date) => {
+      setStartDate: (date: Date | null) => {
         set({ startDate: date });
       },
       
-      setEndDate: (date) => {
+      setEndDate: (date: Date | null) => {
         set({ endDate: date });
       },
       

@@ -11,8 +11,7 @@ import ViewBooking from './components/pages/viewBooking.tsx/ViewBooking';
 import DownloadReceipt from './components/pages/viewBooking.tsx/DownloadReceipt';
 import LoginAgent from './components/pages/agent/LoginAgent';
 import AddProperty from './components/pages/agent/AddApartment';
-import AllProperty from './components/pages/agent/AllProperty';
-import ViewAgentProperty from './components/pages/agent/ViewAgentProperty';
+
 import BecomeAgent from './components/pages/agent/BecomeAgent';
 import Profile from './components/pages/profile/Profile';
 import PersonalInfo from './components/pages/profile/PersonalInfo';
@@ -27,6 +26,7 @@ import ListOfApartment from './components/Screens/Admin/listOfAppointment/ListOf
 import Payout from './components/Screens/Admin/payout/PayoutHome';
 import Agentprofile from './components/pages/profile/AgentProfile'
 import EditProfileModal from './components/pages/profile/EditAdminProfile';
+import  AgentPropertiesGallery from "./components/pages/agent/PersonalUrlProperties"
 
 import Dashboard from './components/Screens/Dashboard';
 import AgentHome from './components/Screens/Admin/agent/AgentHome';
@@ -57,8 +57,7 @@ function App() {
       <Route path="/add-property" element={<AddProperty />} />
       <Route path="/add-apartment" element={<AddApartment />} />
       <Route path="/apartment" element={<Apartment />} />
-      <Route path="/agent-all-property" element={<AllProperty />} />
-      <Route path="/agent-view-property" element={<ViewAgentProperty />} />
+    
       <Route path="/become-agent" element={<BecomeAgent />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/personal-info" element={<PersonalInfo />} /> 
@@ -71,6 +70,7 @@ function App() {
       <Route path="/contact-us" element={<ContactUs />} />
       <Route path="/edit-profile" element={<EditProfileModal open={true} onClose={handleCancel} />} />
       <Route path="/edit-modal" element={<EditModal handleCancel={handleCancel} />} />
+      <Route path="/agent-properties-gallery/:personalUrl" element={<AgentPropertiesGallery />} />
 
 
 

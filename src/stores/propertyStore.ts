@@ -11,11 +11,13 @@ interface Property {
   type: string;
   servicing: string;
   bedroom: string;
-  price: string;
+  price: number; // Changed from string to number
   images: string[];
   status: 'available' | 'unavailable';
   location: string;
-  amenities: string[];
+  amenities: string; // Changed from string[] to string
+  agentPercentage: number; // Added agentPercentage
+  adminId: string;
 }
 
 interface PropertyState {
@@ -42,7 +44,6 @@ const initialState: PropertyState = {
   error: null,
 };
 
-
 const API_BASE_URL = process.env.REACT_APP_DEV_BASE_URL || 'https://homeyhost.ng/api'
 
 const usePropertyStore = create<PropertyState & PropertyActions>()(
@@ -53,8 +54,18 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
       fetchProperties: async () => {
         set({ loading: true, error: null });
         try {
+          const token = localStorage.getItem('token');
+          if (!token) {
+            throw new Error('Authentication token not found');
+          }
+
           const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/properties`
+            `${API_BASE_URL}/api/v1/admin/properties`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
           );
           set({ properties: response.data.data });
         } catch (error: any) {
@@ -70,8 +81,18 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
       fetchPropertyById: async (id) => {
         set({ loading: true, error: null });
         try {
+          const token = localStorage.getItem('token');
+          if (!token) {
+            throw new Error('Authentication token not found');
+          }
+
           const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/properties/${id}`
+            `${API_BASE_URL}/api/v1/admin/properties/${id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
           );
           set({ currentProperty: response.data.data });
         } catch (error: any) {
@@ -91,6 +112,14 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
           if (!token) {
             throw new Error('Authentication token not found');
           }
+
+          // Convert data types before sending
+          const price = formData.get('price');
+          const agentPercentage = formData.get('percentage');
+          
+          // Ensure numeric values
+          if (price) formData.set('price', price.toString());
+          if (agentPercentage) formData.set('agentPercentage', agentPercentage.toString());
 
           const response = await axios.post(
             `${API_BASE_URL}/api/v1/admin/upload-property`,

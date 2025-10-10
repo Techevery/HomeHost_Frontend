@@ -1,12 +1,59 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "../Navbar";
 import { Link, useNavigate } from "react-router-dom";
-import { MdOutlineFavoriteBorder, MdSearch, MdPerson, MdChevronLeft, MdChevronRight } from "react-icons/md";
+import { 
+  MdOutlineFavoriteBorder, 
+  MdSearch, 
+  MdPerson, 
+  MdChevronLeft, 
+  MdChevronRight,
+  MdClose,
+  MdAdd,
+  MdCheckCircle
+} from "react-icons/md";
+import useAgentStore from "../../../stores/agentstore";
+
+// Define the Property interface based on your API response
+interface Property {
+  id: string;
+  name: string;
+  address: string;
+  type: string;
+  servicing: string;
+  bedroom: string;
+  price: string;
+  images: string[];
+  status: 'available' | 'unavailable';
+  location: string;
+  amenities: string[];
+  video_link?: string | null;
+  adminId?: string;
+  agentPercentage?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 const ViewProperties = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [markupPrice, setMarkupPrice] = useState("");
+  const [agentPercentage, setAgentPercentage] = useState("10"); // Default to 10%
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isAdding, setIsAdding] = useState(false);
+
+  // Use agent store to fetch public properties
+  const { 
+    publicProperties, 
+    fetchPublicProperties, 
+    loading, 
+    currentPublicPage, 
+    hasMorePublicProperties,
+    enlistApartment,
+    agentInfo,
+    error
+  } = useAgentStore();
 
   const carouselImages = [
     "/images/bg.svg",
@@ -15,56 +62,17 @@ const ViewProperties = () => {
     "/images/house 3.svg"
   ];
 
-  const properties = [
-    {
-      id: 1,
-      image: "/images/house1.svg",
-      title: "Luxury 2 Bedroom Apartment",
-      location: "Lekki, Lagos",
-      price: "NGN 20,000/Night",
-      available: true
-    },
-    {
-      id: 2,
-      image: "/images/house 2.svg",
-      title: "Modern Studio Apartment",
-      location: "Victoria Island, Lagos",
-      price: "NGN 15,000/Night",
-      available: false
-    },
-    {
-      id: 3,
-      image: "/images/house 3.svg",
-      title: "Executive 3 Bedroom Flat",
-      location: "Ikoyi, Lagos",
-      price: "NGN 35,000/Night",
-      available: false
-    },
-    {
-      id: 4,
-      image: "/images/house1.svg",
-      title: "Beachfront Luxury Villa",
-      location: "Eko Atlantic, Lagos",
-      price: "NGN 50,000/Night",
-      available: true
-    },
-    {
-      id: 5,
-      image: "/images/house 2.svg",
-      title: "City View Apartment",
-      location: "Yaba, Lagos",
-      price: "NGN 12,000/Night",
-      available: false
-    },
-    {
-      id: 6,
-      image: "/images/house 3.svg",
-      title: "Garden Duplex",
-      location: "GRA, Lagos",
-      price: "NGN 28,000/Night",
-      available: true
-    }
-  ];
+  // Fetch public properties on component mount
+  useEffect(() => {
+    fetchPublicProperties(1, 12);
+  }, [fetchPublicProperties]);
+
+  // Debug useEffect
+  useEffect(() => {
+    console.log('Public Properties:', publicProperties);
+    console.log('Loading:', loading);
+    console.log('Error:', error);
+  }, [publicProperties, loading, error]);
 
   // Auto-rotate carousel
   useEffect(() => {
@@ -82,11 +90,117 @@ const ViewProperties = () => {
     setCurrentSlide((prev) => (prev - 1 + carouselImages.length) % carouselImages.length);
   };
 
-  const filteredProperties = properties.filter(property =>
-    Object.values(property).some(value =>
-      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+  const nextImage = () => {
+    if (selectedProperty && selectedProperty.images) {
+      setCurrentImageIndex((prev) => 
+        (prev + 1) % selectedProperty.images.length
+      );
+    }
+  };
+
+  const prevImage = () => {
+    if (selectedProperty && selectedProperty.images) {
+      setCurrentImageIndex((prev) => 
+        (prev - 1 + selectedProperty.images.length) % selectedProperty.images.length
+      );
+    }
+  };
+
+  // Fixed: Safe property filtering with array check
+  const filteredProperties = React.useMemo(() => {
+    if (!Array.isArray(publicProperties) || publicProperties.length === 0) {
+      return [];
+    }
+    
+    if (!searchTerm.trim()) {
+      return publicProperties;
+    }
+    
+    return publicProperties.filter((property: Property) => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        (property.name && property.name.toLowerCase().includes(searchLower)) ||
+        (property.address && property.address.toLowerCase().includes(searchLower)) ||
+        (property.location && property.location.toLowerCase().includes(searchLower)) ||
+        (property.type && property.type.toLowerCase().includes(searchLower)) ||
+        (property.price && property.price.toLowerCase().includes(searchLower))
+      );
+    });
+  }, [publicProperties, searchTerm]);
+
+  const handleViewProperty = (property: Property) => {
+    setSelectedProperty(property);
+    setCurrentImageIndex(0);
+    setMarkupPrice("");
+    setAgentPercentage("10"); // Reset to default when opening new property
+  };
+
+  const handleAddProperty = async () => {
+    if (!markupPrice || !selectedProperty || !agentPercentage) return;
+
+    setIsAdding(true);
+    try {
+      const markedUpPrice = parseFloat(markupPrice);
+      const percentage = parseFloat(agentPercentage);
+      
+      await enlistApartment(selectedProperty.id, markedUpPrice, percentage);
+      
+      // Close modal on success
+      setSelectedProperty(null);
+      setMarkupPrice("");
+      setAgentPercentage("10"); // Reset to default
+      
+      // Show success message (you can use toast here)
+      alert("Property added successfully to your listings!");
+    } catch (error) {
+      console.error("Failed to add property:", error);
+      alert("Failed to add property. Please try again.");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const calculateFinalPrice = () => {
+    if (!markupPrice || !selectedProperty || !agentPercentage) return "0";
+    const basePrice = parseFloat(selectedProperty.price || "0");
+    const markup = parseFloat(markupPrice) || 0;
+    
+    // Calculate final price: base price + markup
+    const finalPrice = basePrice + markup;
+    return finalPrice.toLocaleString();
+  };
+
+  const calculateCommission = () => {
+    if (!markupPrice || !selectedProperty || !agentPercentage) return "0";
+    const basePrice = parseFloat(selectedProperty.price || "0");
+    const markup = parseFloat(markupPrice) || 0;
+    const percentage = parseFloat(agentPercentage) || 0;
+    
+    // Calculate commission: (base price + markup) * percentage
+    const finalPrice = basePrice + markup;
+    const commission = (finalPrice * percentage) / 100;
+    return commission.toLocaleString();
+  };
+
+  // Helper function to get property image safely
+  const getPropertyImage = (property: Property) => {
+    return property.images && property.images.length > 0 
+      ? property.images[0] 
+      : "/images/house1.svg";
+  };
+
+  // Helper function to get current modal image safely
+  const getCurrentModalImage = () => {
+    if (!selectedProperty || !selectedProperty.images) return "/images/house1.svg";
+    return selectedProperty.images[currentImageIndex] || "/images/house1.svg";
+  };
+
+  // Load more properties when scrolling (optional)
+  const loadMoreProperties = () => {
+    if (hasMorePublicProperties && !loading) {
+      fetchPublicProperties(currentPublicPage + 1, 12);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -148,12 +262,7 @@ const ViewProperties = () => {
             {/* Top Navigation Bar */}
             <div className="flex justify-between items-center mb-12">
               <div className="flex items-center gap-4">
-                {/* <button
-                  onClick={() => navigate("/manage-booking")}
-                  className="bg-white text-blue-900 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors duration-200 shadow-lg hover:shadow-xl"
-                >
-                  Manage Booking
-                </button> */}
+                {/* Optional: Add back manage booking button if needed */}
               </div>
               
               <div className="flex items-center gap-4">
@@ -169,8 +278,6 @@ const ViewProperties = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                
-                
               </div>
             </div>
 
@@ -198,86 +305,341 @@ const ViewProperties = () => {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-8">
-          {filteredProperties.map((property) => (
-            <div
-              key={property.id}
-              className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
-            >
-              <div className="relative h-64">
-                <img
-                  src={property.image}
-                  alt={property.title}
-                  className="w-full h-full object-cover"
-                />
-                <button className="absolute top-4 right-4 flex items-center justify-center z-20 hover:scale-110 transition-transform duration-200">
-                  <div className="bg-white text-black rounded-full p-3 shadow-lg hover:shadow-xl">
-                    <MdOutlineFavoriteBorder className="text-xl" />
-                  </div>
-                </button>
-                
-                {/* Availability Badge */}
-                <div className="absolute top-4 left-4">
-                  <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    property.available 
-                      ? "bg-green-500 text-white" 
-                      : "bg-red-500 text-white"
-                  }`}>
-                    {property.available ? "Available" : "Unavailable"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6">
-                <div className="flex flex-col gap-4">
-                  <h5 className="text-xl font-semibold text-gray-900 line-clamp-2">
-                    {property.title}
-                  </h5>
-
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <img
-                      src="/images/location 1.svg"
-                      alt="Location"
-                      className="w-5 h-5"
-                    />
-                    <span className="text-lg">{property.location}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-2">
-                    <h4 className="text-2xl font-bold text-blue-600">
-                      {property.price}
-                    </h4>
-
-                    <Link
-                      to={property.available ? "/book-apartment" : "#"}
-                      className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                        property.available
-                          ? "bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105"
-                          : "bg-gray-400 text-gray-200 cursor-not-allowed"
-                      }`}
-                    >
-                      {property.available ? "Book Now" : "Unavailable"}
-                    </Link>
-                  </div>
-                </div>
-              </div>
+        {/* Error Display */}
+        {error && (
+          <div className="text-center py-8">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
+              <p className="text-red-600 font-semibold">Error loading properties</p>
+              <p className="text-red-500 text-sm mt-1">{error}</p>
+              <button
+                onClick={() => fetchPublicProperties(1, 12)}
+                className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              >
+                Retry
+              </button>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
+
+        {loading && (!Array.isArray(publicProperties) || publicProperties.length === 0) ? (
+          <div className="flex justify-center items-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <span className="ml-3 text-gray-600">Loading properties...</span>
+          </div>
+        ) : (
+          <>
+            <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-8">
+              {filteredProperties.map((property: Property) => (
+                <div
+                  key={property.id}
+                  className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
+                >
+                  <div className="relative h-64">
+                    <img
+                      src={getPropertyImage(property)}
+                      alt={property.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <button className="absolute top-4 right-4 flex items-center justify-center z-20 hover:scale-110 transition-transform duration-200">
+                      <div className="bg-white text-black rounded-full p-3 shadow-lg hover:shadow-xl">
+                        <MdOutlineFavoriteBorder className="text-xl" />
+                      </div>
+                    </button>
+                    
+                    {/* Availability Badge */}
+                    <div className="absolute top-4 left-4">
+                      <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                        property.status === 'available' 
+                          ? "bg-green-500 text-white" 
+                          : "bg-red-500 text-white"
+                      }`}>
+                        {property.status === 'available' ? "Available" : "Unavailable"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6">
+                    <div className="flex flex-col gap-4">
+                      <h5 className="text-xl font-semibold text-gray-900 line-clamp-2">
+                        {property.name}
+                      </h5>
+
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <img
+                          src="/images/location 1.svg"
+                          alt="Location"
+                          className="w-5 h-5"
+                        />
+                        <span className="text-lg">{property.location || property.address}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center pt-2">
+                        <h4 className="text-2xl font-bold text-blue-600">
+                          NGN {parseFloat(property.price || "0").toLocaleString()}/Night
+                        </h4>
+
+                        <button
+                          onClick={() => handleViewProperty(property)}
+                          className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                            property.status === 'available'
+                              ? "bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105"
+                              : "bg-gray-400 text-gray-200 cursor-not-allowed"
+                          }`}
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Load More Button */}
+            {hasMorePublicProperties && (
+              <div className="flex justify-center mt-12">
+                <button
+                  onClick={loadMoreProperties}
+                  disabled={loading}
+                  className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? "Loading..." : "Load More Properties"}
+                </button>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Empty State */}
-        {filteredProperties.length === 0 && (
+        {!loading && filteredProperties.length === 0 && (
           <div className="text-center py-16">
             <div className="text-gray-400 text-6xl mb-4">🏠</div>
             <h3 className="text-2xl font-semibold text-gray-600 mb-2">
               No properties found
             </h3>
             <p className="text-gray-500">
-              Try adjusting your search terms to find what you're looking for.
+              {Array.isArray(publicProperties) && publicProperties.length === 0 
+                ? "No properties available at the moment." 
+                : "Try adjusting your search terms to find what you're looking for."}
             </p>
           </div>
         )}
       </div>
+
+      {/* Property Detail Modal */}
+      {selectedProperty && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-900">Property Details</h2>
+              <button
+                onClick={() => setSelectedProperty(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <MdClose className="text-2xl" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Image Carousel */}
+                <div className="relative">
+                  <div className="relative h-80 rounded-xl overflow-hidden">
+                    <img
+                      src={getCurrentModalImage()}
+                      alt={selectedProperty.name}
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {/* Navigation Arrows - Only show if multiple images */}
+                    {selectedProperty.images && selectedProperty.images.length > 1 && (
+                      <>
+                        <button
+                          onClick={prevImage}
+                          className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 rounded-full p-2 text-gray-800 hover:bg-opacity-100 transition-all duration-200"
+                        >
+                          <MdChevronLeft className="text-xl" />
+                        </button>
+                        <button
+                          onClick={nextImage}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 rounded-full p-2 text-gray-800 hover:bg-opacity-100 transition-all duration-200"
+                        >
+                          <MdChevronRight className="text-xl" />
+                        </button>
+                      </>
+                    )}
+                    
+                    {/* Image Indicators - Only show if multiple images */}
+                    {selectedProperty.images && selectedProperty.images.length > 1 && (
+                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                        {selectedProperty.images.map((_, index) => (
+                          <button
+                            key={index}
+                            onClick={() => setCurrentImageIndex(index)}
+                            className={`w-2 h-2 rounded-full transition-all ${
+                              index === currentImageIndex
+                                ? "bg-white scale-125"
+                                : "bg-white bg-opacity-50"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Property Info */}
+                  <div className="mt-6">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                      {selectedProperty.name}
+                    </h3>
+                    <p className="text-3xl font-bold text-blue-600 mb-4">
+                      NGN {parseFloat(selectedProperty.price || "0").toLocaleString()}/Night
+                    </p>
+                    
+                    <div className="flex items-center gap-2 text-gray-600 mb-4">
+                      <img
+                        src="/images/location 1.svg"
+                        alt="Location"
+                        className="w-5 h-5"
+                      />
+                      <span className="text-lg">{selectedProperty.address}</span>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-900 mb-3">Amenities</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {selectedProperty.amenities && selectedProperty.amenities.length > 0 ? (
+                          selectedProperty.amenities.map((amenity, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <MdCheckCircle className="text-green-500" />
+                              <span className="text-gray-700">{amenity}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="col-span-2 text-gray-500 text-center py-2">
+                            No amenities listed
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Markup Section */}
+                <div className="space-y-6">
+                  <div className="bg-blue-50 rounded-lg p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">
+                      Add to Your Listings
+                    </h3>
+                    
+                    {/* Markup Price Input */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Mark Up Price (NGN)
+                        </label>
+                        <input
+                          type="number"
+                          value={markupPrice}
+                          onChange={(e) => setMarkupPrice(e.target.value)}
+                          placeholder="Enter markup amount"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        />
+                      </div>
+
+                      {/* Agent Percentage Input - Now editable */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Agent Percentage (%)
+                        </label>
+                        <input
+                          type="number"
+                          value={agentPercentage}
+                          onChange={(e) => setAgentPercentage(e.target.value)}
+                          placeholder="Enter agent percentage"
+                          min="1"
+                          max="100"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        />
+                      </div>
+
+                      {/* Final Price and Commission Display */}
+                      {markupPrice && agentPercentage && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-gray-700">Final Price:</span>
+                            <span className="text-xl font-bold text-green-600">
+                              NGN {calculateFinalPrice()}/Night
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-gray-700">Your Commission ({agentPercentage}%):</span>
+                            <span className="text-lg font-bold text-blue-600">
+                              NGN {calculateCommission()}/Night
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Add Button */}
+                      <button
+                        onClick={handleAddProperty}
+                        disabled={!markupPrice || !agentPercentage || isAdding}
+                        className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
+                          markupPrice && agentPercentage && !isAdding
+                            ? "bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105"
+                            : "bg-gray-400 text-gray-200 cursor-not-allowed"
+                        }`}
+                      >
+                        {isAdding ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Adding...
+                          </>
+                        ) : (
+                          <>
+                            <MdAdd className="text-xl" />
+                            Add to My Listings
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Property Details */}
+                  <div className="bg-gray-50 rounded-lg p-6">
+                    <h4 className="font-semibold text-gray-900 mb-3">Property Details</h4>
+                    <div className="space-y-2 text-sm text-gray-700">
+                      <div className="flex justify-between">
+                        <span>Type:</span>
+                        <span className="font-medium">{selectedProperty.type || "Not specified"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Bedrooms:</span>
+                        <span className="font-medium">{selectedProperty.bedroom || "Not specified"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Servicing:</span>
+                        <span className="font-medium">{selectedProperty.servicing || "Not specified"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Status:</span>
+                        <span className={`font-medium ${
+                          selectedProperty.status === 'available' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {selectedProperty.status || "Unknown"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

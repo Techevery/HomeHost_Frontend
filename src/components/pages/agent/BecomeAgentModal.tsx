@@ -34,7 +34,7 @@ const BecomeAgentModal: React.FC<BecomeAgentModalProps> = (props) => {
         </div>
         <div className='flex justify-center mt-4'>
             <p className="text-gray-600 text-center">
-            Welcome, {agentInfo?.name}! Your agent account is being processed.
+            Welcome, {agentInfo?.name}.
             </p>
         </div>
         <div className='flex justify-center gap-4 mt-8'>
@@ -45,10 +45,10 @@ const BecomeAgentModal: React.FC<BecomeAgentModalProps> = (props) => {
               Close
             </button>
             <Link 
-              to={'/agent-profile'}
+              to={'/agent-login'}
               className="bg-[#000000] text-white rounded-[5px] px-6 py-2 hover:bg-gray-800 transition-colors duration-200"
             >
-              View Profile
+              Go to Login
             </Link>
         </div>
     </div>
