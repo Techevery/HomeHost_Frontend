@@ -27,7 +27,7 @@ import Typography from "@mui/material/Typography";
 
 export interface Property {
   id: string;
-  apartmentId: string;
+  apartmentId?: string;
   title: string;
   description: string;
   price: number;
@@ -41,7 +41,11 @@ export interface Property {
   area?: number;
   agentPercentage?: number;
   createdAt?: string;
-  isFeatured?: boolean;
+   isFeatured?: boolean;
+  
+
+
+
 }
 
 interface PropertyCardProps {

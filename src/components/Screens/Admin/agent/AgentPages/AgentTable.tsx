@@ -22,7 +22,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button
+  Button,
+  Grid,
+  Divider,
+  Avatar
 } from "@mui/material";
 import {
   Visibility,
@@ -34,7 +37,12 @@ import {
   Badge,
   CreditCard,
   CheckCircle,
-  Cancel
+  Cancel,
+  AccountCircle,
+  Fingerprint,
+  Payment,
+  VerifiedUser,
+  PersonPin
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import useAdminStore from '../../../../../stores/admin';
@@ -73,6 +81,15 @@ const AgentTable: React.FC = () => {
     agentName: string;
     documentType: string;
   } | null>(null);
+  
+  // New state for agent detail modal
+  const [agentDetailModal, setAgentDetailModal] = useState<{
+    open: boolean;
+    agent: AgentData | null;
+  }>({
+    open: false,
+    agent: null
+  });
   
   const navigate = useNavigate();
   const { 
@@ -127,6 +144,22 @@ const AgentTable: React.FC = () => {
         agent,
         from: 'agent-table'
       } 
+    });
+  };
+
+  // Open agent detail modal
+  const openAgentDetailModal = (agent: AgentData) => {
+    setAgentDetailModal({
+      open: true,
+      agent
+    });
+  };
+
+  // Close agent detail modal
+  const closeAgentDetailModal = () => {
+    setAgentDetailModal({
+      open: false,
+      agent: null
     });
   };
 
@@ -385,21 +418,23 @@ const AgentTable: React.FC = () => {
 
                       {/* Actions */}
                       <TableCell sx={{ py: 2 }}>
-                        <Tooltip title="View Full Profile & Details">
+                        <Tooltip title="View Agent Details">
                           <IconButton 
                             color="primary"
-                            onClick={() => handleViewProfile(agent)}
+                            onClick={() => openAgentDetailModal(agent)}
                             sx={{
                               backgroundColor: 'primary.light',
                               color: 'white',
                               '&:hover': {
                                 backgroundColor: 'primary.main',
-                              }
+                              },
+                              mr: 1
                             }}
                           >
                             <Visibility />
                           </IconButton>
                         </Tooltip>
+                     
                       </TableCell>
                     </TableRow>
                   ))}
@@ -432,6 +467,183 @@ const AgentTable: React.FC = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Agent Detail Modal */}
+        <Dialog
+          open={agentDetailModal.open}
+          onClose={closeAgentDetailModal}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box display="flex" alignItems="center" gap={2}>
+              <AccountCircle color="primary" />
+              <Typography variant="h6" component="div">
+                Agent Details
+              </Typography>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {agentDetailModal.agent && (
+              <Grid container spacing={3}>
+                {/* Profile Section */}
+                <Grid item xs={12}>
+                  <Box display="flex" alignItems="center" gap={2} mb={2}>
+                    <Avatar sx={{ width: 60, height: 60, bgcolor: 'primary.main' }}>
+                      <Person sx={{ fontSize: 32 }} />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="h5" fontWeight="bold">
+                        {agentDetailModal.agent.name || 'Unnamed Agent'}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Agent ID: {agentDetailModal.agent.id}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Divider />
+                </Grid>
+
+                {/* Basic Information */}
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    <Fingerprint sx={{ fontSize: 18, mr: 1 }} />
+                    Basic Information
+                  </Typography>
+                  <Box display="flex" flexDirection="column" gap={1}>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Account:</Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {agentDetailModal.agent.account || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Slug/URL:</Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {agentDetailModal.agent.slug || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Status:</Typography>
+                      <Chip 
+                        label={agentDetailModal.agent.status || 'Unknown'} 
+                        color={getStatusColor(agentDetailModal.agent.status) as any}
+                        size="small"
+                      />
+                    </Box>
+                  </Box>
+                </Grid>
+
+                {/* Contact Information */}
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    <Email sx={{ fontSize: 18, mr: 1 }} />
+                    Contact Information
+                  </Typography>
+                  <Box display="flex" flexDirection="column" gap={1}>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Email:</Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {agentDetailModal.agent.email}
+                      </Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Phone:</Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {agentDetailModal.agent.phone_number || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+                {/* Verification Status */}
+                {/* <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    <VerifiedUser sx={{ fontSize: 18, mr: 1 }} />
+                    Verification Status
+                  </Typography>
+                  <Box display="flex" flexDirection="column" gap={1}>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Front ID:</Typography>
+                      <Chip 
+                        icon={agentDetailModal.agent.front_id_status ? <CheckCircle /> : <Cancel />}
+                        label={agentDetailModal.agent.front_id_status ? 'Verified' : 'Not Verified'}
+                        color={agentDetailModal.agent.front_id_status ? 'success' : 'error'}
+                        size="small"
+                      />
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Back ID:</Typography>
+                      <Chip 
+                        icon={agentDetailModal.agent.back_id_status ? <CheckCircle /> : <Cancel />}
+                        label={agentDetailModal.agent.back_id_status ? 'Verified' : 'Not Verified'}
+                        color={agentDetailModal.agent.back_id_status ? 'success' : 'error'}
+                        size="small"
+                      />
+                    </Box>
+                  </Box>
+                </Grid> */}
+
+                {/* Financial Information */}
+                {/* <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    <Payment sx={{ fontSize: 18, mr: 1 }} />
+                    Financial Information
+                  </Typography>
+                  <Box display="flex" flexDirection="column" gap={1}>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Profit:</Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {agentDetailModal.agent.profit || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Shopper Data:</Typography>
+                      <Chip 
+                        label={agentDetailModal.agent.shopperData ? 'Available' : 'Not Available'}
+                        color={agentDetailModal.agent.shopperData ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </Box>
+                  </Box>
+                </Grid> */}
+
+                {/* Registration Information */}
+                {/* <Grid item xs={12}>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    <CalendarToday sx={{ fontSize: 18, mr: 1 }} />
+                    Registration Information
+                  </Typography>
+                  <Box display="flex" flexDirection="column" gap={1}>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Registration Date:</Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {new Date(agentDetailModal.agent.createdAt).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Registration Time:</Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {new Date(agentDetailModal.agent.createdAt).toLocaleTimeString()}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid> */}
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeAgentDetailModal} color="inherit">
+              Close
+            </Button>
+            {/* <Button 
+              onClick={() => agentDetailModal.agent && handleViewProfile(agentDetailModal.agent)} 
+              color="primary"
+              variant="contained"
+            >
+              View Full Profile
+            </Button> */}
+          </DialogActions>
+        </Dialog>
 
         {/* Verification Confirmation Dialog */}
         <Dialog

@@ -43,6 +43,7 @@ import useAdminStore from "../../../../stores/admin";
 import EditPropertyModal from "../listOfAppointment/EditPropertyModal";
 import ViewDetailsModal from "../listOfAppointment/ViewPropertyModal";
 import DeleteConfirmationModal from "../listOfAppointment/DeletePropertyModal";
+import AddPropertyModal from "../listOfAppointment/AddPropertyModal"; // Add this import
 
 interface Property {
   id: string;
@@ -57,6 +58,9 @@ interface Property {
   amenities: string[];
   reviews?: number;
   description?: string;
+  rating?: number;
+  location?: string;
+  agentPercentage?: string;
 }
 
 const ApartmentsList: React.FC = () => {
@@ -76,7 +80,7 @@ const ApartmentsList: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  // const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   
@@ -84,11 +88,35 @@ const ApartmentsList: React.FC = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false); // Add this state
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [updateLoading, setUpdateLoading] = useState(false);
 
   const theme = useTheme();
   const navigate = useNavigate();
+
+  // Enhanced utility functions
+  const safeString = (value: any, fallback: string = 'Not specified'): string => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return value.toString();
+    return fallback;
+  };
+
+  const safeArray = (value: any): any[] => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      // Try to parse if it's a JSON string
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [value];
+      } catch {
+        return [value];
+      }
+    }
+    if (value) return [value];
+    return [];
+  };
 
   // Fetch properties on component mount
   useEffect(() => {
@@ -97,10 +125,8 @@ const ApartmentsList: React.FC = () => {
         setLoading(true);
         setError(null);
         
-     
         const result = await listProperties(1, 50);
       
-        
         let propertiesData: Property[] = [];
         
         if (result?.data?.apartments) {
@@ -112,23 +138,24 @@ const ApartmentsList: React.FC = () => {
         } else if (Array.isArray(result)) {
           propertiesData = result;
         } else {
-        
           propertiesData = [];
         }
         
-        // Add mock ratings for demo
+        // Add mock ratings and ensure amenities are arrays
         const propertiesWithRatings = propertiesData.map(property => ({
           ...property,
           rating: Math.random() * 2 + 3, // Random rating between 3-5
           reviews: Math.floor(Math.random() * 100) + 1,
           description: property.description || "A beautiful property with modern amenities and great location.",
+          // Ensure amenities is always an array
+          amenities: safeArray(property.amenities),
+          // Ensure other array fields are safe
+          images: safeArray(property.images),
         }));
         
-      
         setProperties(propertiesWithRatings);
         setFilteredProperties(propertiesWithRatings);
       } catch (error: any) {
-      
         const errorMessage = error.response?.data?.message || 
                            error.message || 
                            'Failed to load properties';
@@ -160,13 +187,12 @@ const ApartmentsList: React.FC = () => {
       );
     }
 
-      
     // Apply status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(property =>
-        safeString(property.status).toLowerCase() === statusFilter.toLowerCase()
-      );
-    }
+    // if (statusFilter !== "all") {
+    //   filtered = filtered.filter(property =>
+    //     safeString(property.status).toLowerCase() === statusFilter.toLowerCase()
+    //   );
+    // }
 
     // Apply type filter
     if (typeFilter !== "all") {
@@ -176,15 +202,15 @@ const ApartmentsList: React.FC = () => {
     }
 
     setFilteredProperties(filtered);
-  }, [properties, searchQuery, statusFilter, typeFilter]);
+  }, [properties, searchQuery, typeFilter]);
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
     if (query.trim() === "") {
-      
+      // Reset to all properties when search is cleared
+      return;
     }
     
-   
     try {
       setLoading(true);
       const result = await searchApartment(query);
@@ -196,58 +222,97 @@ const ApartmentsList: React.FC = () => {
         propertiesData = result;
       }
       
-      // Add mock ratings for search results
+      // Add mock ratings and ensure arrays for search results
       const propertiesWithRatings = propertiesData.map(property => ({
         ...property,
-       
         reviews: Math.floor(Math.random() * 100) + 1,
         description: property.description || "A beautiful property with modern amenities and great location.",
+        amenities: safeArray(property.amenities),
+        images: safeArray(property.images),
       }));
       
       setProperties(propertiesWithRatings);
     } catch (error) {
-    
+      console.error('Search error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Modal handlers
+  // Enhanced modal handlers with safe data
   const handleEditClick = (property: Property) => {
-    setSelectedProperty(property);
+    setSelectedProperty({
+      ...property,
+      amenities: safeArray(property.amenities),
+      images: safeArray(property.images),
+    });
     setEditModalOpen(true);
   };
 
   const handleViewClick = (property: Property) => {
-    setSelectedProperty(property);
+    setSelectedProperty({
+      ...property,
+      amenities: safeArray(property.amenities),
+      images: safeArray(property.images),
+    });
     setViewModalOpen(true);
   };
 
   const handleDeleteClick = (property: Property) => {
-    setSelectedProperty(property);
+    setSelectedProperty({
+      ...property,
+      amenities: safeArray(property.amenities),
+      images: safeArray(property.images),
+    });
     setDeleteModalOpen(true);
+  };
+
+  const handleAddProperty = () => {
+    setAddModalOpen(true);
+  };
+
+  const handleAddSave = async (propertyData: any) => {
+    try {
+      setUpdateLoading(true);
+      // This will be handled by the AddPropertyModal
+      // Refresh the properties list after adding
+      const result = await listProperties(1, 50);
+      if (result?.data?.apartments) {
+        setProperties(result.data.apartments);
+      }
+      setAddModalOpen(false);
+    } catch (error) {
+      console.error('Add property error:', error);
+      setError('Failed to add property');
+    } finally {
+      setUpdateLoading(false);
+    }
   };
 
   const handleEditSave = async (propertyData: any) => {
     try {
       setUpdateLoading(true);
-    
-   
       
-     
+      // Ensure amenities is an array before saving
+      const dataToSave = {
+        ...propertyData,
+        amenities: safeArray(propertyData.amenities),
+        images: safeArray(propertyData.images),
+      };
+      
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-     
+      // Update local state with safe arrays
       setProperties(prev => prev.map(prop => 
         prop.id === selectedProperty?.id 
-          ? { ...prop, ...propertyData }
+          ? { ...prop, ...dataToSave }
           : prop
       ));
       
       setEditModalOpen(false);
       setSelectedProperty(null);
     } catch (error) {
-     
+      console.error('Update error:', error);
       setError('Failed to update property');
     } finally {
       setUpdateLoading(false);
@@ -266,7 +331,7 @@ const ApartmentsList: React.FC = () => {
       setDeleteModalOpen(false);
       setSelectedProperty(null);
     } catch (error) {
-      
+      console.error('Delete error:', error);
       setError("Failed to delete property");
     } finally {
       setLoading(false);
@@ -287,19 +352,19 @@ const ApartmentsList: React.FC = () => {
   };
 
   // Utility functions
-  const getStatusColor = (status: string | undefined) => {
-    if (!status) return 'default';
-    const statusLower = status.toLowerCase();
-    if (statusLower === 'available') return 'success';
-    if (statusLower === 'rented') return 'error';
-    if (statusLower === 'maintenance') return 'warning';
-    return 'default';
-  };
+  // const getStatusColor = (status: string | undefined) => {
+  //   if (!status) return 'default';
+  //   const statusLower = status.toLowerCase();
+  //   if (statusLower === 'available') return 'success';
+  //   if (statusLower === 'rented') return 'error';
+  //   if (statusLower === 'maintenance') return 'warning';
+  //   return 'default';
+  // };
 
-  const getStatusText = (status: string | undefined) => {
-    if (!status) return 'UNKNOWN';
-    return status.toUpperCase();
-  };
+  // const getStatusText = (status: string | undefined) => {
+  //   if (!status) return 'UNKNOWN';
+  //   return status.toUpperCase();
+  // };
 
   const formatPrice = (price: string | undefined) => {
     if (!price) return '₦0';
@@ -309,16 +374,6 @@ const ApartmentsList: React.FC = () => {
       return `₦${price}`;
     }
   };
-
-  const safeString = (value: any, fallback: string = 'Not specified'): string => {
-    return value?.toString() || fallback;
-  };
-
-  const safeArray = (value: any): any[] => {
-    return Array.isArray(value) ? value : [];
-  };
-
-
 
   const displayError = error || storeError;
 
@@ -395,8 +450,8 @@ const ApartmentsList: React.FC = () => {
             }}
           />
           
-          <FormControl sx={{ minWidth: 150 }}>
-           
+          {/* <FormControl sx={{ minWidth: 150 }}>
+            <InputLabel sx={{ color: 'white' }}>Status</InputLabel>
             <Select
               value={statusFilter}
               label="Status"
@@ -414,10 +469,10 @@ const ApartmentsList: React.FC = () => {
               <MenuItem value="rented">Rented</MenuItem>
               <MenuItem value="maintenance">Maintenance</MenuItem>
             </Select>
-          </FormControl>
+          </FormControl> */}
 
           <FormControl sx={{ minWidth: 150 }}>
-          
+            <InputLabel sx={{ color: 'white' }}>Type</InputLabel>
             <Select
               value={typeFilter}
               label="Type"
@@ -433,8 +488,8 @@ const ApartmentsList: React.FC = () => {
               <MenuItem value="all">All Types</MenuItem>
               <MenuItem value="apartment">Apartment</MenuItem>
               <MenuItem value="house">House</MenuItem>
-              <MenuItem value="villa">Villa</MenuItem>
-              <MenuItem value="condo">Condo</MenuItem>
+              <MenuItem value="villa">Flat</MenuItem>
+              {/* <MenuItem value="condo">Condo</MenuItem> */}
             </Select>
           </FormControl>
         </Box>
@@ -502,7 +557,7 @@ const ApartmentsList: React.FC = () => {
                   p: 2,
                   background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)',
                 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Chip
                       label={getStatusText(property.status)}
                       color={getStatusColor(property.status)}
@@ -526,7 +581,7 @@ const ApartmentsList: React.FC = () => {
                     >
                       {favorites.has(property.id) ? <Favorite /> : <FavoriteBorder />}
                     </IconButton>
-                  </Box>
+                  </Box> */}
                 </Box>
 
                 {/* Bottom Overlay */}
@@ -562,7 +617,14 @@ const ApartmentsList: React.FC = () => {
                       /month
                     </Typography>
                   </Typography>
-                
+                  {property.rating && (
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Star sx={{ fontSize: 18, color: 'warning.main', mr: 0.5 }} />
+                      <Typography variant="body2" fontWeight="bold">
+                        {property.rating.toFixed(1)}
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
 
                 {/* Location */}
@@ -600,7 +662,7 @@ const ApartmentsList: React.FC = () => {
                         {safeString(property.servicing, '0')}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Baths
+                       Services
                       </Typography>
                     </Box>
                   </Box>
@@ -719,16 +781,16 @@ const ApartmentsList: React.FC = () => {
             <Typography variant="h4" color="text.secondary" gutterBottom fontWeight="medium">
               No Properties Found
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 4, opacity: 0.8 }}>
+            {/* <Typography variant="body1" color="text.secondary" sx={{ mb: 4, opacity: 0.8 }}>
               {searchQuery || statusFilter !== "all" || typeFilter !== "all" 
                 ? "Try adjusting your search criteria or filters to find what you're looking for."
                 : "Get started by adding your first property to your portfolio."}
-            </Typography>
+            </Typography> */}
             <Button
               variant="contained"
               size="large"
               startIcon={<AddIcon />}
-              onClick={() => navigate("/Apartment")}
+              onClick={handleAddProperty}
               sx={{ 
                 borderRadius: 2,
                 px: 4,
@@ -746,7 +808,7 @@ const ApartmentsList: React.FC = () => {
       <Fab
         color="primary"
         aria-label="add property"
-        onClick={() => navigate("/Apartment")}
+        onClick={handleAddProperty}
         sx={{
           position: 'fixed',
           bottom: 32,
@@ -766,6 +828,13 @@ const ApartmentsList: React.FC = () => {
       </Fab>
 
       {/* Modals */}
+      <AddPropertyModal
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onSave={handleAddSave}
+        loading={updateLoading}
+      />
+      
       <EditPropertyModal
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}

@@ -60,6 +60,7 @@ interface PublicProperty {
   status: 'available' | 'unavailable';
   location: string;
   amenities: string[];
+  agentPercentage?: number;
 }
 
 interface EnlistedProperty {
@@ -109,7 +110,7 @@ interface AgentActions {
   clearError: () => void;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
-  enlistApartment: (apartmentId: string, markedUpPrice: number, agentPercentage: number) => Promise<void>;
+  enlistApartment: (apartmentId: string, markedUpPrice?: number, agentPercentage?: number) => Promise<{ success: boolean; message: string }>;
   removeApartment: (apartmentId: string) => Promise<void>;
   fetchEnlistedProperties: (page?: number, limit?: number) => Promise<void>;
   fetchPropertiesBySlug: (slug: string, page?: number, limit?: number) => Promise<any>;
@@ -145,6 +146,66 @@ const initialState: AgentState = {
 
 const API_BASE_URL = process.env.REACT_APP_DEV_BASE_URL || 'https://homeyhost.ng/api';
 
+// Utility function to safely handle amenities data
+const getAmenitiesArray = (amenities: any): string[] => {
+  if (Array.isArray(amenities)) {
+    return amenities.filter(item => item != null).map(item => item.toString().trim());
+  }
+  if (typeof amenities === 'string') {
+    return amenities.split(',').map(item => item.trim()).filter(item => item !== '');
+  }
+  return [];
+};
+
+// Enhanced error handler utility
+const handleApiError = (error: any, defaultMessage: string): string => {
+  console.error('API Error:', error);
+
+  if (error.response) {
+    const status = error.response.status;
+    const serverMessage = error.response.data?.message || error.response.data?.error;
+
+    switch (status) {
+      case 400:
+        return serverMessage || 'Bad request. Please check your input.';
+      case 401:
+        return serverMessage || 'Session expired. Please log in again.';
+      case 403:
+        return serverMessage || 'Access denied. You do not have permission for this action.';
+      case 404:
+        return serverMessage || 'Resource not found.';
+      case 409:
+        return serverMessage || 'Conflict. This resource already exists.';
+      case 422:
+        return serverMessage || 'Validation error. Please check your input data.';
+      case 429:
+        return 'Too many requests. Please try again later.';
+      case 500:
+        return serverMessage || 'Server error. Please try again later.';
+      case 502:
+        return 'Service temporarily unavailable. Please try again later.';
+      case 503:
+        return 'Service unavailable. Please try again later.';
+      default:
+        return serverMessage || `Error ${status}. Please try again.`;
+    }
+  } else if (error.request) {
+    return 'Network error. Please check your internet connection and try again.';
+  } else if (error.code === 'ECONNABORTED') {
+    return 'Request timeout. Please try again.';
+  } else {
+    return defaultMessage;
+  }
+};
+
+// Auth validation utility
+const validateAuth = (token: string | null, isAuthenticated: boolean): { valid: boolean; message?: string } => {
+  if (!isAuthenticated || !token) {
+    return { valid: false, message: 'Please log in to access this feature.' };
+  }
+  return { valid: true };
+};
+
 const useAgentStore = create<AgentState & AgentActions>()(
   persist(
     (set, get) => ({
@@ -153,12 +214,22 @@ const useAgentStore = create<AgentState & AgentActions>()(
       login: async (email, password, remember) => {
         set({ isLoading: true, error: null });
         try {
+          // Input validation
+          if (!email || !password) {
+            throw new Error('Email and password are required.');
+          }
+
           const response = await axios.post(
             `${API_BASE_URL}/api/v1/auth/agent-login`,
-            { email, password }
+            { email, password },
+            { timeout: 15000 }
           );
 
           const { data } = response.data;
+          
+          if (!data || !data.token) {
+            throw new Error('Invalid response from server.');
+          }
           
           set({
             token: data.token,
@@ -193,11 +264,12 @@ const useAgentStore = create<AgentState & AgentActions>()(
             localStorage.removeItem('username');
           }
         } catch (error: any) {
+          const errorMessage = handleApiError(error, 'Login failed. Please check your credentials.');
           set({ 
-            error: error.response?.data?.message || 'Login failed. Please check your credentials.',
+            error: errorMessage,
             isAuthenticated: false,
           });
-          throw error;
+          throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
@@ -222,6 +294,10 @@ const useAgentStore = create<AgentState & AgentActions>()(
           console.log('Registration response:', response);
           
           const { data } = response.data;
+          
+          if (!data || !data.token) {
+            throw new Error('Invalid response from server.');
+          }
           
           set({
             token: data.token,
@@ -248,9 +324,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
           });
         } catch (error: any) {
           console.error('Registration error:', error);
-          const errorMessage = error.response?.data?.message || 
-                            error.response?.data?.error || 
-                            'Registration failed. Please try again.';
+          const errorMessage = handleApiError(error, 'Registration failed. Please try again.');
           set({ 
             error: errorMessage,
           });
@@ -269,16 +343,28 @@ const useAgentStore = create<AgentState & AgentActions>()(
       fetchAgentProfile: async () => {
         set({ isLoading: true });
         try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/agent/profile`,
             {
               headers: {
-                Authorization: `Bearer ${get().token}`,
+                Authorization: `Bearer ${token}`,
               },
+              timeout: 15000,
             }
           );
           
           const data = response.data.result;
+          
+          if (!data) {
+            throw new Error('Invalid profile data received.');
+          }
+          
           console.log('Profile data:', data);
           
           set({
@@ -303,12 +389,15 @@ const useAgentStore = create<AgentState & AgentActions>()(
             },
           });
         } catch (error: any) {
+          const errorMessage = handleApiError(error, 'Failed to fetch profile.');
           set({ 
-            error: error.response?.data?.message,
+            error: errorMessage,
           });
           if (error.response?.status === 401) {
-            get().logout();
+            // Auto-logout on unauthorized
+            setTimeout(() => get().logout(), 2000);
           }
+          throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
@@ -317,18 +406,30 @@ const useAgentStore = create<AgentState & AgentActions>()(
       updateAgentProfile: async (updatedData) => {
         set({ isLoading: true });
         try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
           const response = await axios.patch(
             `${API_BASE_URL}/api/v1/agent/profile`,
             updatedData,
             {
               headers: {
-                Authorization: `Bearer ${get().token}`,
+                Authorization: `Bearer ${token}`,
                 'Content-Type': updatedData instanceof FormData ? 'multipart/form-data' : 'application/json',
               },
+              timeout: 15000,
             }
           );
           
           const data = response.data.data;
+          
+          if (!data) {
+            throw new Error('Invalid response from server.');
+          }
+          
           set({
             agentInfo: {
               ...get().agentInfo!,
@@ -336,10 +437,11 @@ const useAgentStore = create<AgentState & AgentActions>()(
             },
           });
         } catch (error: any) {
+          const errorMessage = handleApiError(error, 'Failed to update profile.');
           set({ 
-            error: error.response?.data?.message,
+            error: errorMessage,
           });
-          throw error;
+          throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
@@ -348,15 +450,21 @@ const useAgentStore = create<AgentState & AgentActions>()(
       forgotPassword: async (email) => {
         set({ isLoading: true, error: null });
         try {
+          if (!email) {
+            throw new Error('Email is required.');
+          }
+
           await axios.post(
             `${API_BASE_URL}/api/v1/auth/forgot-password`,
-            { email }
+            { email },
+            { timeout: 15000 }
           );
         } catch (error: any) {
+          const errorMessage = handleApiError(error, 'Failed to send password reset email.');
           set({ 
-            error: error.response?.data?.message,
+            error: errorMessage,
           });
-          throw error;
+          throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
@@ -365,39 +473,172 @@ const useAgentStore = create<AgentState & AgentActions>()(
       resetPassword: async (token, password) => {
         set({ isLoading: true, error: null });
         try {
+          if (!token || !password) {
+            throw new Error('Token and password are required.');
+          }
+
+          if (password.length < 6) {
+            throw new Error('Password must be at least 6 characters long.');
+          }
+
           await axios.post(
             `${API_BASE_URL}/api/v1/auth/reset-password`,
-            { token, password }
+            { token, password },
+            { timeout: 15000 }
           );
         } catch (error: any) {
+          const errorMessage = handleApiError(error, 'Failed to reset password.');
           set({ 
-            error: error.response?.data?.message,
+            error: errorMessage,
           });
-          throw error;
+          throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
       },
       
-      enlistApartment: async (apartmentId: string, markedUpPrice: number, agentPercentage: number) => {
+      enlistApartment: async (apartmentId: string, markedUpPrice?: number, agentPercentage?: number) => {
         set({ isLoading: true, error: null });
+        
         try {
-          await axios.post(
+          const { token, agentInfo, isAuthenticated } = get();
+          
+          console.log('🔍 Enlist Property Debug:', {
+            token: token ? `${token.substring(0, 20)}...` : 'NO TOKEN',
+            agentInfo: {
+              id: agentInfo?.id,
+              status: agentInfo?.status,
+              isVerified: agentInfo?.isVerified,
+              email: agentInfo?.email
+            },
+            isAuthenticated,
+            apartmentId,
+            markedUpPrice,
+            agentPercentage
+          });
+
+          // 1. Verify agent is logged in and token is valid
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            return { 
+              success: false, 
+              message: authValidation.message ?? "Authentication failed." 
+            };
+          }
+
+          // 2. Check if agent is verified - Enhanced check
+          if (!agentInfo?.isVerified && agentInfo?.status !== "VERIFIED") {
+            return { 
+              success: false, 
+              message: "Your account needs to be verified before you can enlist properties. Please complete verification." 
+            };
+          }
+
+          // 3. Validate input parameters
+          if (!apartmentId || apartmentId.trim() === '') {
+            return { 
+              success: false, 
+              message: "Property ID is required." 
+            };
+          }
+
+          // 4. Validate that we have exactly one pricing option
+          const hasMarkupPrice = markedUpPrice !== undefined && markedUpPrice !== null;
+          const hasAgentPercentage = agentPercentage !== undefined && agentPercentage !== null;
+          
+          if (hasMarkupPrice && hasAgentPercentage) {
+            return { 
+              success: false, 
+              message: "Please select only one pricing option: either markup price OR agent percentage." 
+            };
+          }
+          
+          if (!hasMarkupPrice && !hasAgentPercentage) {
+            return { 
+              success: false, 
+              message: "Please select a pricing option." 
+            };
+          }
+
+          if (hasMarkupPrice && markedUpPrice < 0) {
+            return { 
+              success: false, 
+              message: "Marked up price cannot be negative." 
+            };
+          }
+
+          if (hasAgentPercentage && (agentPercentage <= 0 || agentPercentage > 100)) {
+            return { 
+              success: false, 
+              message: "Agent percentage must be between 1 and 100." 
+            };
+          }
+
+          console.log('Making API request to enlist property...');
+
+          // 5. Prepare request data based on selected option
+          const requestData: any = { 
+            apartmentId: apartmentId.trim()
+          };
+          
+          if (hasMarkupPrice) {
+            requestData.markedUpPrice = markedUpPrice;
+          } else if (hasAgentPercentage) {
+            requestData.agentPercentage = agentPercentage;
+          }
+
+          console.log('Request data:', requestData);
+
+          // 6. Make API request with enhanced headers
+          const response = await axios.post(
             `${API_BASE_URL}/api/v1/agent/enlist-property`,
-            { apartmentId, markedUpPrice, agentPercentage },
+            requestData,
             {
               headers: {
-                Authorization: `Bearer ${get().token}`,
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
               },
+              timeout: 15000,
             }
           );
           
+          console.log('Enlist property response:', response);
+
+          // 7. Handle different response formats
+          let successMessage = "Property added successfully to your listings!";
+          
+          if (response.data?.message) {
+            successMessage = response.data.message;
+          } else if (response.data?.data?.message) {
+            successMessage = response.data.data.message;
+          }
+
+          // 8. Refresh the enlisted properties
           await get().fetchEnlistedProperties(1, 10);
+          
+          return { success: true, message: successMessage };
+          
         } catch (error: any) {
+          console.error('❌ Enlist property error:', error);
+          
+          // Enhanced error logging
+          if (error.response) {
+            console.error('Error response:', {
+              status: error.response.status,
+              data: error.response.data,
+              headers: error.response.headers
+            });
+          } else if (error.request) {
+            console.error('No response received:', error.request);
+          }
+          
+          const errorMessage = handleApiError(error, 'Failed to add property. Please try again.');
+          
           set({ 
-            error: error.response?.data?.message,
+            error: errorMessage,
           });
-          throw error;
+          
+          return { success: false, message: errorMessage };
         } finally {
           set({ isLoading: false });
         }
@@ -406,13 +647,24 @@ const useAgentStore = create<AgentState & AgentActions>()(
       removeApartment: async (apartmentId: string) => {
         set({ isLoading: true, error: null });
         try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
+          if (!apartmentId) {
+            throw new Error('Apartment ID is required.');
+          }
+
           await axios.delete(
             `${API_BASE_URL}/api/v1/agent/remove-apartment`,
             {
               headers: {
-                Authorization: `Bearer ${get().token}`,
+                Authorization: `Bearer ${token}`,
               },
               data: { apartmentId },
+              timeout: 15000,
             }
           );
           
@@ -426,10 +678,11 @@ const useAgentStore = create<AgentState & AgentActions>()(
             totalProperties: get().totalProperties - 1,
           });
         } catch (error: any) {
+          const errorMessage = handleApiError(error, 'Failed to remove apartment.');
           set({ 
-            error: error.response?.data?.message,
+            error: errorMessage,
           });
-          throw error;
+          throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
@@ -438,17 +691,28 @@ const useAgentStore = create<AgentState & AgentActions>()(
       fetchEnlistedProperties: async (page = 1, limit = 10) => {
         set({ isLoading: true, error: null });
         try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/agent/agent-listing`,
             {
               headers: {
-                Authorization: `Bearer ${get().token}`,
+                Authorization: `Bearer ${token}`,
               },
               params: { page, limit },
+              timeout: 15000,
             }
           );
           
           const { data } = response.data;
+          
+          if (!data) {
+            throw new Error('Invalid response format.');
+          }
           
           set({
             enlistedProperties: page === 1 ? data.properties || data : [...get().enlistedProperties, ...(data.properties || data)],
@@ -457,10 +721,11 @@ const useAgentStore = create<AgentState & AgentActions>()(
             hasMoreProperties: data.hasMore || ((data.properties || data) && (data.properties || data).length === limit),
           });
         } catch (error: any) {
+          const errorMessage = handleApiError(error, 'Failed to fetch enlisted properties.');
           set({ 
-            error: error.response?.data?.message,
+            error: errorMessage,
           });
-          throw error;
+          throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
@@ -469,20 +734,26 @@ const useAgentStore = create<AgentState & AgentActions>()(
       fetchPropertiesBySlug: async (slug: string, page = 1, limit = 10) => {
         set({ isLoading: true, error: null });
         try {
+          if (!slug) {
+            throw new Error('Slug is required.');
+          }
+
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/agent/${slug}/properties`,
             {
               params: { page, limit },
+              timeout: 15000,
             }
           );
           
           const { data } = response.data;
           return data;
         } catch (error: any) {
+          const errorMessage = handleApiError(error, 'Failed to fetch properties by slug.');
           set({ 
-            error: error.response?.data?.message,
+            error: errorMessage,
           });
-          throw error;
+          throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
@@ -500,17 +771,28 @@ const useAgentStore = create<AgentState & AgentActions>()(
       fetchAgents: async (page = 1, limit = 10) => {
         set({ isLoading: true, error: null });
         try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/admin/list-agents`,
             {
               headers: {
-                Authorization: `Bearer ${get().token}`,
+                Authorization: `Bearer ${token}`,
               },
               params: { page, limit },
+              timeout: 15000,
             }
           );
           
           const result = response.data;
+          
+          if (!result) {
+            throw new Error('Invalid response from server.');
+          }
           
           set({
             agents: result?.data?.agentDataWithoutPassword || [],
@@ -520,10 +802,11 @@ const useAgentStore = create<AgentState & AgentActions>()(
             itemsPerPage: result.pagination?.itemsPerPage || limit,
           });
         } catch (error: any) {
+          const errorMessage = handleApiError(error, 'Failed to fetch agents.');
           set({ 
-            error: error.response?.data?.message,
+            error: errorMessage,
           });
-          throw error;
+          throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
@@ -532,13 +815,24 @@ const useAgentStore = create<AgentState & AgentActions>()(
       updateAgentVerification: async (agentId: string, field: 'front_id_status' | 'back_id_status', status: boolean) => {
         set({ isLoading: true, error: null });
         try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
+          if (!agentId) {
+            throw new Error('Agent ID is required.');
+          }
+
           await axios.patch(
             `${API_BASE_URL}/api/v1/admin/agents/${agentId}/verification`,
             { [field]: status },
             {
               headers: {
-                Authorization: `Bearer ${get().token}`,
+                Authorization: `Bearer ${token}`,
               },
+              timeout: 15000,
             }
           );
 
@@ -550,10 +844,11 @@ const useAgentStore = create<AgentState & AgentActions>()(
             ),
           });
         } catch (error: any) {
+          const errorMessage = handleApiError(error, 'Failed to update agent verification.');
           set({ 
-            error: error.response?.data?.message,
+            error: errorMessage,
           });
-          throw error;
+          throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
@@ -562,17 +857,32 @@ const useAgentStore = create<AgentState & AgentActions>()(
       updateAgentStatus: async (agentId: string, status: string) => {
         set({ isLoading: true, error: null });
         try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
+          if (!agentId || !status) {
+            throw new Error('Agent ID and status are required.');
+          }
+
           const response = await axios.put(
             `${API_BASE_URL}/api/v1/admin/verify-agent`,
             { agentId, status },
             {
               headers: {
-                Authorization: `Bearer ${get().token}`,
+                Authorization: `Bearer ${token}`,
               },
+              timeout: 15000,
             }
           );
 
           const updatedAgent = response.data.data;
+          
+          if (!updatedAgent) {
+            throw new Error('Invalid response from server.');
+          }
           
           set({
             agents: get().agents.map(agent => 
@@ -582,10 +892,11 @@ const useAgentStore = create<AgentState & AgentActions>()(
             ),
           });
         } catch (error: any) {
+          const errorMessage = handleApiError(error, 'Failed to update agent status.');
           set({ 
-            error: error.response?.data?.message,
+            error: errorMessage,
           });
-          throw error;
+          throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
@@ -598,12 +909,17 @@ const useAgentStore = create<AgentState & AgentActions>()(
             `${API_BASE_URL}/api/v1/agent/public-properties`,
             {
               params: { page, limit },
+              timeout: 15000,
             }
           );
           
           console.log('API Response:', response.data);
           
           const result = response.data;
+          
+          if (!result) {
+            throw new Error('Invalid response from server.');
+          }
           
           // Extract properties from the nested structure
           let properties: any[] = [];
@@ -630,9 +946,10 @@ const useAgentStore = create<AgentState & AgentActions>()(
             bedroom: prop.bedroom?.toString() || '',
             price: prop.price?.toString() || '0',
             images: Array.isArray(prop.images) ? prop.images : ['/images/house1.svg'],
-            status: 'available',
-            location: prop.address || '',
-            amenities: prop.servicing ? prop.servicing.split(', ').map((item: string) => item.trim()) : [],
+            status: prop.status === 'unavailable' ? 'unavailable' : 'available',
+            location: prop.location || prop.address || '',
+            amenities: getAmenitiesArray(prop.amenities),
+            agentPercentage: prop.agentPercentage || 10,
           }));
           
           set({
@@ -645,11 +962,13 @@ const useAgentStore = create<AgentState & AgentActions>()(
           
         } catch (error: any) {
           console.error('Error fetching public properties:', error);
+          const errorMessage = handleApiError(error, 'Failed to fetch properties');
           set({ 
-            error: error.response?.data?.message || 'Failed to fetch properties',
+            error: errorMessage,
             loading: false,
             publicProperties: [],
           });
+          throw new Error(errorMessage);
         }
       },
       

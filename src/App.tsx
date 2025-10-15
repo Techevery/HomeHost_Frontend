@@ -70,7 +70,7 @@ function App() {
       <Route path="/contact-us" element={<ContactUs />} />
       <Route path="/edit-profile" element={<EditProfileModal open={true} onClose={handleCancel} />} />
       <Route path="/edit-modal" element={<EditModal handleCancel={handleCancel} />} />
-      <Route path="/agent-properties-gallery/:personalUrl" element={<AgentPropertiesGallery />} />
+      <Route path="/shortlet/:personalUrl" element={<AgentPropertiesGallery />} />
 
 
 

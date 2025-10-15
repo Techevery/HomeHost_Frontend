@@ -23,6 +23,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  IconButton,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -34,10 +35,15 @@ import {
   Logout as LogoutIcon,
   AccountBalanceWallet as WalletIcon,
   Lock as LockIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import useAgentStore from "../../../stores/agentstore";
 import { PropertyCard, Property } from "../../pages/agent/PropertyCard";
+
+// Import Modal Components
+import ViewPropertiesModal from "../../pages/profile/agent/modals/ViewPropertiesModal";
+import PropertyDetailModal from "../../pages/profile/agent/modals/PropertyDetailModal";
+import EditProfileModal from "../../pages/profile/agent/modals/EditProfileModal";
 
 interface ProfileFormData {
   name: string;
@@ -74,8 +80,12 @@ const AgentProfile = () => {
   const [propertyToDelete, setPropertyToDelete] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
   
-  // Edit Profile Modal State
+  // Modal States
   const [editProfileModalOpen, setEditProfileModalOpen] = useState(false);
+  const [viewPropertiesModalOpen, setViewPropertiesModalOpen] = useState(false);
+  const [propertyDetailModalOpen, setPropertyDetailModalOpen] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<any>(null);
+
   const [profileForm, setProfileForm] = useState<ProfileFormData>({
     name: "",
     avatar: "",
@@ -136,7 +146,6 @@ const AgentProfile = () => {
   const loadProperties = async () => {
     setPropertiesLoading(true);
     try {
-      // Use fetchEnlistedProperties to get the enlisted apartments
       await fetchEnlistedProperties(1, 12);
     } catch (error) {
       console.error("Error fetching properties:", error);
@@ -147,8 +156,20 @@ const AgentProfile = () => {
   };
 
   const handleAddPropertyClick = () => {
-    // Navigate to view-properties route to add new properties
-    navigate("/view-properties");
+    setViewPropertiesModalOpen(true);
+  };
+
+  const handleViewPropertyDetails = (property: any) => {
+    setSelectedProperty(property);
+    setPropertyDetailModalOpen(true);
+  };
+
+  const handlePropertyAdded = () => {
+    setViewPropertiesModalOpen(false);
+    setPropertyDetailModalOpen(false);
+    setSelectedProperty(null);
+    loadProperties(); // Refresh the properties list
+    showSnackbar("Property added successfully to your listings!", "success");
   };
 
   const handleDeleteProperty = (propertyId: string) => {
@@ -162,7 +183,7 @@ const AgentProfile = () => {
     try {
       await removeApartment(propertyToDelete);
       showSnackbar("Property deleted successfully", "success");
-      await loadProperties(); // Refresh the properties list
+      await loadProperties();
     } catch (error) {
       console.error("Error deleting property:", error);
       showSnackbar("Failed to delete property", "error");
@@ -196,78 +217,90 @@ const AgentProfile = () => {
     setProfileFormErrors({});
   };
 
-  // Handle avatar file selection
-  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setAvatarFile(file);
-      const previewUrl = URL.createObjectURL(file);
-      setAvatarPreview(previewUrl);
-      setProfileForm(prev => ({ ...prev, avatar: previewUrl }));
-    }
-  };
-
-  const validateProfileForm = (): boolean => {
-    const errors: Partial<Record<keyof ProfileFormData, string>> = {};
-
-    if (!profileForm.name.trim()) {
-      errors.name = "Name is required";
-    }
-    if (!profileForm.email.trim()) {
-      errors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(profileForm.email)) {
-      errors.email = "Email is invalid";
-    }
-    if (!profileForm.phoneNumber.trim()) {
-      errors.phoneNumber = "Phone number is required";
-    }
-
-    setProfileFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleUpdateProfile = async () => {
-    if (!validateProfileForm()) return;
-
-    try {
-      // Create FormData for file upload
-      const formData = new FormData();
-      
-      // Append all profile data
-      formData.append('name', profileForm.name);
-      formData.append('email', profileForm.email);
-      formData.append('phoneNumber', profileForm.phoneNumber);
-      formData.append('address', profileForm.address);
-      formData.append('gender', profileForm.gender);
-      formData.append('personalUrl', profileForm.personalUrl);
-      formData.append('nextOfKinName', profileForm.nextOfKinName);
-      formData.append('nextOfKinEmail', profileForm.nextOfKinEmail);
-      formData.append('bankName', profileForm.bankName);
-      formData.append('accountNumber', profileForm.accountNumber);
-      
-      // Append avatar file if selected
-      if (avatarFile) {
-        formData.append('avatar', avatarFile);
-      }
-
-      await updateAgentProfile(formData);
-      showSnackbar("Profile updated successfully", "success");
-      setEditProfileModalOpen(false);
-      setAvatarFile(null);
-      await fetchAgentProfile(); // Refresh agent info
-    } catch (error: any) {
-      console.error("Error updating profile:", error);
-      showSnackbar(error.message || "Failed to update profile", "error");
-    }
-  };
-
   const showSnackbar = (message: string, severity: "success" | "error") => {
     setSnackbar({ open: true, message, severity });
   };
 
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
+    
   };
+
+// Add these functions to your AgentProfile component, before the transformPropertyData function
+
+// Handle avatar file selection
+const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (file) {
+    setAvatarFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarPreview(previewUrl);
+    setProfileForm(prev => ({ ...prev, avatar: previewUrl }));
+  }
+};
+
+const validateProfileForm = (): boolean => {
+  const errors: Partial<Record<keyof ProfileFormData, string>> = {};
+
+  if (!profileForm.name.trim()) {
+    errors.name = "Name is required";
+  }
+  if (!profileForm.email.trim()) {
+    errors.email = "Email is required";
+  } else if (!/\S+@\S+\.\S+/.test(profileForm.email)) {
+    errors.email = "Email is invalid";
+  }
+  if (!profileForm.phoneNumber.trim()) {
+    errors.phoneNumber = "Phone number is required";
+  }
+
+  setProfileFormErrors(errors);
+  return Object.keys(errors).length === 0;
+};
+
+const handleUpdateProfile = async () => {
+  if (!validateProfileForm()) return;
+
+  try {
+    // Create FormData for file upload
+    const formData = new FormData();
+    
+    // Append all profile data
+    formData.append('name', profileForm.name);
+    formData.append('email', profileForm.email);
+    formData.append('phoneNumber', profileForm.phoneNumber);
+    formData.append('address', profileForm.address);
+    formData.append('gender', profileForm.gender);
+    formData.append('personalUrl', profileForm.personalUrl);
+    formData.append('nextOfKinName', profileForm.nextOfKinName);
+    formData.append('nextOfKinEmail', profileForm.nextOfKinEmail);
+    formData.append('bankName', profileForm.bankName);
+    formData.append('accountNumber', profileForm.accountNumber);
+    
+    // Append avatar file if selected
+    if (avatarFile) {
+      formData.append('avatar', avatarFile);
+    }
+
+    await updateAgentProfile(formData);
+    showSnackbar("Profile updated successfully", "success");
+    setEditProfileModalOpen(false);
+    setAvatarFile(null);
+    await fetchAgentProfile(); // Refresh agent info
+  } catch (error: any) {
+    console.error("Error updating profile:", error);
+    showSnackbar(error.message || "Failed to update profile", "error");
+  }
+};
+
+// Add this function for removing avatar
+const handleAvatarRemove = () => {
+  setAvatarFile(null);
+  setAvatarPreview(agentInfo?.profile_picture || "");
+  setProfileForm(prev => ({ ...prev, avatar: agentInfo?.profile_picture || "" }));
+};
+
+
 
   const transformPropertyData = (property: any): Property => {
     return {
@@ -677,230 +710,39 @@ const AgentProfile = () => {
         </Box>
       )}
 
-      {/* Edit Profile Modal */}
-      <Dialog
-        open={editProfileModalOpen}
+      {/* Modals */}
+      <ViewPropertiesModal
+        open={viewPropertiesModalOpen}
+        onClose={() => setViewPropertiesModalOpen(false)}
+        onViewProperty={handleViewPropertyDetails}
+      />
+
+      <PropertyDetailModal
+        open={propertyDetailModalOpen}
+        property={selectedProperty}
         onClose={() => {
-          setEditProfileModalOpen(false);
+          setPropertyDetailModalOpen(false);
+          setSelectedProperty(null);
+        }}
+        onPropertyAdded={handlePropertyAdded}
+      />
+
+      <EditProfileModal
+        open={editProfileModalOpen}
+        onClose={() => setEditProfileModalOpen(false)}
+        profileForm={profileForm}
+        profileFormErrors={profileFormErrors}
+        avatarPreview={avatarPreview}
+        onProfileFormChange={setProfileForm}
+        onProfileFormErrorsChange={setProfileFormErrors}
+        onAvatarChange={handleAvatarChange}
+        onUpdateProfile={handleUpdateProfile}
+        onAvatarRemove={() => {
           setAvatarFile(null);
           setAvatarPreview(agentInfo?.profile_picture || "");
+          setProfileForm(prev => ({ ...prev, avatar: agentInfo?.profile_picture || "" }));
         }}
-        maxWidth="md"
-        fullWidth
-        scroll="paper"
-      >
-        <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h5" fontWeight="bold">
-              Edit Profile
-            </Typography>
-            <Button
-              startIcon={<CloseIcon />}
-              onClick={() => {
-                setEditProfileModalOpen(false);
-                setAvatarFile(null);
-                setAvatarPreview(agentInfo?.profile_picture || "");
-              }}
-              color="inherit"
-            >
-              Close
-            </Button>
-          </Box>
-        </DialogTitle>
-        
-        <DialogContent>
-          <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-            Profile Picture
-          </Typography>
-          
-          <Box display="flex" alignItems="center" gap={3} sx={{ mb: 3 }}>
-            <Avatar
-              src={avatarPreview}
-              sx={{ width: 80, height: 80 }}
-            >
-              {!avatarPreview && profileForm.name?.charAt(0).toUpperCase()}
-            </Avatar>
-            
-            <Button
-              variant="outlined"
-              component="label"
-              startIcon={<EditIcon />}
-            >
-              Upload Photo
-              <input
-                type="file"
-                hidden
-                accept="image/*"
-                onChange={handleAvatarChange}
-              />
-            </Button>
-            
-            {avatarPreview && (
-              <Button
-                variant="text"
-                color="error"
-                onClick={() => {
-                  setAvatarFile(null);
-                  setAvatarPreview(agentInfo?.profile_picture || "");
-                  setProfileForm(prev => ({ ...prev, avatar: agentInfo?.profile_picture || "" }));
-                }}
-              >
-                Remove
-              </Button>
-            )}
-          </Box>
-
-          <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-            Personal Information
-          </Typography>
-          
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Full Name"
-                value={profileForm.name}
-                onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
-                error={!!profileFormErrors.name}
-                helperText={profileFormErrors.name}
-                margin="normal"
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Gender</InputLabel>
-                <Select
-                  value={profileForm.gender}
-                  label="Gender"
-                  onChange={(e) => setProfileForm({...profileForm, gender: e.target.value})}
-                >
-                  <MenuItem value="Male">Male</MenuItem>
-                  <MenuItem value="Female">Female</MenuItem>
-                  <MenuItem value="Other">Other</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Personal URL"
-                value={profileForm.personalUrl}
-                onChange={(e) => setProfileForm({...profileForm, personalUrl: e.target.value})}
-                margin="normal"
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Email Address"
-                type="email"
-                value={profileForm.email}
-                onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
-                error={!!profileFormErrors.email}
-                helperText={profileFormErrors.email}
-                margin="normal"
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Phone Number"
-                value={profileForm.phoneNumber}
-                onChange={(e) => setProfileForm({...profileForm, phoneNumber: e.target.value})}
-                error={!!profileFormErrors.phoneNumber}
-                helperText={profileFormErrors.phoneNumber}
-                margin="normal"
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Address"
-                multiline
-                rows={2}
-                value={profileForm.address}
-                onChange={(e) => setProfileForm({...profileForm, address: e.target.value})}
-                margin="normal"
-              />
-            </Grid>
-          </Grid>
-
-          <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
-            Next of Kin Information
-          </Typography>
-          
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Next of Kin Full Name"
-                value={profileForm.nextOfKinName}
-                onChange={(e) => setProfileForm({...profileForm, nextOfKinName: e.target.value})}
-                margin="normal"
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Kin Email Address"
-                type="email"
-                value={profileForm.nextOfKinEmail}
-                onChange={(e) => setProfileForm({...profileForm, nextOfKinEmail: e.target.value})}
-                margin="normal"
-              />
-            </Grid>
-          </Grid>
-
-          <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
-            Bank Information
-          </Typography>
-          
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Bank Name"
-                value={profileForm.bankName}
-                onChange={(e) => setProfileForm({...profileForm, bankName: e.target.value})}
-                margin="normal"
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Account Number"
-                value={profileForm.accountNumber}
-                onChange={(e) => setProfileForm({...profileForm, accountNumber: e.target.value})}
-                margin="normal"
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        
-        <DialogActions>
-          <Button onClick={() => {
-            setEditProfileModalOpen(false);
-            setAvatarFile(null);
-            setAvatarPreview(agentInfo?.profile_picture || "");
-          }}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleUpdateProfile}
-            startIcon={<EditIcon />}
-          >
-            Update Profile
-          </Button>
-        </DialogActions>
-      </Dialog>
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog

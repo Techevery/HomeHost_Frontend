@@ -9,7 +9,9 @@ import {
   MdChevronRight,
   MdClose,
   MdAdd,
-  MdCheckCircle
+  MdCheckCircle,
+  MdCheck,
+  MdError
 } from "react-icons/md";
 import useAgentStore from "../../../stores/agentstore";
 
@@ -28,10 +30,31 @@ interface Property {
   amenities: string[];
   video_link?: string | null;
   adminId?: string;
-  agentPercentage?: number | null;
+  agentPercentage?: number;
   createdAt?: string;
   updatedAt?: string;
 }
+
+// Notification type
+interface Notification {
+  type: 'success' | 'error';
+  message: string;
+  show: boolean;
+}
+
+// Option type for selection
+type PricingOption = 'accept-percentage' | 'add-markup';
+
+// Utility function to safely handle amenities data
+const getAmenitiesArray = (amenities: any): string[] => {
+  if (Array.isArray(amenities)) {
+    return amenities.filter((item: any) => item != null).map((item: any) => item.toString().trim());
+  }
+  if (typeof amenities === 'string') {
+    return amenities.split(',').map((item: string) => item.trim()).filter((item: string) => item !== '');
+  }
+  return [];
+};
 
 const ViewProperties = () => {
   const navigate = useNavigate();
@@ -39,9 +62,14 @@ const ViewProperties = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [markupPrice, setMarkupPrice] = useState("");
-  const [agentPercentage, setAgentPercentage] = useState("10"); // Default to 10%
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
+  const [notification, setNotification] = useState<Notification>({ 
+    type: 'success', 
+    message: '', 
+    show: false 
+  });
+  const [pricingOption, setPricingOption] = useState<PricingOption>('accept-percentage');
 
   // Use agent store to fetch public properties
   const { 
@@ -67,13 +95,6 @@ const ViewProperties = () => {
     fetchPublicProperties(1, 12);
   }, [fetchPublicProperties]);
 
-  // Debug useEffect
-  useEffect(() => {
-    console.log('Public Properties:', publicProperties);
-    console.log('Loading:', loading);
-    console.log('Error:', error);
-  }, [publicProperties, loading, error]);
-
   // Auto-rotate carousel
   useEffect(() => {
     const interval = setInterval(() => {
@@ -81,6 +102,20 @@ const ViewProperties = () => {
     }, 5000);
     return () => clearInterval(interval);
   }, [carouselImages.length]);
+
+  // Auto-hide notification
+  useEffect(() => {
+    if (notification.show) {
+      const timer = setTimeout(() => {
+        setNotification({ ...notification, show: false });
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message, show: true });
+  };
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % carouselImages.length);
@@ -132,53 +167,59 @@ const ViewProperties = () => {
     setSelectedProperty(property);
     setCurrentImageIndex(0);
     setMarkupPrice("");
-    setAgentPercentage("10"); // Reset to default when opening new property
+    setPricingOption('accept-percentage');
   };
 
   const handleAddProperty = async () => {
-    if (!markupPrice || !selectedProperty || !agentPercentage) return;
+    if (!selectedProperty) return;
+
+    // Validate based on selected option
+    if (pricingOption === 'add-markup' && !markupPrice) {
+      showNotification('error', "Please enter a markup price");
+      return;
+    }
 
     setIsAdding(true);
     try {
-      const markedUpPrice = parseFloat(markupPrice);
-      const percentage = parseFloat(agentPercentage);
+      const markedUpPrice = pricingOption === 'add-markup' ? parseFloat(markupPrice) : 0;
+      const agentPercentage = selectedProperty.agentPercentage || 10;
       
-      await enlistApartment(selectedProperty.id, markedUpPrice, percentage);
+      const result = await enlistApartment(selectedProperty.id, markedUpPrice, agentPercentage);
       
-      // Close modal on success
-      setSelectedProperty(null);
-      setMarkupPrice("");
-      setAgentPercentage("10"); // Reset to default
-      
-      // Show success message (you can use toast here)
-      alert("Property added successfully to your listings!");
+      if (result.success) {
+        // Close modal on success
+        setSelectedProperty(null);
+        setMarkupPrice("");
+        setPricingOption('accept-percentage');
+        showNotification('success', result.message || "Property added successfully to your listings!");
+      } else {
+        showNotification('error', result.message || "Failed to add property. Please try again.");
+      }
     } catch (error) {
       console.error("Failed to add property:", error);
-      alert("Failed to add property. Please try again.");
+      showNotification('error', "Failed to add property. Please try again.");
     } finally {
       setIsAdding(false);
     }
   };
 
   const calculateFinalPrice = () => {
-    if (!markupPrice || !selectedProperty || !agentPercentage) return "0";
+    if (!selectedProperty) return "0";
     const basePrice = parseFloat(selectedProperty.price || "0");
-    const markup = parseFloat(markupPrice) || 0;
+    const markup = pricingOption === 'add-markup' ? parseFloat(markupPrice) || 0 : 0;
     
-    // Calculate final price: base price + markup
     const finalPrice = basePrice + markup;
     return finalPrice.toLocaleString();
   };
 
   const calculateCommission = () => {
-    if (!markupPrice || !selectedProperty || !agentPercentage) return "0";
+    if (!selectedProperty) return "0";
     const basePrice = parseFloat(selectedProperty.price || "0");
-    const markup = parseFloat(markupPrice) || 0;
-    const percentage = parseFloat(agentPercentage) || 0;
+    const markup = pricingOption === 'add-markup' ? parseFloat(markupPrice) || 0 : 0;
+    const agentPercentage = selectedProperty.agentPercentage || 10;
     
-    // Calculate commission: (base price + markup) * percentage
     const finalPrice = basePrice + markup;
-    const commission = (finalPrice * percentage) / 100;
+    const commission = (finalPrice * agentPercentage) / 100;
     return commission.toLocaleString();
   };
 
@@ -202,9 +243,52 @@ const ViewProperties = () => {
     }
   };
 
+  // Check if form is valid for submission
+  const isFormValid = () => {
+    if (pricingOption === 'add-markup') {
+      return !!markupPrice;
+    }
+    return true;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
+      
+      {/* Notification Modal */}
+      {notification.show && (
+        <div className="fixed top-4 right-4 z-50 animate-fade-in">
+          <div className={`flex items-center p-4 rounded-lg shadow-lg ${
+            notification.type === 'success' 
+              ? 'bg-green-50 border border-green-200 text-green-800' 
+              : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
+            <div className={`mr-3 ${
+              notification.type === 'success' ? 'text-green-500' : 'text-red-500'
+            }`}>
+              {notification.type === 'success' ? (
+                <MdCheck className="text-2xl" />
+              ) : (
+                <MdError className="text-2xl" />
+              )}
+            </div>
+            <div>
+              <p className="font-semibold">
+                {notification.type === 'success' ? 'Success' : 'Error'}
+              </p>
+              <p className="text-sm">{notification.message}</p>
+            </div>
+            <button
+              onClick={() => setNotification({ ...notification, show: false })}
+              className={`ml-4 ${
+                notification.type === 'success' ? 'text-green-500' : 'text-red-500'
+              } hover:opacity-70`}
+            >
+              <MdClose className="text-xl" />
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Header Section with Carousel */}
       <div className="relative h-96 lg:h-[500px] overflow-hidden mt-16">
@@ -373,6 +457,14 @@ const ViewProperties = () => {
                         <span className="text-lg">{property.location || property.address}</span>
                       </div>
 
+                      {/* Display Agent Percentage if available */}
+                      {property.agentPercentage && (
+                        <div className="flex items-center gap-2 text-blue-600 font-semibold">
+                          <MdCheckCircle className="text-blue-500" />
+                          <span>Agent Commission: {property.agentPercentage}%</span>
+                        </div>
+                      )}
+
                       <div className="flex justify-between items-center pt-2">
                         <h4 className="text-2xl font-bold text-blue-600">
                           NGN {parseFloat(property.price || "0").toLocaleString()}/Night
@@ -510,8 +602,8 @@ const ViewProperties = () => {
                     <div className="bg-gray-50 rounded-lg p-4">
                       <h4 className="font-semibold text-gray-900 mb-3">Amenities</h4>
                       <div className="grid grid-cols-2 gap-2">
-                        {selectedProperty.amenities && selectedProperty.amenities.length > 0 ? (
-                          selectedProperty.amenities.map((amenity, index) => (
+                        {getAmenitiesArray(selectedProperty.amenities).length > 0 ? (
+                          getAmenitiesArray(selectedProperty.amenities).map((amenity, index) => (
                             <div key={index} className="flex items-center gap-2">
                               <MdCheckCircle className="text-green-500" />
                               <span className="text-gray-700">{amenity}</span>
@@ -527,85 +619,151 @@ const ViewProperties = () => {
                   </div>
                 </div>
 
-                {/* Markup Section */}
+                {/* Pricing Options Section */}
                 <div className="space-y-6">
                   <div className="bg-blue-50 rounded-lg p-6">
                     <h3 className="text-xl font-bold text-gray-900 mb-4">
                       Add to Your Listings
                     </h3>
                     
-                    {/* Markup Price Input */}
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Mark Up Price (NGN)
-                        </label>
-                        <input
-                          type="number"
-                          value={markupPrice}
-                          onChange={(e) => setMarkupPrice(e.target.value)}
-                          placeholder="Enter markup amount"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                        />
+                    {/* Agent Commission Display */}
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MdCheckCircle className="text-yellow-600 text-xl" />
+                        <h4 className="font-semibold text-yellow-800">Agent Commission</h4>
                       </div>
-
-                      {/* Agent Percentage Input - Now editable */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Agent Percentage (%)
-                        </label>
-                        <input
-                          type="number"
-                          value={agentPercentage}
-                          onChange={(e) => setAgentPercentage(e.target.value)}
-                          placeholder="Enter agent percentage"
-                          min="1"
-                          max="100"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                        />
-                      </div>
-
-                      {/* Final Price and Commission Display */}
-                      {markupPrice && agentPercentage && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold text-gray-700">Final Price:</span>
-                            <span className="text-xl font-bold text-green-600">
-                              NGN {calculateFinalPrice()}/Night
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold text-gray-700">Your Commission ({agentPercentage}%):</span>
-                            <span className="text-lg font-bold text-blue-600">
-                              NGN {calculateCommission()}/Night
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Add Button */}
-                      <button
-                        onClick={handleAddProperty}
-                        disabled={!markupPrice || !agentPercentage || isAdding}
-                        className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-                          markupPrice && agentPercentage && !isAdding
-                            ? "bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105"
-                            : "bg-gray-400 text-gray-200 cursor-not-allowed"
-                        }`}
-                      >
-                        {isAdding ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            Adding...
-                          </>
-                        ) : (
-                          <>
-                            <MdAdd className="text-xl" />
-                            Add to My Listings
-                          </>
-                        )}
-                      </button>
+                      <p className="text-yellow-700 text-lg font-bold">
+                        {selectedProperty.agentPercentage || 10}% Commission
+                      </p>
+                      <p className="text-yellow-600 text-sm mt-1">
+                        This commission rate is set by the property owner
+                      </p>
                     </div>
+
+                    {/* Pricing Options Selection */}
+                    <div className="space-y-4">
+                      {/* Option 1: Accept Percentage Only */}
+                      <div className="border border-gray-300 rounded-lg p-4 hover:border-blue-500 transition-colors">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="pricingOption"
+                            value="accept-percentage"
+                            checked={pricingOption === 'accept-percentage'}
+                            onChange={(e) => setPricingOption(e.target.value as PricingOption)}
+                            className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="flex-1">
+                            <div className="font-semibold text-gray-900 mb-1">
+                              Use Base Price Only
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              List the property at the original price with {selectedProperty.agentPercentage || 10}% commission
+                            </div>
+                            <div className="mt-2 text-green-600 font-semibold">
+                              Final Price: NGN {parseFloat(selectedProperty.price || "0").toLocaleString()}/Night
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+
+                      {/* Option 2: Add Markup Price */}
+                      <div className="border border-gray-300 rounded-lg p-4 hover:border-blue-500 transition-colors">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="pricingOption"
+                            value="add-markup"
+                            checked={pricingOption === 'add-markup'}
+                            onChange={(e) => setPricingOption(e.target.value as PricingOption)}
+                            className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="flex-1">
+                            <div className="font-semibold text-gray-900 mb-1">
+                              Add Your Markup
+                            </div>
+                            <div className="text-sm text-gray-600 mb-3">
+                              Add your markup to the base price
+                            </div>
+                            
+                            {/* Markup Input - Only show when this option is selected */}
+                            {pricingOption === 'add-markup' && (
+                              <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Your Markup Price (NGN)
+                                </label>
+                                <input
+                                  type="number"
+                                  value={markupPrice}
+                                  onChange={(e) => setMarkupPrice(e.target.value)}
+                                  placeholder="Enter your markup amount"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="text-gray-500 text-sm">
+                                  This will be added to the base price
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Price Summary */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+                      <h4 className="font-semibold text-gray-900 mb-2">Price Summary</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Base Price:</span>
+                          <span className="font-medium">
+                            NGN {parseFloat(selectedProperty.price || "0").toLocaleString()}
+                          </span>
+                        </div>
+                        {pricingOption === 'add-markup' && markupPrice && (
+                          <div className="flex justify-between">
+                            <span>Your Markup:</span>
+                            <span className="font-medium text-blue-600">
+                              + NGN {parseFloat(markupPrice).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t pt-2">
+                          <span className="font-semibold">Final Price:</span>
+                          <span className="font-bold text-green-600">
+                            NGN {calculateFinalPrice()}/Night
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Your Commission ({selectedProperty.agentPercentage || 10}%):</span>
+                          <span className="font-bold text-blue-600">
+                            NGN {calculateCommission()}/Night
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Add Button */}
+                    <button
+                      onClick={handleAddProperty}
+                      disabled={!isFormValid() || isAdding}
+                      className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200 mt-4 ${
+                        isFormValid() && !isAdding
+                          ? "bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105"
+                          : "bg-gray-400 text-gray-200 cursor-not-allowed"
+                      }`}
+                    >
+                      {isAdding ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <MdAdd className="text-xl" />
+                          Add to My Listings
+                        </>
+                      )}
+                    </button>
                   </div>
 
                   {/* Property Details */}
@@ -630,6 +788,12 @@ const ViewProperties = () => {
                           selectedProperty.status === 'available' ? 'text-green-600' : 'text-red-600'
                         }`}>
                           {selectedProperty.status || "Unknown"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Agent Commission:</span>
+                        <span className="font-medium text-blue-600">
+                          {selectedProperty.agentPercentage || 10}%
                         </span>
                       </div>
                     </div>

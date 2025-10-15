@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent, useEffect } from 'react';
+import React, { useState, ChangeEvent } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -18,8 +18,7 @@ import {
   Divider,
   CircularProgress,
   Alert,
-  Chip,
-} from '@mui/material';
+} from '@mui/material';  
 import {
   Close as CloseIcon,
   CloudUpload as UploadIcon,
@@ -27,22 +26,20 @@ import {
 } from '@mui/icons-material';
 import usePropertyStore from "../../../../stores/propertyStore";
 
-interface EditPropertyModalProps {
+interface AddPropertyModalProps {
   open: boolean;
   onClose: () => void;
-  property: any;
   onSave: (propertyData: any) => Promise<void>;
   loading?: boolean;
 }
 
-const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
+const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   open,
   onClose,
-  property,
   onSave,
   loading = false,
 }) => {
-  const { updateProperty } = usePropertyStore();
+  const { createProperty } = usePropertyStore();
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -53,39 +50,18 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     price: '',
     agentPercentage: '',
     amenities: '',
-    status: '',
   });
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [existingImages, setExistingImages] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string>('');
-
-  useEffect(() => {
-    if (property) {
-      setFormData({
-        name: property.name || '',
-        address: property.address || '',
-        location: property.location || '',
-        type: property.type || '',
-        servicing: property.servicing || '',
-        bedroom: property.bedroom || '',
-        price: property.price || '',
-        agentPercentage: property.agentPercentage || '',
-        amenities: Array.isArray(property.amenities) ? property.amenities.join(', ') : property.amenities || '',
-        status: property.status || '',
-      });
-      setExistingImages(property.images || []);
-      setImagePreviews([]);
-      setImages([]);
-    }
-  }, [property]);
 
   const handleInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
       ...prev,
       [field]: event.target.value,
     }));
+    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
@@ -103,36 +79,36 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     if (files) {
       const newImages = Array.from(files);
       
+      // Validate file sizes
       const oversizedFiles = newImages.filter(file => file.size > 1024 * 1024 * 5);
       if (oversizedFiles.length > 0) {
         setErrors(prev => ({ ...prev, images: 'One or more images exceed the 5MB size limit' }));
         return;
       }
 
+      // Validate file types
       const invalidFiles = newImages.filter(file => !file.type.startsWith('image/'));
       if (invalidFiles.length > 0) {
-        setErrors(prev => ({ ...prev, images: 'Please select only image files' }));
+        setErrors(prev => ({ ...prev, images: 'Please select only image files (JPG, PNG, etc.)' }));
         return;
       }
 
       setImages(prev => [...prev, ...newImages]);
       
+      // Create preview URLs
       const newPreviews = newImages.map(file => URL.createObjectURL(file));
       setImagePreviews(prev => [...prev, ...newPreviews]);
       
+      // Clear image error
       if (errors.images) {
         setErrors(prev => ({ ...prev, images: '' }));
       }
     }
   };
 
-  const removeNewImage = (index: number) => {
+  const removeImage = (index: number) => {
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
     setImages(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const removeExistingImage = (index: number) => {
-    setExistingImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const validateForm = (): boolean => {
@@ -140,13 +116,13 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     
     if (!formData.name?.trim()) newErrors.name = 'Property name is required';
     if (!formData.address?.trim()) newErrors.address = 'Address is required';
-    // if (!formData.location?.trim()) newErrors.location = 'Location is required';
+    if (!formData.location?.trim()) newErrors.location = 'Location is required';
     if (!formData.type) newErrors.type = 'Property type is required';
     if (!formData.servicing?.trim()) newErrors.servicing = 'Services information is required';
     if (!formData.bedroom || parseInt(formData.bedroom) <= 0) newErrors.bedroom = 'Valid number of bedrooms is required';
     if (!formData.price || parseFloat(formData.price) <= 0) newErrors.price = 'Valid price is required';
     if (!formData.agentPercentage || parseFloat(formData.agentPercentage) <= 0) newErrors.agentPercentage = 'Valid agent percentage is required';
-    // if (!formData.status) newErrors.status = 'Status is required';
+    if (images.length === 0) newErrors.images = 'At least one image is required';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -161,32 +137,35 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       
       // Append form data
       Object.entries(formData).forEach(([key, value]) => {
-        if (key === 'amenities') {
-          // Convert comma-separated amenities to array
-          const amenitiesArray = (value as string).split(',').map(a => a.trim()).filter(a => a);
-          submitFormData.append(key, JSON.stringify(amenitiesArray));
-        } else {
-          submitFormData.append(key, value as string);
-        }
+        submitFormData.append(key, value as string);
       });
       
-      // Append new images
+      // Append images
       images.forEach((image) => {
         submitFormData.append('images', image);
       });
 
-      // Append existing images that haven't been removed
-      existingImages.forEach((image) => {
-        submitFormData.append('existingImages', image);
+      await createProperty(submitFormData);
+      await onSave(formData);
+      
+      // Reset form
+      setFormData({
+        name: '',
+        address: '',
+        location: '',
+        type: '',
+        servicing: '',
+        bedroom: '',
+        price: '',
+        agentPercentage: '',
+        amenities: '',
       });
-
-      if (property?.id) {
-        await updateProperty(property.id, submitFormData);
-        await onSave({ ...formData, id: property.id });
-      }
+      setImages([]);
+      setImagePreviews([]);
+      setErrors({});
       
     } catch (error: any) {
-      setSubmitError(error.message || 'Failed to update property');
+      setSubmitError(error.message || 'Failed to create property');
     }
   };
 
@@ -201,17 +180,13 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       price: '',
       agentPercentage: '',
       amenities: '',
-      status: '',
     });
     setImages([]);
     setImagePreviews([]);
-    setExistingImages([]);
     setErrors({});
     setSubmitError('');
     onClose();
   };
-
-  const allImages = [...existingImages, ...imagePreviews];
 
   return (
     <Dialog 
@@ -232,7 +207,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
         pb: 2
       }}>
         <Typography variant="h5" fontWeight="bold">
-          Edit Property
+          Add New Property
         </Typography>
         <IconButton onClick={handleClose} size="small">
           <CloseIcon />
@@ -328,6 +303,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               onChange={handleInputChange('servicing')}
               error={!!errors.servicing}
               helperText={errors.servicing}
+              placeholder="e.g., Water, Electricity, Security"
             />
           </Grid>
 
@@ -345,26 +321,6 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <FormControl fullWidth error={!!errors.status}>
-              <InputLabel>Status *</InputLabel>
-              <Select
-                value={formData.status}
-                label="Status *"
-                onChange={handleSelectChange('status')}
-              >
-                <MenuItem value="available">Available</MenuItem>
-                <MenuItem value="rented">Rented</MenuItem>
-                <MenuItem value="maintenance">Maintenance</MenuItem>
-              </Select>
-              {errors.status && (
-                <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                  {errors.status}
-                </Typography>
-              )}
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12}>
             <TextField
               fullWidth
               label="Amenities"
@@ -420,19 +376,19 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               <input
                 accept="image/*"
                 style={{ display: 'none' }}
-                id="edit-property-images"
+                id="property-images"
                 type="file"
                 multiple
                 onChange={handleImageUpload}
               />
-              <label htmlFor="edit-property-images">
+              <label htmlFor="property-images">
                 <Button
                   variant="outlined"
                   component="span"
                   startIcon={<UploadIcon />}
                   sx={{ mb: 2 }}
                 >
-                  Add More Images
+                  Upload Images
                 </Button>
               </label>
               {errors.images && (
@@ -441,60 +397,23 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                 </Typography>
               )}
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                Add new images or remove existing ones. Maximum 5MB per image.
+                Upload at least one image. Maximum 5MB per image. Supported formats: JPG, PNG, WebP
               </Typography>
             </Box>
 
             {/* Image Previews */}
-            {allImages.length > 0 && (
+            {imagePreviews.length > 0 && (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                {existingImages.map((image, index) => (
-                  <Box key={`existing-${index}`} sx={{ position: 'relative' }}>
-                    <Avatar
-                      src={image}
-                      variant="rounded"
-                      sx={{ width: 100, height: 100 }}
-                    />
-                    <Chip
-                      label="Existing"
-                      size="small"
-                      color="primary"
-                      sx={{ position: 'absolute', top: -8, left: -8 }}
-                    />
-                    <IconButton
-                      size="small"
-                      onClick={() => removeExistingImage(index)}
-                      sx={{
-                        position: 'absolute',
-                        top: -8,
-                        right: -8,
-                        backgroundColor: 'error.main',
-                        color: 'white',
-                        '&:hover': {
-                          backgroundColor: 'error.dark',
-                        },
-                      }}
-                    >
-                      <DeleteImageIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                ))}
                 {imagePreviews.map((preview, index) => (
-                  <Box key={`new-${index}`} sx={{ position: 'relative' }}>
+                  <Box key={index} sx={{ position: 'relative' }}>
                     <Avatar
                       src={preview}
                       variant="rounded"
                       sx={{ width: 100, height: 100 }}
                     />
-                    <Chip
-                      label="New"
-                      size="small"
-                      color="success"
-                      sx={{ position: 'absolute', top: -8, left: -8 }}
-                    />
                     <IconButton
                       size="small"
-                      onClick={() => removeNewImage(index)}
+                      onClick={() => removeImage(index)}
                       sx={{
                         position: 'absolute',
                         top: -8,
@@ -526,11 +445,11 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
           disabled={loading}
           startIcon={loading ? <CircularProgress size={16} /> : null}
         >
-          {loading ? 'Updating Property...' : 'Update Property'}
+          {loading ? 'Creating Property...' : 'Create Property'}
         </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-export default EditPropertyModal;
+export default AddPropertyModal;
