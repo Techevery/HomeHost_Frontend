@@ -35,6 +35,11 @@ interface Booking {
   discount_code?: string;
   amount?: string;
   receipt_id?: string;
+   special_requests?: string;
+  selected_dates?: Date[];
+  start_date?: string;
+  end_date?: string;
+  guests?: number;
 }
 
 interface Receipt {
