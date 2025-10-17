@@ -75,6 +75,12 @@ interface EnlistedProperty {
   status: string;
   images: string[];
   createdAt: string;
+  bedroom: number;
+  servicing: string;
+  amenities: string[];
+  location: string;
+  updatedAt: string;
+
 }
 
 interface AgentState {

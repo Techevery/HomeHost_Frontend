@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import useAgentStore from '../../../stores/agentstore';
 import useBannerStore from '../../../stores/bannerStore';
-import BookingModal from '../agent/BookingModal';
-import ReceiptModal from '../agent/ReceiptModal';
-import GetReceiptModal from '../agent/GetReceiptModal';
-import PaymentModal from '../agent/PaymentModal';
+import useBookingStore from '../../../stores/bookingStore';
+import Carousel from 'react-grid-carousel';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 // Define the property interface based on your API response
 interface Property {
@@ -14,15 +14,15 @@ interface Property {
   address: string;
   type: string;
   servicing: string;
-  bedroom: string;
+  bedroom: string | number; // Updated to accept both string and number
   price: number;
   images: string[];
   createdAt: string;
   updatedAt: string;
   status: string;
   apartmentId?: string;
-  markedUpPrice?: number;
-  agentPercentage?: number;
+  location?: string;
+  amenities?: string[];
 }
 
 interface PaginationInfo {
@@ -38,225 +38,495 @@ interface AgentPropertiesResponse {
 }
 
 // Sort options
-type SortOption = 'newest' | 'price-low-high' | 'price-high-low' | 'name' | 'bedrooms';
+type SortOption = 'newest' | 'price-low-high' | 'price-high-low' | 'name' | 'bedrooms' | 'location';
 
-// Property Detail Modal Component
-const PropertyDetailModal: React.FC<{
+// Property Carousel Component
+const PropertyCarousel: React.FC<{ images: string[]; propertyName: string }> = ({ images, propertyName }) => {
+  if (!images || images.length === 0) {
+    return (
+      <div className="relative h-48 bg-gray-200 flex items-center justify-center">
+        <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-48 bg-gray-200">
+      <Carousel cols={1} rows={1} loop>
+       {images.map((image, index) => (
+  <Carousel.Item key={index}>
+    <img
+      src={image}
+      alt={`${propertyName} - ${index + 1}`}
+      className="w-full h-48 object-cover"
+      onError={(e) => {
+        e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMDAgMTUwTDE1MCAyMDBIMjUwTDIwMCAxNTBaIiBmaWxsPSIjOEU5MEEwIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjExMCIgcj0iMjAiIGZpbGw9IiM4RTkwQTAiLz4KPC9zdmc+';
+      }}
+    />
+  </Carousel.Item>
+))}
+      </Carousel>
+    </div>
+  );
+};
+
+// Property Detail View Component (Similar to BookNow.tsx)
+const PropertyDetailView: React.FC<{
   property: Property | null;
   isOpen: boolean;
   onClose: () => void;
-  onBookNow: (property: Property) => void;
+  onBookNow: () => void;
 }> = ({ property, isOpen, onClose, onBookNow }) => {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-
-  useEffect(() => {
-    if (property && isOpen) {
-      setCurrentImageIndex(0);
-    }
-  }, [property, isOpen]);
-
   if (!isOpen || !property) return null;
 
-  const formatPrice = (price: number): string => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(price);
-  };
-
-  const nextImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === property.images.length - 1 ? 0 : prev + 1
-    );
-  };
-
-  const prevImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === 0 ? property.images.length - 1 : prev - 1
-    );
-  };
-
-  const goToImage = (index: number) => {
-    setCurrentImageIndex(index);
+  // Helper function to ensure bedroom is displayed as string
+  const getBedroomText = (bedroom: string | number): string => {
+    return typeof bedroom === 'number' ? bedroom.toString() : bedroom;
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-2xl font-bold text-gray-900">{property.name}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          {/* Image Gallery */}
-          <div className="mb-6">
-            <div className="relative h-80 bg-gray-200 rounded-lg overflow-hidden mb-4">
-              {property.images && property.images.length > 0 ? (
-                <>
+      <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="grid md:grid-cols-12 gap-6">
+          {/* Left Column - Property Info */}
+          <div className="md:col-span-5 p-6">
+            <div className="flex flex-col h-full">
+              <button
+                onClick={onClose}
+                className="self-start mb-4 text-gray-600 hover:text-gray-800"
+              >
+                <img
+                  src="/images/Frame 67.svg"
+                  alt="Back"
+                  className="w-8 h-8"
+                />
+              </button>
+              
+              <h4 className="text-2xl font-bold text-gray-900 py-4">
+                {property.name}
+              </h4>
+              
+              <div className="flex flex-col gap-4 flex-1">
+                <div className="flex gap-4 items-center">
                   <img
-                    src={property.images[currentImageIndex]}
-                    alt={`${property.name} - ${currentImageIndex + 1}`}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMDAgMTUwTDE1MCAyMDBIMjUwTDIwMCAxNTBaIiBmaWxsPSIjOEU5MEEwIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjExMCIgcj0iMjAiIGZpbGw9IiM4RTkwQTAiLz4KPC9zdmc+';
-                    }}
+                    src="/images/location 1.svg"
+                    alt="Location"
+                    className="w-8 h-8"
                   />
-                  
-                  {/* Navigation Arrows */}
-                  {property.images.length > 1 && (
-                    <>
-                      <button
-                        onClick={prevImage}
-                        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
-                        aria-label="Previous image"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={nextImage}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
-                        aria-label="Next image"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                    </>
-                  )}
-                  
-                  {/* Image Counter */}
-                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
-                    {currentImageIndex + 1} / {property.images.length}
+                  <h6 className="text-lg text-gray-700">{property.address}</h6>
+                </div>
+                
+                <div className="flex gap-3 items-center">
+                  <img
+                    src="/images/Group 1505.svg"
+                    alt="Agent"
+                    className="w-8 h-8"
+                  />
+                  <div className="leading-6">
+                    <h6 className="text-lg text-gray-700">Verified Agent</h6>
+                    <h6 className="text-sm text-gray-500">
+                      Professional Host
+                    </h6>
                   </div>
-                </>
+                </div>
+
+                <div className="flex gap-4 items-center">
+                  <img
+                    src="/images/Group 1497.svg"
+                    alt="Phone"
+                    className="w-8 h-8"
+                  />
+                  <h6 className="text-lg text-gray-700">+234 7065345534</h6>
+                </div>
+
+                <div className="flex gap-4 items-center">
+                  <img
+                    src="/images/Group 1496.svg"
+                    alt="Contact"
+                    className="w-8 h-8"
+                  />
+                  <h6 className="text-lg text-gray-700">Contact Agent</h6>
+                </div>
+
+                <div className="flex gap-4 items-center">
+                  <img
+                    src="/images/Group 1503.svg"
+                    alt="Registration"
+                    className="w-8 h-8"
+                  />
+                  <h6 className="text-lg text-gray-700">
+                    Registered 2 years ago
+                  </h6>
+                </div>
+
+                <div className="flex gap-4 items-center">
+                  <img
+                    src="/images/Group 1502.svg"
+                    alt="Properties"
+                    className="w-8 h-8"
+                  />
+                  <h6 className="text-lg text-gray-700">
+                    View all properties from this agent
+                  </h6>
+                </div>
+
+                {/* Property Specific Details */}
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-semibold">Type:</span>
+                      <span className="ml-2">{property.type}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Bedrooms:</span>
+                      <span className="ml-2">{getBedroomText(property.bedroom)}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Servicing:</span>
+                      <span className="ml-2">{property.servicing}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Status:</span>
+                      <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                        property.status === 'available' 
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {property.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={onBookNow}
+                className="bg-black text-white rounded-lg py-3 px-6 font-semibold hover:bg-gray-800 transition-colors mt-6"
+              >
+                Book Now
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column - Property Images */}
+          <div className="md:col-span-7">
+            <Carousel cols={1} rows={1} loop>
+              {property.images && property.images.length > 0 ? (
+                property.images.map((image, index) => (
+                  <Carousel.Item key={index}>
+                    <img 
+                      src={image} 
+                      alt={`${property.name} -${index + 1}`}
+                      className="w-full h-64 md:h-96 object-cover"
+                    />
+                  </Carousel.Item>
+                ))
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+                <Carousel.Item>
+                  <div className="w-full h-64 md:h-96 bg-gray-200 flex items-center justify-center">
+                    <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </Carousel.Item>
+              )}
+            </Carousel>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// Booking Modal Component (Updated to match BookNowModal.tsx)
+const BookingModal: React.FC<{
+  property: Property | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (bookingData: any) => void;
+}> = ({ property, isOpen, onClose, onSubmit }) => {
+  const [bookingData, setBookingData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    name_of_nxt_of_kin: '',
+    nunmer_of_nxt_of_kin: '',
+    discount: ''
+  });
+
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+
+  const handleDateChange = (date: Date | null) => {
+    // Handle null case
+    if (!date) return;
+    
+    const dateIndex = selectedDates.findIndex(
+      (selectedDate) => selectedDate.toDateString() === date.toDateString()
+    );
+
+    if (dateIndex >= 0) {
+      const newDates = selectedDates.filter((_, index) => index !== dateIndex);
+      setSelectedDates(newDates);
+
+      if (date.getTime() === startDate?.getTime()) {
+        setStartDate(null);
+        setEndDate(null);
+      }
+      if (date.getTime() === endDate?.getTime()) {
+        setEndDate(null);
+      }
+    } else {
+      const newDates = [...selectedDates, date].sort((a, b) => a.getTime() - b.getTime());
+      setSelectedDates(newDates);
+
+      if (newDates.length === 1) {
+        setStartDate(date);
+        setEndDate(new Date(date.getTime() + 86400000));
+      } else {
+        const firstDate = newDates[0];
+        const lastDate = newDates[newDates.length - 1];
+        setStartDate(firstDate);
+        setEndDate(new Date(lastDate.getTime() + 86400000));
+      }
+    }
+  };
+
+  const getOrdinalSuffix = (n: number) => {
+    const s = ["th", "st", "nd", "rd"],
+          v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  };
+
+  const formatSelected = () => {
+    const formattedDates = [];
+    let i = 0;
+    let prefixCount = 1;
+
+    while (i < selectedDates.length) {
+      const currentDate = selectedDates[i];
+      let consecutiveDates = [currentDate];
+
+      while (
+        i < selectedDates.length - 1 &&
+        selectedDates[i + 1].getTime() - selectedDates[i].getTime() === 86400000
+      ) {
+        consecutiveDates.push(selectedDates[i + 1]);
+        i++;
+      }
+
+      const prefixLabel1 = `${getOrdinalSuffix(prefixCount)} Check-in:`;
+      const prefixLabel2 = `${getOrdinalSuffix(prefixCount)} Check-out:`;
+
+      if (consecutiveDates.length > 1) {
+        const startDate: any = consecutiveDates[0];
+        const endDate = new Date(consecutiveDates[consecutiveDates.length - 1]);
+        endDate.setDate(endDate.getDate() + 1);
+
+        formattedDates.push(
+          <li key={i}>
+            {`${prefixLabel2} ${startDate.toDateString()} - ${prefixLabel2} ${endDate.toDateString()}`}
+          </li>
+        );
+      } else {
+        const startDate: any = currentDate;
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 1);
+
+        formattedDates.push(
+          <li key={i} className="space-y-4 gap-4">
+            {`${prefixLabel1} ${startDate.toDateString()} (1pm) - ${prefixLabel2} ${endDate.toDateString()} (12noon)`}
+          </li>
+        );
+      }
+
+      i++;
+      prefixCount++;
+    }
+
+    return formattedDates;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (selectedDates.length === 0) {
+      alert('Please select at least one date');
+      return;
+    }
+
+    onSubmit({
+      ...bookingData,
+      propertyId: property?.id,
+      propertyName: property?.name,
+      selectedDates: selectedDates,
+      startDate: startDate,
+      endDate: endDate,
+      totalPrice: property?.price ? property.price * selectedDates.length : 0,
+    });
+  };
+
+  const resetForm = () => {
+    setBookingData({
+      name: '',
+      phone: '',
+      email: '',
+      name_of_nxt_of_kin: '',
+      nunmer_of_nxt_of_kin: '',
+      discount: ''
+    });
+    setSelectedDates([]);
+    setStartDate(null);
+    setEndDate(null);
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
+
+  if (!isOpen || !property) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            Please fill the information
+          </h2>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <input
+                type="text"
+                required
+                value={bookingData.name}
+                onChange={(e) => setBookingData({ ...bookingData, name: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Name"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <input
+                  type="tel"
+                  required
+                  value={bookingData.phone}
+                  onChange={(e) => setBookingData({ ...bookingData, phone: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Phone Number"
+                />
+              </div>
+              <div>
+                <input
+                  type="email"
+                  required
+                  value={bookingData.email}
+                  onChange={(e) => setBookingData({ ...bookingData, email: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Email"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <input
+                  type="text"
+                  required
+                  value={bookingData.name_of_nxt_of_kin}
+                  onChange={(e) => setBookingData({ ...bookingData, name_of_nxt_of_kin: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Name of Next of Kin"
+                />
+              </div>
+              <div>
+                <input
+                  type="tel"
+                  required
+                  value={bookingData.nunmer_of_nxt_of_kin}
+                  onChange={(e) => setBookingData({ ...bookingData, nunmer_of_nxt_of_kin: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Next of Kin Phone Number"
+                />
+              </div>
+            </div>
+
+            <div>
+              <input
+                type="text"
+                value={bookingData.discount}
+                onChange={(e) => setBookingData({ ...bookingData, discount: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Discount Code"
+              />
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <DatePicker
+                selected={null}
+                onChange={handleDateChange}
+                inline
+                className="w-full"
+                minDate={new Date()}
+                highlightDates={[
+                  {
+                    'react-datepicker__day--highlighted-custom': selectedDates,
+                  },
+                ]}
+                dateFormat="yyyy/MM/dd"
+              />
+              
+              {selectedDates.length > 0 && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-semibold">Selected Dates:</span>
+                    <span className="text-blue-600">
+                      {selectedDates.length} night{selectedDates.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <ul className="list-disc pl-6 space-y-2">
+                    {formatSelected()}
+                  </ul>
+                  
+                  {property.price && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex justify-between items-center font-semibold text-lg">
+                        <span>Total:</span>
+                        <span className="text-green-600">
+                          {new Intl.NumberFormat('en-NG', {
+                            style: 'currency',
+                            currency: 'NGN',
+                            minimumFractionDigits: 0,
+                          }).format(property.price * selectedDates.length)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Thumbnail Gallery */}
-            {property.images && property.images.length > 1 && (
-              <div className="flex space-x-2 overflow-x-auto pb-2">
-                {property.images.map((image, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToImage(index)}
-                    className={`flex-shrink-0 w-20 h-20 rounded-md overflow-hidden border-2 transition-all ${
-                      currentImageIndex === index ? 'border-blue-500' : 'border-gray-300'
-                    }`}
-                    aria-label={`View ${property.name} - ${index + 1}`}
-                    aria-current={currentImageIndex === index}
-                  >
-                    <img
-                      src={image}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik00MCA0MEwzMCA1MEg1MEw0MCA0MFoiIGZpbGw9IiM4RTkwQTAiLz4KPGNpcmNsZSBjeD0iNDAiIGN5PSIzNSIgcj0iNSIgZmlsbD0iIzhFOTBBMCIvPgo8L3N2Zz4=';
-                      }}
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Property Details */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Property Information</h3>
-              
-              <div className="space-y-3">
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="font-medium text-gray-600">Price</span>
-                  <span className="text-xl font-bold text-blue-600">
-                    {formatPrice(property.price)}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="font-medium text-gray-600">Type</span>
-                  <span className="text-gray-900">{property.type}</span>
-                </div>
-
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="font-medium text-gray-600">Bedrooms</span>
-                  <span className="text-gray-900">
-                    {property.bedroom || 'N/A'} {parseInt(property.bedroom) === 1 ? 'Bed' : 'Beds'}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-start py-2 border-b">
-                  <span className="font-medium text-gray-600">Address</span>
-                  <span className="text-gray-900 text-right">{property.address}</span>
-                </div>
-
-                {property.servicing && (
-                  <div className="py-2 border-b">
-                    <span className="font-medium text-gray-600">Amenities</span>
-                    <p className="text-gray-900 mt-1">{property.servicing}</p>
-                  </div>
-                )}
-              </div>
+            <div className="flex space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-semibold"
+              >
+                Send Booking Request
+              </button>
             </div>
-
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Additional Details</h3>
-              
-              <div className="space-y-3">
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="font-medium text-gray-600">Status</span>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    property.status === 'available' ? 'bg-green-100 text-green-800' : 
-                    property.status === 'unavailable' ? 'bg-red-100 text-red-800' : 
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {property.status}
-                  </span>
-                </div>
-
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end space-x-3 p-6 border-t bg-gray-50 rounded-b-xl">
-          <button
-            onClick={onClose}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Close
-          </button>
-          <button
-            onClick={() => {
-              onBookNow(property);
-              onClose();
-            }}
-            className="px-6 py-2 bg-amber-400 text-white rounded-lg font-semibold hover:bg-amber-500 transition-colors flex items-center space-x-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-            <span>Book Now</span>
-          </button>
+          </form>
         </div>
       </div>
     </div>
@@ -274,6 +544,11 @@ const AgentPropertiesGallery: React.FC = () => {
     enlistedProperties
   } = useAgentStore();
 
+  const {
+    createBooking,
+    fetchBookings
+  } = useBookingStore();
+
   const { banners, fetchBanners } = useBannerStore();
 
   const [properties, setProperties] = useState<Property[]>([]);
@@ -288,21 +563,20 @@ const AgentPropertiesGallery: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('newest');
   const [isSortOpen, setIsSortOpen] = useState(false);
-  
-  // Modal states
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-  const [isGetReceiptModalOpen, setIsGetReceiptModalOpen] = useState(false);
-  const [isPropertyDetailModalOpen, setIsPropertyDetailModalOpen] = useState(false);
-  const [bookingData, setBookingData] = useState<any>(null);
-  const [receiptData, setReceiptData] = useState<any>(null);
   const [dataSource, setDataSource] = useState<'slug' | 'enlisted'>('slug');
 
+  // Helper function to ensure bedroom is displayed as string
+  const getBedroomText = (bedroom: string | number): string => {
+    return typeof bedroom === 'number' ? bedroom.toString() : bedroom;
+  };
+
+  // Load properties
   const loadProperties = React.useCallback(
     async (page: number = 1) => {
-      if (!personalUrl) return;
+      if (!personalUrl && dataSource === 'slug') return;
       
       try {
         clearError();
@@ -323,16 +597,15 @@ const AgentPropertiesGallery: React.FC = () => {
             name: prop.name,
             address: prop.address,
             type: prop.type,
-            servicing: '',
-            bedroom: '',
+            servicing: prop.servicing || '',
+            bedroom: prop.bedroom || '', // This can be string or number
             price: prop.price,
             images: prop.images,
             createdAt: prop.createdAt,
-            updatedAt: prop.createdAt,
+            updatedAt: prop.updatedAt || prop.createdAt,
             status: prop.status,
             apartmentId: prop.apartmentId,
-            markedUpPrice: prop.markedUpPrice,
-            agentPercentage: prop.agentPercentage
+            location: prop.location
           }));
           
           setProperties(transformedProperties);
@@ -351,7 +624,7 @@ const AgentPropertiesGallery: React.FC = () => {
     [personalUrl, clearError, fetchPropertiesBySlug, fetchEnlistedProperties, enlistedProperties, dataSource]
   );
 
-  // Determine data source based on whether personalUrl is provided
+  // Determine data source
   useEffect(() => {
     if (personalUrl) {
       setDataSource('slug');
@@ -360,12 +633,12 @@ const AgentPropertiesGallery: React.FC = () => {
     }
   }, [personalUrl]);
 
-  // Fetch properties when component mounts or personalUrl/page changes
+  // Fetch properties
   useEffect(() => {
     loadProperties(currentPage);
   }, [personalUrl, currentPage, loadProperties, dataSource]);
 
-  // Fetch banners on component mount
+  // Fetch banners
   useEffect(() => {
     fetchBanners();
   }, [fetchBanners]);
@@ -378,16 +651,15 @@ const AgentPropertiesGallery: React.FC = () => {
         name: prop.name,
         address: prop.address,
         type: prop.type,
-        servicing: '',
-        bedroom: '',
+        servicing: prop.servicing || '',
+        bedroom: prop.bedroom || '', // This can be string or number
         price: prop.price,
         images: prop.images,
         createdAt: prop.createdAt,
-        updatedAt: prop.createdAt,
+        updatedAt: prop.updatedAt || prop.createdAt,
         status: prop.status,
         apartmentId: prop.apartmentId,
-        markedUpPrice: prop.markedUpPrice,
-        agentPercentage: prop.agentPercentage
+        location: prop.location
       }));
       
       setProperties(transformedProperties);
@@ -401,10 +673,11 @@ const AgentPropertiesGallery: React.FC = () => {
     }
   }, [enlistedProperties, dataSource, currentPage]);
 
-  // Filter and sort properties when search query or sort option changes
+  // Filter and sort properties
   useEffect(() => {
     let result = [...properties];
     
+    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(property => 
@@ -412,11 +685,12 @@ const AgentPropertiesGallery: React.FC = () => {
         property.address.toLowerCase().includes(query) ||
         property.type.toLowerCase().includes(query) ||
         property.servicing.toLowerCase().includes(query) ||
-        property.bedroom.toLowerCase().includes(query) ||
+        getBedroomText(property.bedroom).toLowerCase().includes(query) ||
         property.price.toString().includes(query)
       );
     }
     
+    // Apply sorting
     switch (sortOption) {
       case 'newest':
         result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -431,7 +705,10 @@ const AgentPropertiesGallery: React.FC = () => {
         result.sort((a, b) => a.name.localeCompare(b.name));
         break;
       case 'bedrooms':
-        result.sort((a, b) => parseInt(b.bedroom) - parseInt(a.bedroom));
+        result.sort((a, b) => parseInt(getBedroomText(b.bedroom)) - parseInt(getBedroomText(a.bedroom)));
+        break;
+      case 'location':
+        result.sort((a, b) => (a.location || '').localeCompare(b.location || ''));
         break;
     }
     
@@ -470,72 +747,72 @@ const AgentPropertiesGallery: React.FC = () => {
     setIsSortOpen(false);
   };
 
-  // Property Detail Modal Handlers
-  const handleViewDetails = (property: Property) => {
+  const handleViewProperty = (property: Property) => {
     setSelectedProperty(property);
-    setIsPropertyDetailModalOpen(true);
+    setIsDetailViewOpen(true);
   };
 
-  // Booking Flow Handlers
   const handleBookNow = (property: Property) => {
     setSelectedProperty(property);
     setIsBookingModalOpen(true);
   };
 
-  const handleBookingSubmit = (bookingData: any) => {
-    setBookingData(bookingData);
+  const handleBookingSubmit = async (bookingData: any) => {
+    try {
+      await createBooking({
+        apartment_id: bookingData.propertyId,
+        guest_name: bookingData.name,
+        guest_phone: bookingData.phone,
+        guest_email: bookingData.email,
+        next_of_kin_name: bookingData.name_of_nxt_of_kin,
+        next_of_kin_phone: bookingData.nunmer_of_nxt_of_kin,
+        discount_code: bookingData.discount,
+        booking_start_date: bookingData.startDate?.toISOString().split('T')[0],
+        booking_end_date: bookingData.endDate?.toISOString().split('T')[0],
+        amount: bookingData.totalPrice.toString(),
+        special_requests: '',
+        guests: 1
+      });
+
+      alert('Booking request sent successfully!');
+      setIsBookingModalOpen(false);
+      setSelectedProperty(null);
+      
+    } catch (error) {
+      console.error('Booking failed:', error);
+      alert('Booking failed. Please try again.');
+    }
+  };
+
+  const handleCloseDetailView = () => {
+    setIsDetailViewOpen(false);
+    setSelectedProperty(null);
+  };
+
+  const handleCloseBookingModal = () => {
     setIsBookingModalOpen(false);
-    setIsPaymentModalOpen(true);
+    setSelectedProperty(null);
   };
 
-  const handlePaymentSuccess = (paymentData: any) => {
-    const receiptData = {
-      propertyName: bookingData.propertyName,
-      nights: Math.ceil((new Date(bookingData.checkOut).getTime() - new Date(bookingData.checkIn).getTime()) / (1000 * 3600 * 24)),
-      startDate: new Date(bookingData.checkIn).toLocaleDateString('en-GB'),
-      endDate: new Date(bookingData.checkOut).toLocaleDateString('en-GB'),
-      transactionDate: new Date().toLocaleDateString('en-GB'),
-      transactionTime: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      totalAmount: bookingData.totalPrice,
-    };
-    
-    setReceiptData(receiptData);
-    setIsPaymentModalOpen(false);
-    setIsReceiptModalOpen(true);
-  };
-
-  const handleGetReceipt = () => {
-    setIsReceiptModalOpen(false);
-    setIsGetReceiptModalOpen(true);
-  };
-
-  const handleDownloadPDF = () => {
-    console.log('Downloading PDF receipt...');
-    // Implement PDF download logic
-    alert('Receipt downloaded successfully!');
-    setIsGetReceiptModalOpen(false);
-  };
-
-  const handleSendEmail = () => {
-    console.log('Sending receipt via email...');
-    // Implement email sending logic
-    alert('Receipt sent to your email!');
-    setIsGetReceiptModalOpen(false);
-  };
-
-  // Get active banners for carousel
-  const activeBanners = banners.filter(banner => banner.isActive).sort((a, b) => a.order - b.order);
-
-  // Handle case where no properties are available
-  if (!personalUrl && dataSource === 'slug') {
+  if (isLoading && properties.length === 0) {
     return (
-      <div className="min-h-64 flex items-center justify-center">
-        <div className="text-center text-red-600 bg-red-50 p-6 rounded-lg max-w-md">
-          <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <h3 className="text-lg font-semibold mb-2">Invalid Agent URL</h3>
-          <p>Unable to load agent properties. Please check the URL.</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error && properties.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-red-600 text-lg mb-2">Error loading properties</div>
+          <button
+            onClick={() => loadProperties(1)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -543,385 +820,211 @@ const AgentPropertiesGallery: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <img src="/images/logo2.svg" alt="HomeyHost" className="h-8" />
-            </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => window.location.href = '/manage-booking'}
-                className="px-4 py-2 rounded-md bg-amber-400 text-white font-semibold shadow hover:bg-amber-500 transition-colors duration-200 text-sm"
-              >
-                Manage Booking
-              </button>
-            </div>
+      {/* Header Banner */}
+      {banners.length > 0 && (
+        <div className="relative bg-blue-600 text-white py-8">
+          <div className="container mx-auto px-4 text-center">
+            <h1 className="text-3xl font-bold mb-2">
+              {banners[0].title || 'Available Properties'}
+            </h1>
+            <p className="text-blue-100">
+              {banners[0].description || 'Find your perfect shortlet accommodation'}
+            </p>
           </div>
         </div>
-      </nav>
+      )}
 
-      {/* Banner Carousel */}
-      {activeBanners.length > 0 && (
-        <div className="relative h-80 bg-gray-200 overflow-hidden">
-          <div className="absolute inset-0 flex">
-            {activeBanners.map((banner, index) => (
-              <div
-                key={banner.id}
-                className="w-full h-full flex-shrink-0"
-                style={{ transform: `translateX(-${0}%)` }}
-              >
-                <img
-                  src={banner.imageUrl}
-                  alt={banner.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
-                  <div className="text-center text-white">
-                    <h2 className="text-3xl font-bold mb-2">{banner.title}</h2>
-                    <p className="text-lg">{banner.description}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Search Bar */}
-          <div className="absolute top-4 right-4 z-10">
-            <form onSubmit={handleSearch} className="relative">
+      {/* Search and Sort Controls */}
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex flex-col lg:flex-row gap-4 mb-6">
+          {/* Search Form */}
+          <form onSubmit={handleSearch} className="flex-1">
+            <div className="relative">
               <input
                 type="text"
-                placeholder="Search properties..."
+                placeholder="Search properties by name, location, or price..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-4 pr-10 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <button
                 type="submit"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                aria-label="Search properties"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </button>
-            </form>
-          </div>
+            </div>
+          </form>
 
           {/* Sort Dropdown */}
-          <div className="absolute top-4 left-4 z-10">
-            <div className="relative">
-              <button
-                onClick={() => setIsSortOpen(!isSortOpen)}
-                className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                aria-label="Sort properties"
-                aria-expanded={isSortOpen}
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
-                </svg>
-                <span className="text-sm font-medium">Sort By</span>
-              </button>
+          <div className="relative">
+            <button
+              onClick={() => setIsSortOpen(!isSortOpen)}
+              className="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+              </svg>
+              <span className="text-gray-700">Sort: {sortOption.replace(/-/g, ' ')}</span>
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
 
-              {isSortOpen && (
-                <div className="absolute top-12 left-0 bg-white rounded-lg shadow-lg border border-gray-200 py-2 w-48 z-20">
-                  <button
-                    onClick={() => handleSortChange('newest')}
-                    className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
-                      sortOption === 'newest' ? 'bg-blue-50 text-blue-600' : ''
-                    }`}
-                  >
-                    Newest First
-                  </button>
-                  <button
-                    onClick={() => handleSortChange('price-low-high')}
-                    className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
-                      sortOption === 'price-low-high' ? 'bg-blue-50 text-blue-600' : ''
-                    }`}
-                  >
-                    Price: Low to High
-                  </button>
-                  <button
-                    onClick={() => handleSortChange('price-high-low')}
-                    className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
-                      sortOption === 'price-high-low' ? 'bg-blue-50 text-blue-600' : ''
-                    }`}
-                  >
-                    Price: High to Low
-                  </button>
-                  <button
-                    onClick={() => handleSortChange('name')}
-                    className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
-                      sortOption === 'name' ? 'bg-blue-50 text-blue-600' : ''
-                    }`}
-                  >
-                    Name
-                  </button>
-                  <button
-                    onClick={() => handleSortChange('bedrooms')}
-                    className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
-                      sortOption === 'bedrooms' ? 'bg-blue-50 text-blue-600' : ''
-                    }`}
-                  >
-                    Bedrooms
-                  </button>
+            {isSortOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <div className="py-1">
+                  {(['newest', 'price-low-high', 'price-high-low', 'name', 'bedrooms', 'location'] as SortOption[]).map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => handleSortChange(option)}
+                      className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                        sortOption === option ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                      }`}
+                    >
+                      {option.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            {dataSource === 'slug' ? 'Agent Properties' : 'My Listed Properties'}
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Showing {filteredProperties.length} of {pagination.total} properties
-            {searchQuery && ` for "${searchQuery}"`}
-          </p>
         </div>
 
         {/* Properties Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {filteredProperties.map((property) => (
-            <div
-              key={property.id}
-              className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col"
-            >
-              {/* Property Image */}
-              <div 
-                className="relative h-48 bg-gray-200 cursor-pointer"
-                onClick={() => handleViewDetails(property)}
-              >
-                {property.images && property.images.length > 0 ? (
-                  <img
-                    src={property.images[0]}
-                    alt={property.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMDAgMTUwTDE1MCAyMDBIMjUwTDIwMCAxNTBaIiBmaWxsPSIjOEU5MEEwIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjExMCIgcj0iMjAiIGZpbGw9IiM4RTkwQTAiLz4KPC9zdmc+';
-                    }}
+        {filteredProperties.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-500 text-lg">No properties found</div>
+            <p className="text-gray-400 mt-2">
+              {searchQuery ? 'Try adjusting your search criteria' : 'No properties available at the moment'}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {filteredProperties.map((property) => (
+                <div
+                  key={property.id}
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => handleViewProperty(property)}
+                >
+                  {/* Property Carousel */}
+                  <PropertyCarousel
+                    images={property.images}
+                    propertyName={property.name}
                   />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                )}
-                <div className="absolute top-3 left-3">
-                  <span className="bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-semibold">
-                    {property.type}
-                  </span>
-                </div>
-                <div className="absolute top-3 right-3">
-                  <span className="bg-green-600 text-white px-2 py-1 rounded-full text-xs font-semibold">
-                    {property.bedroom || 'N/A'} {parseInt(property.bedroom) === 1 ? 'Bed' : 'Beds'}
-                  </span>
-                </div>
-              </div>
 
-              {/* Property Details */}
-              <div className="p-4 flex-grow">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 
-                    className="text-lg font-semibold text-gray-900 line-clamp-1 cursor-pointer hover:text-blue-600"
-                    onClick={() => handleViewDetails(property)}
-                  >
-                    {property.name}
-                  </h3>
-                  <span className="text-xl font-bold text-blue-600">
-                    {formatPrice(property.price)}
-                  </span>
-                </div>
+                  {/* Property Details */}
+                  <div className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">
+                        {property.name}
+                      </h3>
+                      <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                        {property.type}
+                      </span>
+                    </div>
 
-                <p className="text-gray-600 text-sm mb-3 flex items-center">
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {property.address}
-                </p>
-
-                {property.servicing && (
-                  <div className="mb-3">
-                    <p className="text-sm text-gray-700 line-clamp-2">
-                      <span className="font-semibold">Amenities:</span> {property.servicing}
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                      {property.address}
                     </p>
-                  </div>
-                )}
 
-                {/* Additional info for enlisted properties */}
-                {dataSource === 'enlisted' && (
-                  <div className="mb-3 space-y-1">
-                
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Status:</span> 
-                      <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${
-                        property.status === 'available' ? 'bg-green-100 text-green-800' : 
-                        property.status === 'unavailable' ? 'bg-red-100 text-red-800' : 
-                        'bg-yellow-100 text-yellow-800'
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <span>{getBedroomText(property.bedroom)} Beds</span>
+                        <span>{property.servicing}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-blue-600">
+                          {formatPrice(property.price)}
+                        </div>
+                        <div className="text-xs text-gray-500">per night</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                      <span>Added {formatDate(property.createdAt)}</span>
+                      <span className={`px-2 py-1 rounded-full ${
+                        property.status === 'available' 
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
                       }`}>
                         {property.status}
                       </span>
-                    </p>
+                    </div>
+
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewProperty(property);
+                        }}
+                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        View Details
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBookNow(property);
+                        }}
+                        className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-semibold"
+                      >
+                        Book Now
+                      </button>
+                    </div>
                   </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="p-4 border-t border-gray-100 bg-gray-50">
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleViewDetails(property)}
-                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    <span>View Details</span>
-                  </button>
-                  <button
-                    onClick={() => handleBookNow(property)}
-                    className="flex-1 bg-amber-400 text-white py-2 px-4 rounded-lg font-semibold hover:bg-amber-500 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
-                    <span>Book Now</span>
-                  </button>
                 </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {pagination.totalPages > 1 && (
+              <div className="flex justify-center items-center space-x-2">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                >
+                  Previous
+                </button>
+                
+                <span className="text-gray-600">
+                  Page {currentPage} of {pagination.totalPages}
+                </span>
+                
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === pagination.totalPages}
+                  className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                >
+                  Next
+                </button>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
-            <div className="flex items-center">
-              <svg className="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-red-800">{error}</span>
-              <button
-                onClick={clearError}
-                className="ml-auto text-red-600 hover:text-red-800"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!isLoading && filteredProperties.length === 0 && (
-          <div className="text-center py-12">
-            <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No properties found</h3>
-            <p className="text-gray-600 max-w-md mx-auto">
-              {searchQuery
-                ? 'No properties match your search criteria. Try adjusting your search terms.'
-                : 'No properties are currently available. Please check back later.'}
-            </p>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Clear Search
-              </button>
             )}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <div className="flex justify-center items-center space-x-2 mt-8">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Previous
-            </button>
-            
-            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => handlePageChange(page)}
-                className={`px-4 py-2 border rounded-lg text-sm font-medium transition-colors ${
-                  currentPage === page
-                    ? 'border-blue-600 bg-blue-600 text-white'
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === pagination.totalPages}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-            </button>
-          </div>
+          </>
         )}
       </div>
 
-      {/* Property Detail Modal */}
-      <PropertyDetailModal
+      {/* Property Detail View Modal */}
+      <PropertyDetailView
         property={selectedProperty}
-        isOpen={isPropertyDetailModalOpen}
-        onClose={() => setIsPropertyDetailModalOpen(false)}
-        onBookNow={handleBookNow}
+        isOpen={isDetailViewOpen}
+        onClose={handleCloseDetailView}
+        onBookNow={() => {
+          setIsDetailViewOpen(false);
+          setIsBookingModalOpen(true);
+        }}
       />
 
-      {/* Booking Flow Modals */}
+      {/* Booking Modal */}
       <BookingModal
-        isOpen={isBookingModalOpen}
-        onClose={() => setIsBookingModalOpen(false)}
-        onSubmit={handleBookingSubmit}
         property={selectedProperty}
-      />
-
-      <PaymentModal
-        isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
-        onPaymentSuccess={handlePaymentSuccess}
-        bookingData={bookingData}
-      />
-
-      <ReceiptModal
-        isOpen={isReceiptModalOpen}
-        onClose={() => setIsReceiptModalOpen(false)}
-        onGetReceipt={handleGetReceipt}
-        receiptData={receiptData}
-      />
-
-      <GetReceiptModal
-        isOpen={isGetReceiptModalOpen}
-        onClose={() => setIsGetReceiptModalOpen(false)}
-        onDownloadPDF={handleDownloadPDF}
-        onSendEmail={handleSendEmail}
+        isOpen={isBookingModalOpen}
+        onClose={handleCloseBookingModal}
+        onSubmit={handleBookingSubmit}
       />
     </div>
   );
