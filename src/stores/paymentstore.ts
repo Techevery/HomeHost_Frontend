@@ -15,6 +15,7 @@ interface PaymentInitiationData {
   apartmentId: string;
   startDate: string;
   endDate: string;
+  amount: number;
 }
 
 interface PaymentData {
@@ -178,8 +179,8 @@ const validatePaymentInitiation = (
     return { valid: false, message: "Currency is required." };
   }
 
-  if (!data.agentId) {
-    return { valid: false, message: "Agent ID is required." };
+  if (!data.agentId || data.agentId === "default-agent-id") {
+    return { valid: false, message: "Valid Agent ID is required." };
   }
 
   if (!data.apartmentId) {

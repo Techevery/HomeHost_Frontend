@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import useAgentStore from "../../../stores/agentstore";
 import useBannerStore from "../../../stores/bannerStore";
-import usePaymentStore from "../../../stores/paymentstore"; // Replace booking store with payment store
+import usePaymentStore from "../../../stores/paymentstore";
 import Carousel from "react-grid-carousel";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -23,7 +23,7 @@ interface Property {
   apartmentId?: string;
   location?: string;
   amenities?: string[];
-  agentId?: string;
+  agentId: string; // Changed from optional to required
 }
 
 interface PaginationInfo {
@@ -284,6 +284,12 @@ const PropertyDetailView: React.FC<{
                         {property.status}
                       </span>
                     </div>
+                    <div>
+                      <span className="font-semibold">Agent ID:</span>
+                      <span className="ml-2 text-xs font-mono">
+                        {property.agentId}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -335,27 +341,28 @@ const PropertyDetailView: React.FC<{
   );
 };
 
-// Updated Booking Modal Component with Booked Dates Indication
+// Updated Booking Modal Component with proper agentId handling
 const BookingModal: React.FC<{
   property: Property | null;
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (bookingData: any) => void;
-}> = ({ property, isOpen, onClose, onSubmit }) => {
+  personalUrl?: string;
+}> = ({ property, isOpen, onClose, onSubmit, personalUrl }) => {
   const [bookingData, setBookingData] = useState({
     name: "",
     phone: "",
     email: "",
     name_of_nxt_of_kin: "",
-    nunmer_of_nxt_of_kin: "",
+    number_of_nxt_of_kin: "",
     discount: "",
   });
 
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [bookedDates, setBookedDates] = useState<Date[]>([]); // State for booked dates
-  const [hoveredDate, setHoveredDate] = useState<Date | null>(null); // State for hover tooltip
+  const [bookedDates, setBookedDates] = useState<Date[]>([]);
+  const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
 
   // Payment store integration
   const {
@@ -365,21 +372,16 @@ const BookingModal: React.FC<{
     clearPaymentInitError,
   } = usePaymentStore();
 
-  // Fetch booked dates for the property (you'll need to implement this)
+  // Fetch booked dates for the property
   useEffect(() => {
     if (property && isOpen) {
       fetchBookedDates(property.id);
     }
   }, [property, isOpen]);
 
-  // Mock function to fetch booked dates - replace with your actual API call
+  // Mock function to fetch booked dates
   const fetchBookedDates = async (propertyId: string) => {
     try {
-      // Replace this with your actual API call to get booked dates
-      // const response = await axios.get(`${API_BASE_URL}/properties/${propertyId}/booked-dates`);
-      // setBookedDates(response.data.bookedDates.map((date: string) => new Date(date)));
-
-      // Mock data for demonstration - remove this in production
       const mockBookedDates = [
         new Date(new Date().setDate(new Date().getDate() + 2)),
         new Date(new Date().setDate(new Date().getDate() + 3)),
@@ -553,7 +555,14 @@ const BookingModal: React.FC<{
       return;
     }
 
-    // Check if any selected date is booked (safety check)
+    // Validate that we have agentId
+    if (!property.agentId) {
+      console.error("❌ Agent ID is missing for property:", property);
+      alert("Agent information is missing. Please contact support.");
+      return;
+    }
+
+    // Check if any selected date is booked
     const hasBookedDate = selectedDates.some((date) => isDateBooked(date));
     if (hasBookedDate) {
       alert(
@@ -566,24 +575,26 @@ const BookingModal: React.FC<{
       // Calculate total amount
       const totalAmount = property.price * selectedDates.length;
 
-      // Prepare payment data
+      // Prepare payment data with proper agentId
       const paymentData = {
         email: bookingData.email,
         phone_number: bookingData.phone,
         name: bookingData.name,
         nextkin_name: bookingData.name_of_nxt_of_kin,
-        nextkin_phone: bookingData.nunmer_of_nxt_of_kin,
+        nextkin_phone: bookingData.number_of_nxt_of_kin,
         discount_code: bookingData.discount
           ? parseInt(bookingData.discount)
           : 0,
-        channels: ["card", "bank", "ussd"],
+        channels: ["card"],
         currency: "NGN",
-        agentId: property.agentId || "default-agent-id",
+        agentId: property.agentId, // Use the actual agentId from property
         apartmentId: property.id,
         startDate: startDate?.toISOString().split("T")[0] || "",
         endDate: endDate?.toISOString().split("T")[0] || "",
         amount: totalAmount,
       };
+
+      console.log("✅ Payment data with agentId:", paymentData);
 
       // Initiate payment
       const paymentResult = await initiatePayment(paymentData);
@@ -600,6 +611,7 @@ const BookingModal: React.FC<{
           endDate: endDate,
           totalPrice: totalAmount,
           paymentReference: paymentResult.reference,
+          agentId: property.agentId, // Include agentId in stored data
         };
 
         // Store in session storage for retrieval after payment
@@ -622,7 +634,7 @@ const BookingModal: React.FC<{
       phone: "",
       email: "",
       name_of_nxt_of_kin: "",
-      nunmer_of_nxt_of_kin: "",
+      number_of_nxt_of_kin: "",
       discount: "",
     });
     setSelectedDates([]);
@@ -716,11 +728,11 @@ const BookingModal: React.FC<{
                 <input
                   type="tel"
                   required
-                  value={bookingData.nunmer_of_nxt_of_kin}
+                  value={bookingData.number_of_nxt_of_kin}
                   onChange={(e) =>
                     setBookingData({
                       ...bookingData,
-                      nunmer_of_nxt_of_kin: e.target.value,
+                      number_of_nxt_of_kin: e.target.value,
                     })
                   }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -769,7 +781,7 @@ const BookingModal: React.FC<{
                 highlightDates={highlightDates}
                 dateFormat="yyyy/MM/dd"
                 renderDayContents={renderDayContents}
-                filterDate={(date) => !isDateBooked(date)} // Prevent selection of booked dates
+                filterDate={(date) => !isDateBooked(date)}
                 dayClassName={(date) => {
                   if (isDateBooked(date)) {
                     return "react-datepicker__day--disabled";
@@ -930,7 +942,7 @@ const AgentPropertiesGallery: React.FC = () => {
               status: prop.status,
               apartmentId: prop.apartmentId,
               location: prop.location,
-              agentId: prop.agentId,
+              agentId: prop.agentId, // Ensure agentId is properly mapped
             }),
           );
 
@@ -994,7 +1006,7 @@ const AgentPropertiesGallery: React.FC = () => {
           status: prop.status,
           apartmentId: prop.apartmentId,
           location: prop.location,
-          agentId: prop.agentId,
+          agentId: prop.agentId, // Make sure this field exists in your API response
         }),
       );
 
@@ -1104,10 +1116,7 @@ const AgentPropertiesGallery: React.FC = () => {
   };
 
   const handleBookingSubmit = async (bookingData: any) => {
-    // This function is called after payment initiation
-    // The actual booking creation should happen after successful payment verification
     console.log("Booking data submitted:", bookingData);
-    // You can store this data or send it to your backend after payment verification
   };
 
   const handleCloseDetailView = () => {
@@ -1362,6 +1371,7 @@ const AgentPropertiesGallery: React.FC = () => {
         isOpen={isBookingModalOpen}
         onClose={handleCloseBookingModal}
         onSubmit={handleBookingSubmit}
+        personalUrl={personalUrl}
       />
     </div>
   );

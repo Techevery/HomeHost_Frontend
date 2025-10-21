@@ -22,7 +22,7 @@ interface Property {
   apartmentId?: string;
   location?: string;
   amenities?: string[];
-  agentId?: string;
+  agentId: string; // Changed from optional to required
 }
 
 // Booking Modal Component
@@ -37,7 +37,7 @@ const BookingModal: React.FC<{
     phone: "",
     email: "",
     name_of_nxt_of_kin: "",
-    nunmer_of_nxt_of_kin: "",
+    number_of_nxt_of_kin: "", // Fixed typo: changed from "nunmer_of_nxt_of_kin"
     discount: "",
   });
 
@@ -77,7 +77,6 @@ const BookingModal: React.FC<{
 
       const { bookedRanges } = await response.json();
 
-      // Convert date strings to Date objects
       const ranges = bookedRanges.map((range: any) => ({
         startDate: new Date(range.startDate),
         endDate: new Date(range.endDate),
@@ -240,6 +239,13 @@ const BookingModal: React.FC<{
       return;
     }
 
+    // Validate that we have agentId
+    if (!property.agentId) {
+      console.error("❌ Agent ID is missing for property:", property);
+      alert("Agent information is missing. Please contact support.");
+      return;
+    }
+
     // Enhanced conflict checking with date ranges
     const selectedStartDate = selectedDates[0];
     const selectedEndDate = new Date(selectedDates[selectedDates.length - 1]);
@@ -257,19 +263,19 @@ const BookingModal: React.FC<{
       // Calculate total amount
       const totalAmount = property.price * selectedDates.length;
 
-      // Prepare payment data
+      // Prepare payment data with proper agentId
       const paymentData = {
         email: bookingData.email,
         phone_number: bookingData.phone,
         name: bookingData.name,
         nextkin_name: bookingData.name_of_nxt_of_kin,
-        nextkin_phone: bookingData.nunmer_of_nxt_of_kin,
+        nextkin_phone: bookingData.number_of_nxt_of_kin, // Fixed field name
         discount_code: bookingData.discount
           ? parseInt(bookingData.discount)
           : 0,
         channels: ["card", "bank", "ussd"],
         currency: "NGN",
-        agentId: property.agentId || "default-agent-id",
+        agentId: property.agentId, // Use the actual agentId from property (removed hardcoded fallback)
         apartmentId: property.id,
         startDate: selectedDates[0].toISOString().split("T")[0],
         endDate: new Date(
@@ -279,6 +285,8 @@ const BookingModal: React.FC<{
           .split("T")[0],
         amount: totalAmount,
       };
+
+      console.log("✅ Payment data with agentId:", paymentData);
 
       // Initiate payment
       const paymentResult = await initiatePayment(paymentData);
@@ -297,6 +305,7 @@ const BookingModal: React.FC<{
           ),
           totalPrice: totalAmount,
           paymentReference: paymentResult.reference,
+          agentId: property.agentId, // Include agentId in stored data
         };
 
         // Store in session storage for retrieval after payment
@@ -319,7 +328,7 @@ const BookingModal: React.FC<{
       phone: "",
       email: "",
       name_of_nxt_of_kin: "",
-      nunmer_of_nxt_of_kin: "",
+      number_of_nxt_of_kin: "", // Fixed field name
       discount: "",
     });
     setSelectedDates([]);
@@ -433,11 +442,11 @@ const BookingModal: React.FC<{
                   <input
                     type="tel"
                     required
-                    value={bookingData.nunmer_of_nxt_of_kin}
+                    value={bookingData.number_of_nxt_of_kin} // Fixed field name
                     onChange={(e) =>
                       setBookingData({
                         ...bookingData,
-                        nunmer_of_nxt_of_kin: e.target.value,
+                        number_of_nxt_of_kin: e.target.value, // Fixed field name
                       })
                     }
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -603,6 +612,7 @@ const BookingModal: React.FC<{
     </div>
   );
 };
+
 const AvailableProperty = () => {
   const { publicProperties, fetchPublicProperties, loading, error } =
     useAgentStore();
