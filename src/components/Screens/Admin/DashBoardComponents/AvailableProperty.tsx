@@ -5,6 +5,8 @@ import useAgentStore from "../../../../stores/agentstore";
 import usePaymentStore from "../../../../stores/paymentstore";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Define the property interface
 interface Property {
@@ -22,7 +24,7 @@ interface Property {
   apartmentId?: string;
   location?: string;
   amenities?: string[];
-  agentId: string; // Changed from optional to required
+  agentId: string;
 }
 
 // Booking Modal Component
@@ -37,8 +39,7 @@ const BookingModal: React.FC<{
     phone: "",
     email: "",
     name_of_nxt_of_kin: "",
-    number_of_nxt_of_kin: "", // Fixed typo: changed from "nunmer_of_nxt_of_kin"
-    discount: "",
+    number_of_nxt_of_kin: "",
   });
 
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
@@ -65,10 +66,22 @@ const BookingModal: React.FC<{
     }
   }, [property, isOpen]);
 
+  // Show error toast when payment initiation fails
+  useEffect(() => {
+    if (paymentInitError) {
+      toast.error(`Payment Error: ${paymentInitError}`, {
+        position: "top-right",
+        autoClose: 5000,
+      });
+      clearPaymentInitError();
+    }
+  }, [paymentInitError, clearPaymentInitError]);
+
   // Fetch booked date ranges from API
   const fetchBookedDates = async (propertyId: string) => {
     try {
       setLoadingBookedDates(true);
+      // Mock API call - replace with your actual API endpoint
       const response = await fetch(`/api/properties/${propertyId}/bookings`);
 
       if (!response.ok) {
@@ -85,6 +98,13 @@ const BookingModal: React.FC<{
       setBookedRanges(ranges);
     } catch (error) {
       console.error("Failed to fetch booked dates:", error);
+      toast.warning(
+        "Unable to load booked dates. Some dates may be unavailable.",
+        {
+          position: "top-right",
+          autoClose: 3000,
+        },
+      );
       setBookedRanges([]);
     } finally {
       setLoadingBookedDates(false);
@@ -121,6 +141,10 @@ const BookingModal: React.FC<{
 
     // Don't allow selection of booked dates
     if (isDateBooked(date)) {
+      toast.info("This date is already booked. Please select another date.", {
+        position: "top-center",
+        autoClose: 3000,
+      });
       return;
     }
 
@@ -226,23 +250,93 @@ const BookingModal: React.FC<{
     );
   };
 
+  const validateForm = () => {
+    const requiredFields = [
+      { field: bookingData.name, message: "Full name is required" },
+      { field: bookingData.phone, message: "Phone number is required" },
+      { field: bookingData.email, message: "Email is required" },
+      {
+        field: bookingData.name_of_nxt_of_kin,
+        message: "Next of kin name is required",
+      },
+      {
+        field: bookingData.number_of_nxt_of_kin,
+        message: "Next of kin phone number is required",
+      },
+    ];
+
+    for (const { field, message } of requiredFields) {
+      if (!field?.trim()) {
+        toast.error(message, {
+          position: "top-right",
+          autoClose: 4000,
+        });
+        return false;
+      }
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(bookingData.email)) {
+      toast.error("Please enter a valid email address", {
+        position: "top-right",
+        autoClose: 4000,
+      });
+      return false;
+    }
+
+    // Phone validation (basic)
+    if (bookingData.phone.replace(/\D/g, "").length < 10) {
+      toast.error("Please enter a valid phone number", {
+        position: "top-right",
+        autoClose: 4000,
+      });
+      return false;
+    }
+
+    // Next of kin phone validation
+    if (bookingData.number_of_nxt_of_kin.replace(/\D/g, "").length < 10) {
+      toast.error("Please enter a valid next of kin phone number", {
+        position: "top-right",
+        autoClose: 4000,
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // FIXED: Updated payment initiation function
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (selectedDates.length === 0) {
-      alert("Please select at least one date");
+      toast.error("Please select at least one date", {
+        position: "top-right",
+        autoClose: 4000,
+      });
       return;
     }
 
     if (!property) {
-      alert("Property information is missing");
+      toast.error("Property information is missing", {
+        position: "top-right",
+        autoClose: 4000,
+      });
       return;
     }
 
     // Validate that we have agentId
     if (!property.agentId) {
-      console.error("❌ Agent ID is missing for property:", property);
-      alert("Agent information is missing. Please contact support.");
+      toast.error("Agent information is missing. Please contact support.", {
+        position: "top-right",
+        autoClose: 5000,
+      });
+      return;
+    }
+
+    // Validate form fields
+    if (!validateForm()) {
       return;
     }
 
@@ -253,8 +347,12 @@ const BookingModal: React.FC<{
 
     const hasConflict = hasDateConflict(selectedStartDate, selectedEndDate);
     if (hasConflict) {
-      alert(
+      toast.error(
         "The selected dates conflict with existing bookings. Please choose different dates.",
+        {
+          position: "top-right",
+          autoClose: 5000,
+        },
       );
       return;
     }
@@ -263,36 +361,53 @@ const BookingModal: React.FC<{
       // Calculate total amount
       const totalAmount = property.price * selectedDates.length;
 
-      // Prepare payment data with proper agentId
+      // FIXED: Prepare payment data with correct field names and structure
       const paymentData = {
         email: bookingData.email,
-        phone_number: bookingData.phone,
-        name: bookingData.name,
-        nextkin_name: bookingData.name_of_nxt_of_kin,
-        nextkin_phone: bookingData.number_of_nxt_of_kin, // Fixed field name
-        discount_code: bookingData.discount
-          ? parseInt(bookingData.discount)
-          : 0,
-        channels: ["card", "bank", "ussd"],
+        phoneNumber: bookingData.phone,
+        nextofKinName: bookingData.name_of_nxt_of_kin,
+        nextOfKinNumber: bookingData.number_of_nxt_of_kin,
+        channels: ["card"], // Provide multiple options
         currency: "NGN",
-        agentId: property.agentId, // Use the actual agentId from property (removed hardcoded fallback)
+        agentId: property.agentId,
         apartmentId: property.id,
-        startDate: selectedDates[0].toISOString().split("T")[0],
+        startDate: selectedDates[0].toISOString().split("T")[0], // Format: YYYY-MM-DD
         endDate: new Date(
           selectedDates[selectedDates.length - 1].getTime() + 86400000,
         )
           .toISOString()
-          .split("T")[0],
-        amount: totalAmount,
+          .split("T")[0], // Format: YYYY-MM-DD
+        amount: totalAmount, // CRITICAL: Add amount field
+        metadata: {
+          propertyName: property.name,
+          nights: selectedDates.length,
+          guestName: bookingData.name,
+          checkIn: selectedDates[0].toISOString(),
+          checkOut: new Date(
+            selectedDates[selectedDates.length - 1].getTime() + 86400000,
+          ).toISOString(),
+        },
       };
 
-      console.log("✅ Payment data with agentId:", paymentData);
+      console.log("🚀 Payment data being sent:", paymentData);
+
+      // Show loading toast
+      const toastId = toast.loading("Initializing payment...", {
+        position: "top-right",
+      });
 
       // Initiate payment
       const paymentResult = await initiatePayment(paymentData);
 
       // If payment initiation is successful, redirect to payment page
       if (paymentResult.authorization_url) {
+        toast.update(toastId, {
+          render: "Payment initialized successfully! Redirecting...",
+          type: "success",
+          isLoading: false,
+          autoClose: 3000,
+        });
+
         // Store booking data temporarily before redirect
         const bookingInfo = {
           ...bookingData,
@@ -305,20 +420,35 @@ const BookingModal: React.FC<{
           ),
           totalPrice: totalAmount,
           paymentReference: paymentResult.reference,
-          agentId: property.agentId, // Include agentId in stored data
+          agentId: property.agentId,
+          authorizationUrl: paymentResult.authorization_url,
         };
+
+        console.log("💾 Storing booking info:", bookingInfo);
 
         // Store in session storage for retrieval after payment
         sessionStorage.setItem("pendingBooking", JSON.stringify(bookingInfo));
 
-        // Redirect to payment gateway
-        window.location.href = paymentResult.authorization_url;
+        // Call the onSubmit prop to notify parent component
+        onSubmit(bookingInfo);
+
+        // Redirect to payment gateway after a short delay
+        setTimeout(() => {
+          window.location.href = paymentResult.authorization_url;
+        }, 1500);
       } else {
-        throw new Error("Payment initiation failed - no authorization URL");
+        throw new Error(
+          "Payment initiation failed - no authorization URL received",
+        );
       }
     } catch (error: any) {
-      console.error("Payment initiation failed:", error);
-      alert(`Payment initiation failed: ${error.message}`);
+      console.error("❌ Payment initiation failed:", error);
+
+      // Show specific error message
+      toast.error(`Payment failed: ${error.message || "Please try again"}`, {
+        position: "top-right",
+        autoClose: 5000,
+      });
     }
   };
 
@@ -328,8 +458,7 @@ const BookingModal: React.FC<{
       phone: "",
       email: "",
       name_of_nxt_of_kin: "",
-      number_of_nxt_of_kin: "", // Fixed field name
-      discount: "",
+      number_of_nxt_of_kin: "",
     });
     setSelectedDates([]);
     setStartDate(null);
@@ -361,12 +490,6 @@ const BookingModal: React.FC<{
               ✕
             </button>
           </div>
-
-          {paymentInitError && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {paymentInitError}
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Personal Information Section */}
@@ -442,11 +565,11 @@ const BookingModal: React.FC<{
                   <input
                     type="tel"
                     required
-                    value={bookingData.number_of_nxt_of_kin} // Fixed field name
+                    value={bookingData.number_of_nxt_of_kin}
                     onChange={(e) =>
                       setBookingData({
                         ...bookingData,
-                        number_of_nxt_of_kin: e.target.value, // Fixed field name
+                        number_of_nxt_of_kin: e.target.value,
                       })
                     }
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -454,19 +577,6 @@ const BookingModal: React.FC<{
                   />
                 </div>
               </div>
-            </div>
-
-            {/* Discount Code */}
-            <div>
-              <input
-                type="text"
-                value={bookingData.discount}
-                onChange={(e) =>
-                  setBookingData({ ...bookingData, discount: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Discount Code (Optional)"
-              />
             </div>
 
             {/* Date Selection Section */}
@@ -627,6 +737,16 @@ const AvailableProperty = () => {
     fetchPublicProperties(1, 12);
   }, [fetchPublicProperties]);
 
+  // Show error toast when fetching properties fails
+  useEffect(() => {
+    if (error) {
+      toast.error(`Failed to load properties: ${error}`, {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    }
+  }, [error]);
+
   const handleBookNow = (property: any) => {
     setSelectedProperty(property);
     setIsBookingModalOpen(true);
@@ -637,10 +757,30 @@ const AvailableProperty = () => {
     setSelectedProperty(null);
   };
 
+  // FIXED: Enhanced booking submission handler
   const handleBookingSubmit = async (bookingData: any) => {
-    // This function is called after payment initiation
-    console.log("Booking data submitted:", bookingData);
-    // You can store this data or send it to your backend after payment verification
+    try {
+      console.log("✅ Booking submitted successfully:", bookingData);
+
+      // You can add additional logic here like:
+      // - Send booking confirmation email
+      // - Update property availability
+      // - Create booking record in your database
+
+      toast.success(
+        "Booking initiated successfully! Redirecting to payment...",
+        {
+          position: "top-right",
+          autoClose: 3000,
+        },
+      );
+    } catch (error) {
+      console.error("Failed to process booking:", error);
+      toast.error("Failed to process booking. Please try again.", {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    }
   };
 
   // Show loading state
@@ -682,36 +822,21 @@ const AvailableProperty = () => {
     );
   }
 
-  // Show error state
-  if (error && publicProperties.length === 0) {
-    return (
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <div className="flex justify-between items-center mb-6">
-          <h4 className="text-2xl font-bold text-gray-900">
-            Available Properties
-          </h4>
-          <Link
-            to="/view-properties"
-            className="text-primary-600 hover:text-primary-700 font-medium text-sm">
-            View All →
-          </Link>
-        </div>
-        <div className="text-center py-8">
-          <p className="text-red-500">
-            Failed to load properties. Please try again.
-          </p>
-          <button
-            onClick={() => fetchPublicProperties(1, 12)}
-            className="mt-4 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors">
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <div className="flex justify-between items-center mb-6">
           <h4 className="text-2xl font-bold text-gray-900">
@@ -753,7 +878,7 @@ const AvailableProperty = () => {
 
                 <div className="absolute bottom-3 left-3">
                   <span className="bg-primary-600 text-white px-2 py-1 rounded-md text-sm font-medium">
-                    NGN {parseInt(property.price).toLocaleString()}/Night
+                    NGN {parseInt(property.price as any).toLocaleString()}/Night
                   </span>
                 </div>
               </div>

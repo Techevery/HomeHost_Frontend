@@ -2,20 +2,20 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
 
+// Types
 interface PaymentInitiationData {
   email: string;
-  phone_number: string;
-  name: string;
-  nextkin_name: string;
-  nextkin_phone: string;
-  discount_code: number;
   channels: string[];
   currency: string;
   agentId: string;
   apartmentId: string;
   startDate: string;
   endDate: string;
-  amount: number;
+  phoneNumber: string;
+  nextofKinName: string;
+  nextOfKinNumber: string;
+  amount?: number;
+  metadata?: Record<string, any>;
 }
 
 interface PaymentData {
@@ -28,6 +28,10 @@ interface PaymentData {
   paid_at?: string;
   created_at: string;
   channel: string;
+  customer?: {
+    email: string;
+    phone_number: string;
+  };
 }
 
 interface PaymentVerificationData {
@@ -48,7 +52,21 @@ interface PaymentVerificationData {
     plan: string;
     paid_at: string;
     created_at: string;
+    customer?: {
+      email: string;
+      phone_number: string;
+    };
+    metadata?: Record<string, any>;
   };
+}
+
+interface TransactionHistoryFilters {
+  status?: string;
+  channel?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
 }
 
 interface PaymentState {
@@ -66,6 +84,19 @@ interface PaymentState {
   transactionHistory: PaymentData[];
   isLoadingTransactions: boolean;
   transactionError: string | null;
+  transactionFilters: TransactionHistoryFilters;
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+
+  // Webhook state
+  webhookData: any | null;
+  isProcessingWebhook: boolean;
+  webhookError: string | null;
 
   // General state
   isLoading: boolean;
@@ -82,12 +113,28 @@ interface PaymentActions {
   clearVerificationError: () => void;
 
   // Transaction management
-  fetchTransactionHistory: () => Promise<void>;
+  fetchTransactionHistory: (
+    filters?: TransactionHistoryFilters,
+  ) => Promise<void>;
   clearTransactionHistory: () => void;
+  setTransactionFilters: (filters: TransactionHistoryFilters) => void;
+  clearTransactionFilters: () => void;
+
+  // Payment status management
+  updatePaymentStatus: (
+    reference: string,
+    status: PaymentData["status"],
+  ) => void;
+  retryFailedPayment: (reference: string) => Promise<PaymentData>;
+
+  // Webhook handling
+  processWebhook: (webhookData: any) => Promise<void>;
+  clearWebhookError: () => void;
 
   // General actions
   clearError: () => void;
   resetPaymentState: () => void;
+  clearAllErrors: () => void;
 }
 
 const initialState: PaymentState = {
@@ -100,6 +147,20 @@ const initialState: PaymentState = {
   transactionHistory: [],
   isLoadingTransactions: false,
   transactionError: null,
+  transactionFilters: {
+    page: 1,
+    limit: 10,
+  },
+  pagination: {
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    hasNext: false,
+    hasPrev: false,
+  },
+  webhookData: null,
+  isProcessingWebhook: false,
+  webhookError: null,
   isLoading: false,
   error: null,
 };
@@ -107,14 +168,16 @@ const initialState: PaymentState = {
 const API_BASE_URL =
   process.env.REACT_APP_DEV_BASE_URL || "https://homeyhost.ng/api";
 
-// Enhanced error handler utility (similar to agent store)
+// Enhanced error handler utility
 const handleApiError = (error: any, defaultMessage: string): string => {
   console.error("Payment API Error:", error);
 
   if (error.response) {
     const status = error.response.status;
     const serverMessage =
-      error.response.data?.message || error.response.data?.error;
+      error.response.data?.message ||
+      error.response.data?.error ||
+      error.response.data?.details;
 
     switch (status) {
       case 400:
@@ -155,6 +218,8 @@ const handleApiError = (error: any, defaultMessage: string): string => {
     return "Network error during payment. Please check your internet connection.";
   } else if (error.code === "ECONNABORTED") {
     return "Payment request timeout. Please try again.";
+  } else if (error.message) {
+    return error.message;
   } else {
     return defaultMessage;
   }
@@ -168,6 +233,18 @@ const validatePaymentInitiation = (
     return { valid: false, message: "Valid email is required." };
   }
 
+  if (!data.phoneNumber || data.phoneNumber.trim() === "") {
+    return { valid: false, message: "Phone number is required." };
+  }
+
+  if (!data.nextofKinName || data.nextofKinName.trim() === "") {
+    return { valid: false, message: "Next of kin name is required." };
+  }
+
+  if (!data.nextOfKinNumber || data.nextOfKinNumber.trim() === "") {
+    return { valid: false, message: "Next of kin phone number is required." };
+  }
+
   if (!data.channels || data.channels.length === 0) {
     return {
       valid: false,
@@ -179,7 +256,7 @@ const validatePaymentInitiation = (
     return { valid: false, message: "Currency is required." };
   }
 
-  if (!data.agentId || data.agentId === "default-agent-id") {
+  if (!data.agentId) {
     return { valid: false, message: "Valid Agent ID is required." };
   }
 
@@ -198,6 +275,10 @@ const validatePaymentInitiation = (
     return { valid: false, message: "End date must be after start date." };
   }
 
+  if (data.amount && data.amount <= 0) {
+    return { valid: false, message: "Amount must be greater than zero." };
+  }
+
   return { valid: true };
 };
 
@@ -208,8 +289,61 @@ const validatePaymentVerification = (
     return { valid: false, message: "Payment reference is required." };
   }
 
+  if (reference.length < 10) {
+    return { valid: false, message: "Invalid payment reference format." };
+  }
+
   return { valid: true };
 };
+
+// Utility functions
+const normalizePaymentData = (data: any): PaymentData => ({
+  authorization_url:
+    data.authorization_url || data.authorizationUrl || data.authorization_url,
+  access_code: data.access_code || data.accessCode || data.access_code,
+  reference: data.reference,
+  amount: data.amount,
+  currency: data.currency,
+  status: (data.status || "pending") as PaymentData["status"],
+  paid_at: data.paid_at || data.paidAt,
+  created_at: data.created_at || data.createdAt,
+  channel: data.channel,
+  customer: data.customer || {
+    email: data.email,
+    phone_number: data.phone_number || data.phoneNumber,
+  },
+});
+
+const normalizeVerificationData = (data: any): PaymentVerificationData => ({
+  status: data.status !== undefined ? data.status : true,
+  message: data.message || "Payment verification successful",
+  data: {
+    amount: data.data?.amount || data.amount,
+    currency: data.data?.currency || data.currency,
+    transaction_date:
+      data.data?.transaction_date ||
+      data.data?.transactionDate ||
+      data.transaction_date,
+    status: data.data?.status || data.status,
+    reference: data.data?.reference || data.reference,
+    domain: data.data?.domain || data.domain,
+    gateway_response:
+      data.data?.gateway_response ||
+      data.data?.gatewayResponse ||
+      data.gateway_response,
+    message: data.data?.message || data.message,
+    channel: data.data?.channel || data.channel,
+    ip_address:
+      data.data?.ip_address || data.data?.ipAddress || data.ip_address,
+    fees: data.data?.fees || data.fees || 0,
+    plan: data.data?.plan || data.plan || "",
+    paid_at: data.data?.paid_at || data.data?.paidAt || data.paid_at,
+    created_at:
+      data.data?.created_at || data.data?.createdAt || data.created_at,
+    customer: data.data?.customer || data.customer,
+    metadata: data.data?.metadata || data.metadata,
+  },
+});
 
 const usePaymentStore = create<PaymentState & PaymentActions>()(
   persist(
@@ -222,10 +356,11 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
           isInitializingPayment: true,
           paymentInitError: null,
           error: null,
+          isLoading: true,
         });
 
         try {
-          console.log("🔍 Initiating payment with data:", paymentData);
+          console.log("🔄 Initiating payment:", paymentData);
 
           // Validate input data
           const validation = validatePaymentInitiation(paymentData);
@@ -239,35 +374,38 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             {
               headers: {
                 "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("authToken")}`,
               },
               timeout: 30000, // Longer timeout for payment operations
+              validateStatus: (status) => status < 500, // Don't throw for 4xx errors
             },
           );
 
-          console.log("Payment initiation response:", response);
+          console.log("✅ Payment initiation response:", response);
 
-          const { data } = response.data;
-
-          if (!data) {
-            throw new Error("Invalid payment response from server.");
+          if (!response.data || response.data.error) {
+            throw new Error(
+              response.data?.message || "Invalid payment response from server.",
+            );
           }
 
-          const paymentResult: PaymentData = {
-            authorization_url: data.authorization_url || data.authorizationUrl,
-            access_code: data.access_code || data.accessCode,
-            reference: data.reference,
-            amount: data.amount,
-            currency: data.currency,
-            status: data.status || "pending",
-            paid_at: data.paid_at || data.paidAt,
-            created_at: data.created_at || data.createdAt,
-            channel: data.channel,
-          };
+          const paymentResult = normalizePaymentData(
+            response.data.data || response.data,
+          );
 
           set({
             paymentData: paymentResult,
             isInitializingPayment: false,
+            isLoading: false,
           });
+
+          // Add to transaction history
+          const currentHistory = get().transactionHistory;
+          const updatedHistory = [paymentResult, ...currentHistory].slice(
+            0,
+            50,
+          ); // Keep last 50 transactions
+          set({ transactionHistory: updatedHistory });
 
           return paymentResult;
         } catch (error: any) {
@@ -282,6 +420,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             paymentInitError: errorMessage,
             error: errorMessage,
             isInitializingPayment: false,
+            isLoading: false,
           });
 
           throw new Error(errorMessage);
@@ -294,7 +433,12 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
 
       // Payment verification
       verifyPayment: async (reference: string) => {
-        set({ isVerifyingPayment: true, verificationError: null, error: null });
+        set({
+          isVerifyingPayment: true,
+          verificationError: null,
+          error: null,
+          isLoading: true,
+        });
 
         try {
           console.log("🔍 Verifying payment with reference:", reference);
@@ -311,56 +455,28 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             {
               headers: {
                 "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("authToken")}`,
               },
               timeout: 30000,
+              validateStatus: (status) => status < 500,
             },
           );
 
-          console.log("Payment verification response:", response);
+          console.log("✅ Payment verification response:", response);
 
-          const { data } = response.data;
-
-          if (!data) {
-            throw new Error("Invalid verification response from server.");
+          if (!response.data || response.data.error) {
+            throw new Error(
+              response.data?.message ||
+                "Invalid verification response from server.",
+            );
           }
 
-          const verificationResult: PaymentVerificationData = {
-            status:
-              data.status !== undefined ? data.status : response.data.status,
-            message: data.message || response.data.message,
-            data: {
-              amount: data.data?.amount || data.amount,
-              currency: data.data?.currency || data.currency,
-              transaction_date:
-                data.data?.transaction_date ||
-                data.data?.transactionDate ||
-                data.transaction_date,
-              status: data.data?.status || data.status,
-              reference: data.data?.reference || data.reference,
-              domain: data.data?.domain || data.domain,
-              gateway_response:
-                data.data?.gateway_response ||
-                data.data?.gatewayResponse ||
-                data.gateway_response,
-              message: data.data?.message || data.message,
-              channel: data.data?.channel || data.channel,
-              ip_address:
-                data.data?.ip_address ||
-                data.data?.ipAddress ||
-                data.ip_address,
-              fees: data.data?.fees || data.fees,
-              plan: data.data?.plan || data.plan,
-              paid_at: data.data?.paid_at || data.data?.paidAt || data.paid_at,
-              created_at:
-                data.data?.created_at ||
-                data.data?.createdAt ||
-                data.created_at,
-            },
-          };
+          const verificationResult = normalizeVerificationData(response.data);
 
           set({
             verificationData: verificationResult,
             isVerifyingPayment: false,
+            isLoading: false,
           });
 
           // Update payment data status if it matches the current payment
@@ -369,15 +485,25 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             set({
               paymentData: {
                 ...currentPayment,
-                status: verificationResult.data.status as
-                  | "pending"
-                  | "success"
-                  | "failed"
-                  | "abandoned",
+                status: verificationResult.data.status as PaymentData["status"],
                 paid_at: verificationResult.data.paid_at,
               },
             });
           }
+
+          // Update transaction history
+          const currentHistory = get().transactionHistory;
+          const updatedHistory = currentHistory.map((transaction) =>
+            transaction.reference === reference
+              ? {
+                  ...transaction,
+                  status: verificationResult.data
+                    .status as PaymentData["status"],
+                  paid_at: verificationResult.data.paid_at,
+                }
+              : transaction,
+          );
+          set({ transactionHistory: updatedHistory });
 
           return verificationResult;
         } catch (error: any) {
@@ -392,6 +518,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             verificationError: errorMessage,
             error: errorMessage,
             isVerifyingPayment: false,
+            isLoading: false,
           });
 
           throw new Error(errorMessage);
@@ -403,46 +530,64 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
       },
 
       // Transaction history
-      fetchTransactionHistory: async () => {
+      fetchTransactionHistory: async (
+        filters: TransactionHistoryFilters = {},
+      ) => {
         set({
           isLoadingTransactions: true,
           transactionError: null,
           error: null,
+          isLoading: true,
         });
 
         try {
-          // Note: You might need to implement this endpoint in your backend
+          const currentFilters = get().transactionFilters;
+          const mergedFilters = { ...currentFilters, ...filters };
+
+          const queryParams = new URLSearchParams();
+          Object.entries(mergedFilters).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== "") {
+              queryParams.append(key, value.toString());
+            }
+          });
+
           const response = await axios.get(
-            `${API_BASE_URL}/api/v1/payment/transactions`,
+            `${API_BASE_URL}/api/v1/payment/transactions?${queryParams}`,
             {
               headers: {
                 "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("authToken")}`,
               },
               timeout: 15000,
+              validateStatus: (status) => status < 500,
             },
           );
 
-          const { data } = response.data;
+          console.log("✅ Transaction history response:", response);
 
-          if (!data || !Array.isArray(data)) {
+          if (!response.data) {
             throw new Error("Invalid transaction history response.");
           }
 
-          const transactions: PaymentData[] = data.map((item: any) => ({
-            authorization_url: item.authorization_url || item.authorizationUrl,
-            access_code: item.access_code || item.accessCode,
-            reference: item.reference,
-            amount: item.amount,
-            currency: item.currency,
-            status: item.status || "pending",
-            paid_at: item.paid_at || item.paidAt,
-            created_at: item.created_at || item.createdAt,
-            channel: item.channel,
-          }));
+          const responseData = response.data.data || response.data;
+          const transactions = Array.isArray(responseData)
+            ? responseData.map(normalizePaymentData)
+            : [];
+
+          const paginationData = response.data.pagination || {
+            currentPage: mergedFilters.page || 1,
+            totalPages: 1,
+            totalItems: transactions.length,
+            hasNext: false,
+            hasPrev: false,
+          };
 
           set({
             transactionHistory: transactions,
             isLoadingTransactions: false,
+            isLoading: false,
+            transactionFilters: mergedFilters,
+            pagination: paginationData,
           });
         } catch (error: any) {
           console.error("❌ Transaction history error:", error);
@@ -456,6 +601,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             transactionError: errorMessage,
             error: errorMessage,
             isLoadingTransactions: false,
+            isLoading: false,
           });
 
           throw new Error(errorMessage);
@@ -463,7 +609,127 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
       },
 
       clearTransactionHistory: () => {
-        set({ transactionHistory: [] });
+        set({
+          transactionHistory: [],
+          transactionFilters: initialState.transactionFilters,
+          pagination: initialState.pagination,
+        });
+      },
+
+      setTransactionFilters: (filters: TransactionHistoryFilters) => {
+        set((state) => ({
+          transactionFilters: { ...state.transactionFilters, ...filters },
+        }));
+      },
+
+      clearTransactionFilters: () => {
+        set({ transactionFilters: initialState.transactionFilters });
+      },
+
+      // Payment status management
+      updatePaymentStatus: (
+        reference: string,
+        status: PaymentData["status"],
+      ) => {
+        set((state) => {
+          // Update current payment data if it matches
+          const updatedPaymentData =
+            state.paymentData?.reference === reference
+              ? { ...state.paymentData, status }
+              : state.paymentData;
+
+          // Update transaction history
+          const updatedHistory = state.transactionHistory.map((transaction) =>
+            transaction.reference === reference
+              ? { ...transaction, status }
+              : transaction,
+          );
+
+          return {
+            paymentData: updatedPaymentData,
+            transactionHistory: updatedHistory,
+          };
+        });
+      },
+
+      retryFailedPayment: async (reference: string) => {
+        const { transactionHistory, initiatePayment } = get();
+        const transaction = transactionHistory.find(
+          (t) => t.reference === reference,
+        );
+
+        if (!transaction) {
+          throw new Error("Transaction not found");
+        }
+
+        // Create new payment data based on failed transaction
+        const retryData: PaymentInitiationData = {
+          email: transaction.customer?.email || "",
+          channels: [transaction.channel],
+          currency: transaction.currency,
+          agentId: "", // You might want to store this in metadata
+          apartmentId: "", // You might want to store this in metadata
+          startDate: new Date().toISOString(),
+          endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+          phoneNumber: transaction.customer?.phone_number || "",
+          nextofKinName: "",
+          nextOfKinNumber: "",
+          amount: transaction.amount,
+          metadata: {
+            retry_reference: reference,
+            original_reference: reference,
+          },
+        };
+
+        return await initiatePayment(retryData);
+      },
+
+      // Webhook handling
+      processWebhook: async (webhookData: any) => {
+        set({ isProcessingWebhook: true, webhookError: null });
+
+        try {
+          console.log("🔄 Processing webhook:", webhookData);
+
+          // Validate webhook data
+          if (!webhookData || !webhookData.reference) {
+            throw new Error("Invalid webhook data: missing reference");
+          }
+
+          // Update payment status based on webhook
+          const { event, data } = webhookData;
+          if (event === "charge.success" && data) {
+            get().updatePaymentStatus(data.reference, "success");
+
+            // Also verify payment to get complete details
+            await get().verifyPayment(data.reference);
+          } else if (event === "charge.failed" && data) {
+            get().updatePaymentStatus(data.reference, "failed");
+          }
+
+          set({
+            webhookData: webhookData,
+            isProcessingWebhook: false,
+          });
+        } catch (error: any) {
+          console.error("❌ Webhook processing error:", error);
+
+          const errorMessage = handleApiError(
+            error,
+            "Failed to process webhook.",
+          );
+
+          set({
+            webhookError: errorMessage,
+            isProcessingWebhook: false,
+          });
+
+          throw new Error(errorMessage);
+        }
+      },
+
+      clearWebhookError: () => {
+        set({ webhookError: null });
       },
 
       // General actions
@@ -473,6 +739,17 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
           paymentInitError: null,
           verificationError: null,
           transactionError: null,
+          webhookError: null,
+        });
+      },
+
+      clearAllErrors: () => {
+        set({
+          error: null,
+          paymentInitError: null,
+          verificationError: null,
+          transactionError: null,
+          webhookError: null,
         });
       },
 
@@ -485,8 +762,24 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
       partialize: (state) => ({
         paymentData: state.paymentData,
         verificationData: state.verificationData,
-        transactionHistory: state.transactionHistory,
+        transactionHistory: state.transactionHistory.slice(0, 20), // Keep only last 20 for storage
+        transactionFilters: state.transactionFilters,
       }),
+      version: 1,
+      migrate: (persistedState: any, version: number) => {
+        if (version === 0) {
+          // Migration from version 0 to 1
+          return {
+            ...initialState,
+            ...persistedState,
+            transactionFilters:
+              persistedState.transactionFilters ||
+              initialState.transactionFilters,
+            pagination: persistedState.pagination || initialState.pagination,
+          };
+        }
+        return persistedState as PaymentState & PaymentActions;
+      },
     },
   ),
 );

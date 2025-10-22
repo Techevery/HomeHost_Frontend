@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   Dialog,
   DialogTitle,
@@ -9,11 +9,8 @@ import {
   Box,
   Alert,
   CircularProgress,
-} from '@mui/material';
-import {
-  Warning as WarningIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material';
+} from "@mui/material";
+import { Warning as WarningIcon } from "@mui/icons-material";
 
 interface DeleteConfirmationModalProps {
   open: boolean;
@@ -31,101 +28,71 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
   loading = false,
 }) => {
   const handleConfirm = async () => {
-    await onConfirm();
+    try {
+      await onConfirm();
+      onClose();
+    } catch (error) {
+      // Error handling is done in the parent component
+      console.error("Delete confirmation error:", error);
+    }
   };
 
   return (
     <Dialog
       open={open}
-      onClose={loading ? undefined : onClose}
+      onClose={onClose}
       maxWidth="sm"
       fullWidth
       PaperProps={{
-        sx: { borderRadius: 3 }
-      }}
-    >
-      <DialogTitle sx={{ textAlign: 'center', pb: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-          <Box
-            sx={{
-              width: 60,
-              height: 60,
-              borderRadius: '50%',
-              backgroundColor: 'error.light',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <WarningIcon sx={{ fontSize: 32, color: 'error.main' }} />
-          </Box>
-        </Box>
-        <Typography variant="h5" fontWeight="bold" gutterBottom>
+        sx: { borderRadius: 3 },
+      }}>
+      <DialogTitle
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          pb: 2,
+        }}>
+        <WarningIcon color="error" />
+        <Typography variant="h6" fontWeight="bold">
           Delete Property
         </Typography>
       </DialogTitle>
 
-      <DialogContent sx={{ textAlign: 'center' }}>
-        <Typography variant="body1" color="text.secondary" paragraph>
-          Are you sure you want to delete the following property? This action cannot be undone and all associated data will be permanently removed.
-        </Typography>
+      <DialogContent sx={{ pt: 3 }}>
+        <Box sx={{ textAlign: "center", mb: 2 }}>
+          <WarningIcon sx={{ fontSize: 64, color: "error.main", mb: 2 }} />
+          <Typography variant="h6" gutterBottom>
+            Are you sure you want to delete this property?
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            You are about to delete <strong>"{property?.name}"</strong>. This
+            action cannot be undone and all property data including images will
+            be permanently removed.
+          </Typography>
+        </Box>
 
-        {property && (
-          <Alert 
-            severity="warning" 
-            sx={{ 
-              textAlign: 'left',
-              mb: 2,
-              '& .MuiAlert-message': { width: '100%' }
-            }}
-          >
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box>
-                <Typography variant="subtitle1" fontWeight="bold">
-                  {property.name || 'Unnamed Property'}
-                </Typography>
-                <Typography variant="body2">
-                  {property.address || 'No address specified'}
-                </Typography>
-              </Box>
-              <Typography variant="h6" color="error.main" fontWeight="bold">
-                {property.price ? `₦${parseInt(property.price).toLocaleString()}` : '₦0'}
-              </Typography>
-            </Box>
-          </Alert>
-        )}
-
-        <Alert severity="error" sx={{ textAlign: 'left' }}>
+        <Alert severity="warning" sx={{ mt: 2 }}>
           <Typography variant="body2" fontWeight="bold">
             Warning: This action is irreversible!
-          </Typography>
-          <Typography variant="body2">
-            • Property listing will be permanently deleted<br />
-            • All associated images will be removed<br />
-            • Any active bookings will be cancelled<br />
-            • This cannot be undone
           </Typography>
         </Alert>
       </DialogContent>
 
-      <DialogActions sx={{ p: 3, gap: 1 }}>
-        <Button 
-          onClick={onClose}
-          variant="outlined"
-          disabled={loading}
-          sx={{ borderRadius: 2, flex: 1 }}
-        >
+      <DialogActions
+        sx={{ p: 3, borderTop: "1px solid", borderColor: "divider" }}>
+        <Button onClick={onClose} disabled={loading} variant="outlined">
           Cancel
         </Button>
-        <Button 
-          onClick={handleConfirm}
+        <Button
           variant="contained"
           color="error"
+          onClick={handleConfirm}
           disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : <DeleteIcon />}
-          sx={{ borderRadius: 2, flex: 1 }}
-        >
-          {loading ? 'Deleting...' : 'Delete Property'}
+          startIcon={loading ? <CircularProgress size={16} /> : null}>
+          {loading ? "Deleting..." : "Delete Property"}
         </Button>
       </DialogActions>
     </Dialog>

@@ -6,6 +6,8 @@ import usePaymentStore from "../../../stores/paymentstore";
 import Carousel from "react-grid-carousel";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Define the property interface based on your API response
 interface Property {
@@ -38,13 +40,16 @@ interface AgentPropertiesResponse {
   pagination: PaginationInfo;
 }
 
-// Sort options
+// Sort options - UPDATED
 type SortOption =
   | "newest"
+  | "oldest"
   | "price-low-high"
   | "price-high-low"
-  | "name"
-  | "bedrooms"
+  | "name-asc"
+  | "name-desc"
+  | "bedrooms-low-high"
+  | "bedrooms-high-low"
   | "location";
 
 // Banner Carousel Component
@@ -169,8 +174,18 @@ const PropertyDetailView: React.FC<{
 }> = ({ property, isOpen, onClose, onBookNow }) => {
   if (!isOpen || !property) return null;
 
+  // Enhanced helper function to ensure bedroom is displayed as string
   const getBedroomText = (bedroom: string | number): string => {
-    return typeof bedroom === "number" ? bedroom.toString() : bedroom;
+    if (bedroom === null || bedroom === undefined) return "0";
+
+    const text = typeof bedroom === "number" ? bedroom.toString() : bedroom;
+
+    // Handle empty strings and non-numeric values
+    if (!text || text.trim() === "" || isNaN(parseInt(text))) {
+      return "0";
+    }
+
+    return text;
   };
 
   return (
@@ -341,7 +356,7 @@ const PropertyDetailView: React.FC<{
   );
 };
 
-// Updated Booking Modal Component with proper agentId handling
+// Updated Booking Modal Component with proper payment initiation
 const BookingModal: React.FC<{
   property: Property | null;
   isOpen: boolean;
@@ -355,7 +370,6 @@ const BookingModal: React.FC<{
     email: "",
     name_of_nxt_of_kin: "",
     number_of_nxt_of_kin: "",
-    discount: "",
   });
 
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
@@ -363,6 +377,7 @@ const BookingModal: React.FC<{
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
+  const [loadingBookedDates, setLoadingBookedDates] = useState(false);
 
   // Payment store integration
   const {
@@ -379,9 +394,41 @@ const BookingModal: React.FC<{
     }
   }, [property, isOpen]);
 
-  // Mock function to fetch booked dates
+  // Show error toast when payment initiation fails
+  useEffect(() => {
+    if (paymentInitError) {
+      toast.error(`Payment Error: ${paymentInitError}`, {
+        position: "top-right",
+        autoClose: 5000,
+      });
+      clearPaymentInitError();
+    }
+  }, [paymentInitError, clearPaymentInitError]);
+
+  // Fetch booked dates from API
   const fetchBookedDates = async (propertyId: string) => {
     try {
+      setLoadingBookedDates(true);
+      // Mock API call - replace with your actual API endpoint
+      const response = await fetch(`/api/properties/${propertyId}/bookings`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch booked dates");
+      }
+
+      const { bookedDates } = await response.json();
+      const dates = bookedDates.map((dateStr: string) => new Date(dateStr));
+      setBookedDates(dates);
+    } catch (error) {
+      console.error("Failed to fetch booked dates:", error);
+      toast.warning(
+        "Unable to load booked dates. Some dates may be unavailable.",
+        {
+          position: "top-right",
+          autoClose: 3000,
+        },
+      );
+      // Fallback to mock data
       const mockBookedDates = [
         new Date(new Date().setDate(new Date().getDate() + 2)),
         new Date(new Date().setDate(new Date().getDate() + 3)),
@@ -391,8 +438,8 @@ const BookingModal: React.FC<{
         new Date(new Date().setDate(new Date().getDate() + 15)),
       ];
       setBookedDates(mockBookedDates);
-    } catch (error) {
-      console.error("Failed to fetch booked dates:", error);
+    } finally {
+      setLoadingBookedDates(false);
     }
   };
 
@@ -415,6 +462,10 @@ const BookingModal: React.FC<{
 
     // Don't allow selection of booked dates
     if (isDateBooked(date)) {
+      toast.info("This date is already booked. Please select another date.", {
+        position: "top-center",
+        autoClose: 3000,
+      });
       return;
     }
 
@@ -479,94 +530,105 @@ const BookingModal: React.FC<{
     );
   };
 
-  // Custom highlight dates configuration
-  const highlightDates = [
-    {
-      "react-datepicker__day--highlighted-custom-1": selectedDates,
-      "react-datepicker__day--highlighted-custom-2": bookedDates,
-    },
-  ];
+  const validateForm = () => {
+    const requiredFields = [
+      { field: bookingData.name, message: "Full name is required" },
+      { field: bookingData.phone, message: "Phone number is required" },
+      { field: bookingData.email, message: "Email is required" },
+      {
+        field: bookingData.name_of_nxt_of_kin,
+        message: "Next of kin name is required",
+      },
+      {
+        field: bookingData.number_of_nxt_of_kin,
+        message: "Next of kin phone number is required",
+      },
+    ];
 
-  const getOrdinalSuffix = (n: number) => {
-    const s = ["th", "st", "nd", "rd"],
-      v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-  };
-
-  const formatSelected = () => {
-    const formattedDates = [];
-    let i = 0;
-    let prefixCount = 1;
-
-    while (i < selectedDates.length) {
-      const currentDate = selectedDates[i];
-      let consecutiveDates = [currentDate];
-
-      while (
-        i < selectedDates.length - 1 &&
-        selectedDates[i + 1].getTime() - selectedDates[i].getTime() === 86400000
-      ) {
-        consecutiveDates.push(selectedDates[i + 1]);
-        i++;
+    for (const { field, message } of requiredFields) {
+      if (!field?.trim()) {
+        toast.error(message, {
+          position: "top-right",
+          autoClose: 4000,
+        });
+        return false;
       }
-
-      const prefixLabel1 = `${getOrdinalSuffix(prefixCount)} Check-in:`;
-      const prefixLabel2 = `${getOrdinalSuffix(prefixCount)} Check-out:`;
-
-      if (consecutiveDates.length > 1) {
-        const startDate: any = consecutiveDates[0];
-        const endDate = new Date(consecutiveDates[consecutiveDates.length - 1]);
-        endDate.setDate(endDate.getDate() + 1);
-
-        formattedDates.push(
-          <li key={i}>
-            {`${prefixLabel2} ${startDate.toDateString()} - ${prefixLabel2} ${endDate.toDateString()}`}
-          </li>,
-        );
-      } else {
-        const startDate: any = currentDate;
-        const endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 1);
-
-        formattedDates.push(
-          <li key={i} className="space-y-4 gap-4">
-            {`${prefixLabel1} ${startDate.toDateString()} (1pm) - ${prefixLabel2} ${endDate.toDateString()} (12noon)`}
-          </li>,
-        );
-      }
-
-      i++;
-      prefixCount++;
     }
 
-    return formattedDates;
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(bookingData.email)) {
+      toast.error("Please enter a valid email address", {
+        position: "top-right",
+        autoClose: 4000,
+      });
+      return false;
+    }
+
+    // Phone validation (basic)
+    if (bookingData.phone.replace(/\D/g, "").length < 10) {
+      toast.error("Please enter a valid phone number", {
+        position: "top-right",
+        autoClose: 4000,
+      });
+      return false;
+    }
+
+    // Next of kin phone validation
+    if (bookingData.number_of_nxt_of_kin.replace(/\D/g, "").length < 10) {
+      toast.error("Please enter a valid next of kin phone number", {
+        position: "top-right",
+        autoClose: 4000,
+      });
+      return false;
+    }
+
+    return true;
   };
 
+  // FIXED: Updated payment initiation function
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (selectedDates.length === 0) {
-      alert("Please select at least one date");
+      toast.error("Please select at least one date", {
+        position: "top-right",
+        autoClose: 4000,
+      });
       return;
     }
 
     if (!property) {
-      alert("Property information is missing");
+      toast.error("Property information is missing", {
+        position: "top-right",
+        autoClose: 4000,
+      });
       return;
     }
 
     // Validate that we have agentId
     if (!property.agentId) {
-      console.error("❌ Agent ID is missing for property:", property);
-      alert("Agent information is missing. Please contact support.");
+      toast.error("Agent information is missing. Please contact support.", {
+        position: "top-right",
+        autoClose: 5000,
+      });
+      return;
+    }
+
+    // Validate form fields
+    if (!validateForm()) {
       return;
     }
 
     // Check if any selected date is booked
     const hasBookedDate = selectedDates.some((date) => isDateBooked(date));
     if (hasBookedDate) {
-      alert(
+      toast.error(
         "Some selected dates are already booked. Please choose different dates.",
+        {
+          position: "top-right",
+          autoClose: 5000,
+        },
       );
       return;
     }
@@ -575,56 +637,95 @@ const BookingModal: React.FC<{
       // Calculate total amount
       const totalAmount = property.price * selectedDates.length;
 
-      // Prepare payment data with proper agentId
+      // FIXED: Prepare payment data with correct field names and structure
       const paymentData = {
         email: bookingData.email,
-        phone_number: bookingData.phone,
-        name: bookingData.name,
-        nextkin_name: bookingData.name_of_nxt_of_kin,
-        nextkin_phone: bookingData.number_of_nxt_of_kin,
-        discount_code: bookingData.discount
-          ? parseInt(bookingData.discount)
-          : 0,
-        channels: ["card"],
+        phoneNumber: bookingData.phone,
+        nextofKinName: bookingData.name_of_nxt_of_kin,
+        nextOfKinNumber: bookingData.number_of_nxt_of_kin,
+        channels: ["card", "bank"], // Provide multiple options
         currency: "NGN",
-        agentId: property.agentId, // Use the actual agentId from property
+        agentId: property.agentId,
         apartmentId: property.id,
-        startDate: startDate?.toISOString().split("T")[0] || "",
-        endDate: endDate?.toISOString().split("T")[0] || "",
-        amount: totalAmount,
+        startDate: selectedDates[0].toISOString().split("T")[0], // Format: YYYY-MM-DD
+        endDate: new Date(
+          selectedDates[selectedDates.length - 1].getTime() + 86400000,
+        )
+          .toISOString()
+          .split("T")[0], // Format: YYYY-MM-DD
+        amount: totalAmount, // CRITICAL: Add amount field
+        metadata: {
+          propertyName: property.name,
+          nights: selectedDates.length,
+          guestName: bookingData.name,
+          checkIn: selectedDates[0].toISOString(),
+          checkOut: new Date(
+            selectedDates[selectedDates.length - 1].getTime() + 86400000,
+          ).toISOString(),
+          personalUrl: personalUrl || "direct",
+        },
       };
 
-      console.log("✅ Payment data with agentId:", paymentData);
+      console.log("🚀 Payment data being sent:", paymentData);
+
+      // Show loading toast
+      const toastId = toast.loading("Initializing payment...", {
+        position: "top-right",
+      });
 
       // Initiate payment
       const paymentResult = await initiatePayment(paymentData);
 
       // If payment initiation is successful, redirect to payment page
       if (paymentResult.authorization_url) {
+        toast.update(toastId, {
+          render: "Payment initialized successfully! Redirecting...",
+          type: "success",
+          isLoading: false,
+          autoClose: 3000,
+        });
+
         // Store booking data temporarily before redirect
         const bookingInfo = {
           ...bookingData,
           propertyId: property.id,
           propertyName: property.name,
           selectedDates: selectedDates,
-          startDate: startDate,
-          endDate: endDate,
+          startDate: selectedDates[0],
+          endDate: new Date(
+            selectedDates[selectedDates.length - 1].getTime() + 86400000,
+          ),
           totalPrice: totalAmount,
           paymentReference: paymentResult.reference,
-          agentId: property.agentId, // Include agentId in stored data
+          agentId: property.agentId,
+          authorizationUrl: paymentResult.authorization_url,
         };
+
+        console.log("💾 Storing booking info:", bookingInfo);
 
         // Store in session storage for retrieval after payment
         sessionStorage.setItem("pendingBooking", JSON.stringify(bookingInfo));
 
-        // Redirect to payment gateway
-        window.location.href = paymentResult.authorization_url;
+        // Call the onSubmit prop to notify parent component
+        onSubmit(bookingInfo);
+
+        // Redirect to payment gateway after a short delay
+        setTimeout(() => {
+          window.location.href = paymentResult.authorization_url;
+        }, 1500);
       } else {
-        throw new Error("Payment initiation failed - no authorization URL");
+        throw new Error(
+          "Payment initiation failed - no authorization URL received",
+        );
       }
     } catch (error: any) {
-      console.error("Payment initiation failed:", error);
-      alert(`Payment initiation failed: ${error.message}`);
+      console.error("❌ Payment initiation failed:", error);
+
+      // Show specific error message
+      toast.error(`Payment failed: ${error.message || "Please try again"}`, {
+        position: "top-right",
+        autoClose: 5000,
+      });
     }
   };
 
@@ -635,7 +736,6 @@ const BookingModal: React.FC<{
       email: "",
       name_of_nxt_of_kin: "",
       number_of_nxt_of_kin: "",
-      discount: "",
     });
     setSelectedDates([]);
     setStartDate(null);
@@ -657,103 +757,111 @@ const BookingModal: React.FC<{
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            Please fill the information
-          </h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">
+              Book {property.name}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 transition-colors">
+              ✕
+            </button>
+          </div>
 
-          {paymentInitError && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {paymentInitError}
-            </div>
-          )}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Personal Information Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Personal Information
+              </h3>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <input
-                type="text"
-                required
-                value={bookingData.name}
-                onChange={(e) =>
-                  setBookingData({ ...bookingData, name: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Name"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <input
-                  type="tel"
-                  required
-                  value={bookingData.phone}
-                  onChange={(e) =>
-                    setBookingData({ ...bookingData, phone: e.target.value })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Phone Number"
-                />
-              </div>
-              <div>
-                <input
-                  type="email"
-                  required
-                  value={bookingData.email}
-                  onChange={(e) =>
-                    setBookingData({ ...bookingData, email: e.target.value })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Email"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <input
                   type="text"
                   required
-                  value={bookingData.name_of_nxt_of_kin}
+                  value={bookingData.name}
                   onChange={(e) =>
-                    setBookingData({
-                      ...bookingData,
-                      name_of_nxt_of_kin: e.target.value,
-                    })
+                    setBookingData({ ...bookingData, name: e.target.value })
                   }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Name of Next of Kin"
+                  placeholder="Full Name"
                 />
               </div>
-              <div>
-                <input
-                  type="tel"
-                  required
-                  value={bookingData.number_of_nxt_of_kin}
-                  onChange={(e) =>
-                    setBookingData({
-                      ...bookingData,
-                      number_of_nxt_of_kin: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Next of Kin Phone Number"
-                />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <input
+                    type="tel"
+                    required
+                    value={bookingData.phone}
+                    onChange={(e) =>
+                      setBookingData({ ...bookingData, phone: e.target.value })
+                    }
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Phone Number"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="email"
+                    required
+                    value={bookingData.email}
+                    onChange={(e) =>
+                      setBookingData({ ...bookingData, email: e.target.value })
+                    }
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Email Address"
+                  />
+                </div>
               </div>
             </div>
 
-            <div>
-              <input
-                type="text"
-                value={bookingData.discount}
-                onChange={(e) =>
-                  setBookingData({ ...bookingData, discount: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Discount Code"
-              />
+            {/* Next of Kin Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Next of Kin Information
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <input
+                    type="text"
+                    required
+                    value={bookingData.name_of_nxt_of_kin}
+                    onChange={(e) =>
+                      setBookingData({
+                        ...bookingData,
+                        name_of_nxt_of_kin: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Name of Next of Kin"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="tel"
+                    required
+                    value={bookingData.number_of_nxt_of_kin}
+                    onChange={(e) =>
+                      setBookingData({
+                        ...bookingData,
+                        number_of_nxt_of_kin: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Next of Kin Phone Number"
+                  />
+                </div>
+              </div>
             </div>
 
+            {/* Date Selection Section */}
             <div className="border rounded-lg p-4 relative">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Select Dates
+              </h3>
+
               {/* Legend for date colors */}
               <div className="flex flex-wrap gap-4 mb-4 text-sm">
                 <div className="flex items-center gap-2">
@@ -772,58 +880,110 @@ const BookingModal: React.FC<{
                 </div>
               </div>
 
-              <DatePicker
-                selected={null}
-                onChange={handleDateChange}
-                inline
-                className="w-full"
-                minDate={new Date()}
-                highlightDates={highlightDates}
-                dateFormat="yyyy/MM/dd"
-                renderDayContents={renderDayContents}
-                filterDate={(date) => !isDateBooked(date)}
-                dayClassName={(date) => {
-                  if (isDateBooked(date)) {
-                    return "react-datepicker__day--disabled";
-                  }
-                  return "";
-                }}
-              />
-
-              {/* Tooltip for booked dates */}
-              {hoveredDate && (
-                <div className="absolute z-10 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg top-4 right-4">
-                  <div className="font-semibold">Already Booked</div>
-                  <div className="text-gray-300">Please pick another date</div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {hoveredDate.toLocaleDateString("en-US", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </div>
-                  <div className="absolute w-3 h-3 bg-gray-900 transform rotate-45 -top-1 right-6"></div>
+              {loadingBookedDates ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
+              ) : (
+                <>
+                  <DatePicker
+                    selected={null}
+                    onChange={handleDateChange}
+                    inline
+                    className="w-full"
+                    minDate={new Date()}
+                    dateFormat="yyyy/MM/dd"
+                    renderDayContents={renderDayContents}
+                    filterDate={(date) => !isDateBooked(date)}
+                    dayClassName={(date) => {
+                      if (isDateBooked(date)) {
+                        return "react-datepicker__day--disabled";
+                      }
+                      return "";
+                    }}
+                  />
+
+                  {/* Tooltip for booked dates */}
+                  {hoveredDate && (
+                    <div className="absolute z-10 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg top-4 right-4">
+                      <div className="font-semibold">Already Booked</div>
+                      <div className="text-gray-300">
+                        Please pick another date
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {hoveredDate.toLocaleDateString("en-US", {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </div>
+                      <div className="absolute w-3 h-3 bg-gray-900 transform rotate-45 -top-1 right-6"></div>
+                    </div>
+                  )}
+                </>
               )}
 
               {selectedDates.length > 0 && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold">Selected Dates:</span>
-                    <span className="text-blue-600">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="font-semibold text-gray-900">
+                      Booking Summary:
+                    </span>
+                    <span className="text-blue-600 font-medium">
                       {selectedDates.length} night
                       {selectedDates.length > 1 ? "s" : ""}
                     </span>
                   </div>
-                  <ul className="list-disc pl-6 space-y-2">
-                    {formatSelected()}
-                  </ul>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Check-in:</span>
+                      <span>
+                        {selectedDates[0].toLocaleDateString("en-US", {
+                          weekday: "short",
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}{" "}
+                        (1pm)
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Check-out:</span>
+                      <span>
+                        {new Date(
+                          selectedDates[selectedDates.length - 1].getTime() +
+                            86400000,
+                        ).toLocaleDateString("en-US", {
+                          weekday: "short",
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}{" "}
+                        (12noon)
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Nights:</span>
+                      <span>{selectedDates.length}</span>
+                    </div>
+                  </div>
 
                   {property.price && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600">Price per night:</span>
+                        <span className="text-gray-900">
+                          {new Intl.NumberFormat("en-NG", {
+                            style: "currency",
+                            currency: "NGN",
+                            minimumFractionDigits: 0,
+                          }).format(property.price)}
+                        </span>
+                      </div>
                       <div className="flex justify-between items-center font-semibold text-lg">
-                        <span>Total:</span>
+                        <span>Total Amount:</span>
                         <span className="text-green-600">
                           {new Intl.NumberFormat("en-NG", {
                             style: "currency",
@@ -838,17 +998,22 @@ const BookingModal: React.FC<{
               )}
             </div>
 
+            {/* Action Buttons */}
             <div className="flex space-x-3 pt-4">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isInitializingPayment}
-                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 font-medium">
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={isInitializingPayment || selectedDates.length === 0}
+                disabled={
+                  isInitializingPayment ||
+                  selectedDates.length === 0 ||
+                  loadingBookedDates
+                }
                 className="flex-1 px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center">
                 {isInitializingPayment ? (
                   <>
@@ -899,10 +1064,64 @@ const AgentPropertiesGallery: React.FC = () => {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [dataSource, setDataSource] = useState<"slug" | "enlisted">("slug");
 
-  // Helper function to ensure bedroom is displayed as string
+  // Enhanced helper function to ensure bedroom is displayed as string
   const getBedroomText = (bedroom: string | number): string => {
-    return typeof bedroom === "number" ? bedroom.toString() : bedroom;
+    if (bedroom === null || bedroom === undefined) return "0";
+
+    const text = typeof bedroom === "number" ? bedroom.toString() : bedroom;
+
+    // Handle empty strings and non-numeric values
+    if (!text || text.trim() === "" || isNaN(parseInt(text))) {
+      return "0";
+    }
+
+    return text;
   };
+
+  // Helper function to get display names for sort options
+  const getSortOptionDisplayName = (option: SortOption): string => {
+    const displayNames: Record<SortOption, string> = {
+      newest: "Newest First",
+      oldest: "Oldest First",
+      "price-low-high": "Price: Low to High",
+      "price-high-low": "Price: High to Low",
+      "name-asc": "Name: A to Z",
+      "name-desc": "Name: Z to A",
+      "bedrooms-low-high": "Bedrooms: Fewest",
+      "bedrooms-high-low": "Bedrooms: Most",
+      location: "Location",
+    };
+
+    return displayNames[option] || option;
+  };
+
+  // Show error toast when fetching properties fails
+  useEffect(() => {
+    if (error) {
+      toast.error(`Failed to load properties: ${error}`, {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    }
+  }, [error]);
+
+  // Close sort dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".sort-dropdown")) {
+        setIsSortOpen(false);
+      }
+    };
+
+    if (isSortOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isSortOpen]);
 
   // Load properties
   const loadProperties = React.useCallback(
@@ -1021,7 +1240,7 @@ const AgentPropertiesGallery: React.FC = () => {
     }
   }, [enlistedProperties, dataSource, currentPage]);
 
-  // Filter and sort properties
+  // Filter and sort properties - UPDATED VERSION
   useEffect(() => {
     let result = [...properties];
 
@@ -1033,13 +1252,16 @@ const AgentPropertiesGallery: React.FC = () => {
           property.name.toLowerCase().includes(query) ||
           property.address.toLowerCase().includes(query) ||
           property.type.toLowerCase().includes(query) ||
-          property.servicing.toLowerCase().includes(query) ||
+          (property.servicing &&
+            property.servicing.toLowerCase().includes(query)) ||
           getBedroomText(property.bedroom).toLowerCase().includes(query) ||
-          property.price.toString().includes(query),
+          property.price.toString().includes(query) ||
+          (property.location &&
+            property.location.toLowerCase().includes(query)),
       );
     }
 
-    // Apply sorting
+    // Apply sorting - FIXED IMPLEMENTATION
     switch (sortOption) {
       case "newest":
         result.sort(
@@ -1047,27 +1269,60 @@ const AgentPropertiesGallery: React.FC = () => {
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
         break;
+
+      case "oldest":
+        result.sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        );
+        break;
+
       case "price-low-high":
         result.sort((a, b) => a.price - b.price);
         break;
+
       case "price-high-low":
         result.sort((a, b) => b.price - a.price);
         break;
-      case "name":
+
+      case "name-asc":
         result.sort((a, b) => a.name.localeCompare(b.name));
         break;
-      case "bedrooms":
+
+      case "name-desc":
+        result.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+
+      case "bedrooms-low-high":
+        result.sort((a, b) => {
+          const aBedrooms = parseInt(getBedroomText(a.bedroom)) || 0;
+          const bBedrooms = parseInt(getBedroomText(b.bedroom)) || 0;
+          return aBedrooms - bBedrooms;
+        });
+        break;
+
+      case "bedrooms-high-low":
+        result.sort((a, b) => {
+          const aBedrooms = parseInt(getBedroomText(a.bedroom)) || 0;
+          const bBedrooms = parseInt(getBedroomText(b.bedroom)) || 0;
+          return bBedrooms - aBedrooms;
+        });
+        break;
+
+      case "location":
+        result.sort((a, b) => {
+          const locationA = a.location || a.address || "";
+          const locationB = b.location || b.address || "";
+          return locationA.localeCompare(locationB);
+        });
+        break;
+
+      default:
+        // Default to newest if no valid sort option
         result.sort(
           (a, b) =>
-            parseInt(getBedroomText(b.bedroom)) -
-            parseInt(getBedroomText(a.bedroom)),
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
-        break;
-      case "location":
-        result.sort((a, b) =>
-          (a.location || "").localeCompare(b.location || ""),
-        );
-        break;
     }
 
     setFilteredProperties(result);
@@ -1098,6 +1353,8 @@ const AgentPropertiesGallery: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    // The search is already handled by the useEffect that watches searchQuery
+    // This prevents form submission and page refresh
   };
 
   const handleSortChange = (option: SortOption) => {
@@ -1115,8 +1372,30 @@ const AgentPropertiesGallery: React.FC = () => {
     setIsBookingModalOpen(true);
   };
 
+  // FIXED: Enhanced booking submission handler
   const handleBookingSubmit = async (bookingData: any) => {
-    console.log("Booking data submitted:", bookingData);
+    try {
+      console.log("✅ Booking submitted successfully:", bookingData);
+
+      // You can add additional logic here like:
+      // - Send booking confirmation email
+      // - Update property availability
+      // - Create booking record in your database
+
+      toast.success(
+        "Booking initiated successfully! Redirecting to payment...",
+        {
+          position: "top-right",
+          autoClose: 3000,
+        },
+      );
+    } catch (error) {
+      console.error("Failed to process booking:", error);
+      toast.error("Failed to process booking. Please try again.", {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    }
   };
 
   const handleCloseDetailView = () => {
@@ -1156,6 +1435,20 @@ const AgentPropertiesGallery: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Add ToastContainer at the top level */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+
       {/* Banner Carousel Header */}
       <BannerCarousel />
 
@@ -1191,11 +1484,11 @@ const AgentPropertiesGallery: React.FC = () => {
             </div>
           </form>
 
-          {/* Sort Dropdown */}
-          <div className="relative">
+          {/* Sort Dropdown - UPDATED */}
+          <div className="relative sort-dropdown">
             <button
               onClick={() => setIsSortOpen(!isSortOpen)}
-              className="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors">
+              className="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors min-w-[200px]">
               <svg
                 className="w-5 h-5 text-gray-400"
                 fill="none"
@@ -1208,33 +1501,146 @@ const AgentPropertiesGallery: React.FC = () => {
                   d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"
                 />
               </svg>
-              <span className="text-gray-700">
-                Sort: {sortOption.replace(/-/g, " ")}
+              <span className="text-gray-700 capitalize">
+                {getSortOptionDisplayName(sortOption)}
               </span>
+              <svg
+                className={`w-4 h-4 text-gray-400 transition-transform ${
+                  isSortOpen ? "rotate-180" : ""
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
             </button>
 
             {isSortOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                <div className="py-1">
-                  {[
-                    "newest",
-                    "price-low-high",
-                    "price-high-low",
-                    "name",
-                    "bedrooms",
-                    "location",
-                  ].map((option) => (
+              <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <div className="py-2">
+                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b">
+                    Sort Properties By
+                  </div>
+
+                  {/* Date Sorting */}
+                  <div className="px-3 py-1">
+                    <div className="text-xs font-medium text-gray-400 mb-1">
+                      Date
+                    </div>
+                    {[
+                      { value: "newest", label: "Newest First" },
+                      { value: "oldest", label: "Oldest First" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() =>
+                          handleSortChange(option.value as SortOption)
+                        }
+                        className={`block w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          sortOption === option.value
+                            ? "bg-blue-50 text-blue-600 font-medium"
+                            : "text-gray-700"
+                        }`}>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Price Sorting */}
+                  <div className="px-3 py-1">
+                    <div className="text-xs font-medium text-gray-400 mb-1">
+                      Price
+                    </div>
+                    {[
+                      { value: "price-low-high", label: "Price: Low to High" },
+                      { value: "price-high-low", label: "Price: High to Low" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() =>
+                          handleSortChange(option.value as SortOption)
+                        }
+                        className={`block w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          sortOption === option.value
+                            ? "bg-blue-50 text-blue-600 font-medium"
+                            : "text-gray-700"
+                        }`}>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Name Sorting */}
+                  <div className="px-3 py-1">
+                    <div className="text-xs font-medium text-gray-400 mb-1">
+                      Name
+                    </div>
+                    {[
+                      { value: "name-asc", label: "Name: A to Z" },
+                      { value: "name-desc", label: "Name: Z to A" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() =>
+                          handleSortChange(option.value as SortOption)
+                        }
+                        className={`block w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          sortOption === option.value
+                            ? "bg-blue-50 text-blue-600 font-medium"
+                            : "text-gray-700"
+                        }`}>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Bedrooms Sorting */}
+                  <div className="px-3 py-1">
+                    <div className="text-xs font-medium text-gray-400 mb-1">
+                      Bedrooms
+                    </div>
+                    {[
+                      {
+                        value: "bedrooms-low-high",
+                        label: "Bedrooms: Fewest First",
+                      },
+                      {
+                        value: "bedrooms-high-low",
+                        label: "Bedrooms: Most First",
+                      },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() =>
+                          handleSortChange(option.value as SortOption)
+                        }
+                        className={`block w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          sortOption === option.value
+                            ? "bg-blue-50 text-blue-600 font-medium"
+                            : "text-gray-700"
+                        }`}>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Location Sorting */}
+                  <div className="px-3 py-1">
                     <button
-                      key={option}
-                      onClick={() => handleSortChange(option as SortOption)}
-                      className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                        sortOption === option
-                          ? "bg-blue-50 text-blue-600"
+                      onClick={() => handleSortChange("location" as SortOption)}
+                      className={`block w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                        sortOption === "location"
+                          ? "bg-blue-50 text-blue-600 font-medium"
                           : "text-gray-700"
                       }`}>
-                      {option.replace(/-/g, " ")}
+                      Location: A to Z
                     </button>
-                  ))}
+                  </div>
                 </div>
               </div>
             )}

@@ -37,7 +37,7 @@ interface Property {
   bedroom: string;
   price: string;
   images: string[];
-  status: 'available' | 'unavailable';
+  status: "available" | "unavailable";
   location: string;
   amenities: string[];
   video_link?: string | null;
@@ -54,7 +54,7 @@ interface PropertyDetailModalProps {
   onPropertyAdded: () => void;
 }
 
-type PricingOption = 'accept-percentage' | 'add-markup';
+type PricingOption = "accept-percentage" | "add-markup";
 
 const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   open,
@@ -65,53 +65,60 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [markupPrice, setMarkupPrice] = useState("");
   const [isAdding, setIsAdding] = useState(false);
-  const [pricingOption, setPricingOption] = useState<PricingOption>('accept-percentage');
+  const [pricingOption, setPricingOption] =
+    useState<PricingOption>("accept-percentage");
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
-    severity: 'success' | 'error' | 'info' | 'warning';
+    severity: "success" | "error" | "info" | "warning";
   }>({
     open: false,
-    message: '',
-    severity: 'info'
+    message: "",
+    severity: "info",
   });
-  
+
   const { enlistApartment, agentInfo } = useAgentStore();
 
-  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+  const showSnackbar = (
+    message: string,
+    severity: "success" | "error" | "info" | "warning" = "info",
+  ) => {
     setSnackbar({
       open: true,
       message,
-      severity
+      severity,
     });
   };
 
   const closeSnackbar = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
+    setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
   const getAmenitiesArray = (amenities: any): string[] => {
     if (Array.isArray(amenities)) {
-      return amenities.filter((item: any) => item != null).map((item: any) => item.toString().trim());
+      return amenities
+        .filter((item: any) => item != null)
+        .map((item: any) => item.toString().trim());
     }
-    if (typeof amenities === 'string') {
-      return amenities.split(',').map((item: string) => item.trim()).filter((item: string) => item !== '');
+    if (typeof amenities === "string") {
+      return amenities
+        .split(",")
+        .map((item: string) => item.trim())
+        .filter((item: string) => item !== "");
     }
     return [];
   };
 
   const nextImage = () => {
     if (property && property.images) {
-      setCurrentImageIndex((prev) => 
-        (prev + 1) % property.images.length
-      );
+      setCurrentImageIndex((prev) => (prev + 1) % property.images.length);
     }
   };
 
   const prevImage = () => {
     if (property && property.images) {
-      setCurrentImageIndex((prev) => 
-        (prev - 1 + property.images.length) % property.images.length
+      setCurrentImageIndex(
+        (prev) => (prev - 1 + property.images.length) % property.images.length,
       );
     }
   };
@@ -124,8 +131,9 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const calculateFinalPrice = () => {
     if (!property) return "0";
     const basePrice = parseFloat(property.price || "0");
-    const markup = pricingOption === 'add-markup' ? parseFloat(markupPrice) || 0 : 0;
-    
+    const markup =
+      pricingOption === "add-markup" ? parseFloat(markupPrice) || 0 : 0;
+
     const finalPrice = basePrice + markup;
     return finalPrice.toLocaleString();
   };
@@ -133,16 +141,17 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const calculateCommission = () => {
     if (!property) return "0";
     const basePrice = parseFloat(property.price || "0");
-    const markup = pricingOption === 'add-markup' ? parseFloat(markupPrice) || 0 : 0;
+    const markup =
+      pricingOption === "add-markup" ? parseFloat(markupPrice) || 0 : 0;
     const agentPercentage = property.agentPercentage || 10;
-    
+
     const finalPrice = basePrice + markup;
     const commission = (finalPrice * agentPercentage) / 100;
     return commission.toLocaleString();
   };
 
   const isFormValid = () => {
-    if (pricingOption === 'add-markup') {
+    if (pricingOption === "add-markup") {
       const markupValue = parseFloat(markupPrice);
       return !isNaN(markupValue) && markupValue >= 0;
     }
@@ -150,20 +159,20 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   };
 
   const validateMarkupPrice = (): string | null => {
-    if (pricingOption === 'add-markup') {
+    if (pricingOption === "add-markup") {
       if (!markupPrice.trim()) {
         return "Markup price is required when adding markup";
       }
-      
+
       const markupValue = parseFloat(markupPrice);
       if (isNaN(markupValue)) {
         return "Please enter a valid number for markup price";
       }
-      
+
       if (markupValue < 0) {
         return "Markup price cannot be negative";
       }
-      
+
       if (markupValue > 1000000) {
         return "Markup price seems too high. Please verify the amount";
       }
@@ -173,28 +182,37 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
 
   const getErrorMessage = (errorMessage: string): string => {
     // Handle generic "Error" messages from backend
-    if (errorMessage === 'Error' || errorMessage.includes('Error')) {
+    if (errorMessage === "Error" || errorMessage.includes("Error")) {
       return "Unable to add property at this time. Please try again later.";
     }
 
     // Handle specific known error patterns
-    if (errorMessage.toLowerCase().includes('verified')) {
+    if (errorMessage.toLowerCase().includes("verified")) {
       return "Your account needs to be verified before adding properties. Please complete your verification.";
     }
 
-    if (errorMessage.toLowerCase().includes('already') || errorMessage.toLowerCase().includes('exists')) {
+    if (
+      errorMessage.toLowerCase().includes("already") ||
+      errorMessage.toLowerCase().includes("exists")
+    ) {
       return "This property is already in your listings.";
     }
 
-    if (errorMessage.toLowerCase().includes('not found')) {
+    if (errorMessage.toLowerCase().includes("not found")) {
       return "Property not found. It may have been removed from the system.";
     }
 
-    if (errorMessage.toLowerCase().includes('permission') || errorMessage.toLowerCase().includes('unauthorized')) {
+    if (
+      errorMessage.toLowerCase().includes("permission") ||
+      errorMessage.toLowerCase().includes("unauthorized")
+    ) {
       return "You don't have permission to add properties. Please contact support.";
     }
 
-    if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('connection')) {
+    if (
+      errorMessage.toLowerCase().includes("network") ||
+      errorMessage.toLowerCase().includes("connection")
+    ) {
       return "Network connection error. Please check your internet connection and try again.";
     }
 
@@ -221,38 +239,44 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     }
 
     // Enhanced agent verification check
-    const isAgentVerified = agentInfo?.isVerified || agentInfo?.status === "VERIFIED";
+    const isAgentVerified =
+      agentInfo?.isVerified || agentInfo?.status === "VERIFIED";
     if (!isAgentVerified) {
       showSnackbar(
         "Your account needs to be verified before you can add properties. Please complete your verification process.",
-        "error"
+        "error",
       );
       return;
     }
 
     setIsAdding(true);
     try {
-      const markedUpPrice = pricingOption === 'add-markup' ? parseFloat(markupPrice) : 0;
+      const markedUpPrice =
+        pricingOption === "add-markup" ? parseFloat(markupPrice) : 0;
       const agentPercentage = property.agentPercentage || 10;
-      
-      console.log('🚀 Adding property with:', {
+
+      console.log("🚀 Adding property with:", {
         apartmentId: property.id,
         markedUpPrice,
         agentPercentage,
         agentStatus: agentInfo?.status,
         isVerified: agentInfo?.isVerified,
-        pricingOption
+        pricingOption,
       });
-      
+
       // Call enlistApartment with only the relevant parameters based on pricing option
-      const result = pricingOption === 'add-markup' 
-        ? await enlistApartment(property.id, markedUpPrice, undefined) // Send only markup price
-        : await enlistApartment(property.id, undefined, agentPercentage); // Send only agent percentage
-      
-      console.log('📦 Enlist property result:', result);
-      
+      const result =
+        pricingOption === "add-markup"
+          ? await enlistApartment(property.id, markedUpPrice, undefined) // Send only markup price
+          : await enlistApartment(property.id, undefined, agentPercentage); // Send only agent percentage
+
+      console.log("📦 Enlist property result:", result);
+
       if (result.success) {
-        showSnackbar(result.message || "Property successfully added to your listings!", "success");
+        showSnackbar(
+          result.message || "Property successfully added to your listings!",
+          "success",
+        );
         onPropertyAdded();
         // Close modal after successful addition
         setTimeout(() => {
@@ -261,35 +285,38 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
       } else {
         // Use the improved error message handling
         const userFriendlyMessage = getErrorMessage(result.message);
-        console.log('❌ Add property failed:', {
+        console.log("❌ Add property failed:", {
           originalMessage: result.message,
           userFriendlyMessage: userFriendlyMessage,
           agentStatus: agentInfo?.status,
-          isVerified: agentInfo?.isVerified
+          isVerified: agentInfo?.isVerified,
         });
         showSnackbar(userFriendlyMessage, "error");
       }
     } catch (error: any) {
-      console.error('💥 Unexpected error adding property:', error);
-      
+      console.error("💥 Unexpected error adding property:", error);
+
       let errorMessage = "An unexpected error occurred. Please try again.";
-      
+
       if (error?.response?.status === 401) {
         errorMessage = "Your session has expired. Please log in again.";
       } else if (error?.response?.status === 403) {
-        errorMessage = "You don't have permission to perform this action. Please ensure your account is verified.";
+        errorMessage =
+          "You don't have permission to perform this action. Please ensure your account is verified.";
       } else if (error?.response?.status === 409) {
         errorMessage = "This property is already in your listings.";
       } else if (error?.response?.status === 404) {
-        errorMessage = "Property not found. It may have been removed from the system.";
+        errorMessage =
+          "Property not found. It may have been removed from the system.";
       } else if (error?.response?.status === 500) {
         errorMessage = "Server error. Please try again later.";
       } else if (error?.message?.includes("Network Error")) {
-        errorMessage = "Network connection error. Please check your internet connection.";
+        errorMessage =
+          "Network connection error. Please check your internet connection.";
       } else if (error?.message) {
         errorMessage = getErrorMessage(error.message);
       }
-      
+
       showSnackbar(errorMessage, "error");
     } finally {
       setIsAdding(false);
@@ -299,7 +326,7 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const handleClose = () => {
     // Reset form state when closing
     setMarkupPrice("");
-    setPricingOption('accept-percentage');
+    setPricingOption("accept-percentage");
     setCurrentImageIndex(0);
     onClose();
   };
@@ -307,27 +334,9 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const handleMarkupPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     // Allow only numbers and decimal point
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+    if (value === "" || /^\d*\.?\d*$/.test(value)) {
       setMarkupPrice(value);
     }
-  };
-
-  // Debug function to check current state
-  const debugState = () => {
-    console.log('🔍 Current Modal State:', {
-      property,
-      agentInfo: {
-        id: agentInfo?.id,
-        status: agentInfo?.status,
-        isVerified: agentInfo?.isVerified,
-        email: agentInfo?.email
-      },
-      pricingOption,
-      markupPrice,
-      isFormValid: isFormValid(),
-      validationError: validateMarkupPrice(),
-      isAdding
-    });
   };
 
   if (!property) return null;
@@ -339,87 +348,85 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
         onClose={handleClose}
         maxWidth="lg"
         fullWidth
-        scroll="paper"
-      >
+        scroll="paper">
         <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center">
             <Typography variant="h5" fontWeight="bold">
               Property Details
             </Typography>
             <Box display="flex" alignItems="center" gap={1}>
-              {/* Debug button - remove in production */}
-              <Button 
-                variant="outlined" 
-                size="small" 
-                onClick={debugState}
-                sx={{ mr: 1 }}
-              >
-                Debug
-              </Button>
               <IconButton onClick={handleClose} disabled={isAdding}>
                 <CloseIcon />
               </IconButton>
             </Box>
           </Box>
         </DialogTitle>
-        
+
         <DialogContent dividers>
           <Grid container spacing={4}>
             {/* Image Carousel */}
             <Grid item xs={12} md={6}>
-              <Box sx={{ position: 'relative', height: 300, borderRadius: 2, overflow: 'hidden' }}>
+              <Box
+                sx={{
+                  position: "relative",
+                  height: 300,
+                  borderRadius: 2,
+                  overflow: "hidden",
+                }}>
                 <img
                   src={getCurrentModalImage()}
                   alt={property.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
-                
+
                 {/* Navigation Arrows */}
                 {property.images && property.images.length > 1 && (
                   <>
                     <IconButton
                       onClick={prevImage}
                       disabled={isAdding}
-                      sx={{ 
-                        position: 'absolute', 
-                        left: 8, 
-                        top: '50%', 
-                        transform: 'translateY(-50%)', 
-                        bgcolor: 'white', 
-                        '&:hover': { bgcolor: 'grey.100' },
-                        '&:disabled': { opacity: 0.5 }
-                      }}
-                    >
+                      sx={{
+                        position: "absolute",
+                        left: 8,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        bgcolor: "white",
+                        "&:hover": { bgcolor: "grey.100" },
+                        "&:disabled": { opacity: 0.5 },
+                      }}>
                       <ChevronLeftIcon />
                     </IconButton>
                     <IconButton
                       onClick={nextImage}
                       disabled={isAdding}
-                      sx={{ 
-                        position: 'absolute', 
-                        right: 8, 
-                        top: '50%', 
-                        transform: 'translateY(-50%)', 
-                        bgcolor: 'white', 
-                        '&:hover': { bgcolor: 'grey.100' },
-                        '&:disabled': { opacity: 0.5 }
-                      }}
-                    >
+                      sx={{
+                        position: "absolute",
+                        right: 8,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        bgcolor: "white",
+                        "&:hover": { bgcolor: "grey.100" },
+                        "&:disabled": { opacity: 0.5 },
+                      }}>
                       <ChevronRightIcon />
                     </IconButton>
                   </>
                 )}
-                
+
                 {/* Image Indicators */}
                 {property.images && property.images.length > 1 && (
-                  <Box sx={{ 
-                    position: 'absolute', 
-                    bottom: 8, 
-                    left: '50%', 
-                    transform: 'translateX(-50%)', 
-                    display: 'flex', 
-                    gap: 1 
-                  }}>
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      bottom: 8,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      display: "flex",
+                      gap: 1,
+                    }}>
                     {property.images.map((_, index) => (
                       <Box
                         key={index}
@@ -427,11 +434,12 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                         sx={{
                           width: 8,
                           height: 8,
-                          borderRadius: '50%',
-                          bgcolor: index === currentImageIndex ? 'white' : 'white',
+                          borderRadius: "50%",
+                          bgcolor:
+                            index === currentImageIndex ? "white" : "white",
                           opacity: index === currentImageIndex ? 1 : 0.5,
-                          cursor: isAdding ? 'default' : 'pointer',
-                          transition: 'all 0.3s'
+                          cursor: isAdding ? "default" : "pointer",
+                          transition: "all 0.3s",
                         }}
                       />
                     ))}
@@ -444,10 +452,14 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                 <Typography variant="h4" fontWeight="bold" gutterBottom>
                   {property.name}
                 </Typography>
-                <Typography variant="h5" color="primary.main" fontWeight="bold" gutterBottom>
+                <Typography
+                  variant="h5"
+                  color="primary.main"
+                  fontWeight="bold"
+                  gutterBottom>
                   NGN {parseFloat(property.price || "0").toLocaleString()}/Night
                 </Typography>
-                
+
                 <Box display="flex" alignItems="center" gap={1} sx={{ mb: 2 }}>
                   <LocationIcon color="action" />
                   <Typography variant="body1" color="text.secondary">
@@ -489,14 +501,16 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                     Amenities
                   </Typography>
                   <Box display="flex" flexWrap="wrap" gap={1}>
-                    {getAmenitiesArray(property.amenities).map((amenity, index) => (
-                      <Chip 
-                        key={index} 
-                        label={amenity} 
-                        variant="outlined" 
-                        size="small" 
-                      />
-                    ))}
+                    {getAmenitiesArray(property.amenities).map(
+                      (amenity, index) => (
+                        <Chip
+                          key={index}
+                          label={amenity}
+                          variant="outlined"
+                          size="small"
+                        />
+                      ),
+                    )}
                   </Box>
                 </Box>
               </Box>
@@ -504,34 +518,66 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
 
             {/* Pricing Options */}
             <Grid item xs={12} md={6}>
-              <Box sx={{ p: 3, bgcolor: 'grey.50', borderRadius: 2, height: 'fit-content' }}>
+              <Box
+                sx={{
+                  p: 3,
+                  bgcolor: "grey.50",
+                  borderRadius: 2,
+                  height: "fit-content",
+                }}>
                 <Typography variant="h6" gutterBottom fontWeight="bold">
                   Add to Your Listings
                 </Typography>
-                
+
                 {/* Agent Commission Info */}
-                <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: 1, mb: 3 }}>
-                  <Typography variant="body2" color="primary.dark" fontWeight="medium">
+                <Box
+                  sx={{
+                    p: 2,
+                    bgcolor: "primary.light",
+                    borderRadius: 1,
+                    mb: 3,
+                  }}>
+                  <Typography
+                    variant="body2"
+                    color="primary.dark"
+                    fontWeight="medium">
                     <CheckIcon sx={{ fontSize: 16, mr: 1 }} />
                     Agent Commission: {property.agentPercentage || 10}%
                   </Typography>
                 </Box>
 
                 {/* Agent Verification Status */}
-                <Box 
-                  sx={{ 
-                    p: 2, 
-                    bgcolor: (agentInfo?.isVerified || agentInfo?.status === "VERIFIED") ? 'success.light' : 'warning.light', 
-                    borderRadius: 1, 
-                    mb: 3 
-                  }}
-                >
-                  <Typography variant="body2" color={(agentInfo?.isVerified || agentInfo?.status === "VERIFIED") ? 'success.dark' : 'warning.dark'} fontWeight="medium">
+                <Box
+                  sx={{
+                    p: 2,
+                    bgcolor:
+                      agentInfo?.isVerified || agentInfo?.status === "VERIFIED"
+                        ? "success.light"
+                        : "warning.light",
+                    borderRadius: 1,
+                    mb: 3,
+                  }}>
+                  <Typography
+                    variant="body2"
+                    color={
+                      agentInfo?.isVerified || agentInfo?.status === "VERIFIED"
+                        ? "success.dark"
+                        : "warning.dark"
+                    }
+                    fontWeight="medium">
                     <CheckIcon sx={{ fontSize: 16, mr: 1 }} />
-                    Account Status: {(agentInfo?.isVerified || agentInfo?.status === "VERIFIED") ? "Verified ✓" : "Pending Verification"}
+                    Account Status:{" "}
+                    {agentInfo?.isVerified || agentInfo?.status === "VERIFIED"
+                      ? "Verified ✓"
+                      : "Pending Verification"}
                   </Typography>
-                  {!(agentInfo?.isVerified || agentInfo?.status === "VERIFIED") && (
-                    <Typography variant="caption" color="warning.dark" sx={{ display: 'block', mt: 0.5 }}>
+                  {!(
+                    agentInfo?.isVerified || agentInfo?.status === "VERIFIED"
+                  ) && (
+                    <Typography
+                      variant="caption"
+                      color="warning.dark"
+                      sx={{ display: "block", mt: 0.5 }}>
                       You need to complete verification to add properties.
                     </Typography>
                   )}
@@ -542,20 +588,19 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                   <InputLabel>Pricing Option</InputLabel>
                   <Select
                     value={pricingOption}
-                    onChange={(e) => setPricingOption(e.target.value as PricingOption)}
-                    label="Pricing Option"
-                  >
+                    onChange={(e) =>
+                      setPricingOption(e.target.value as PricingOption)
+                    }
+                    label="Pricing Option">
                     <MenuItem value="accept-percentage">
                       Accept {property.agentPercentage || 10}% Commission
                     </MenuItem>
-                    <MenuItem value="add-markup">
-                      Add Markup Price
-                    </MenuItem>
+                    <MenuItem value="add-markup">Add Markup Price</MenuItem>
                   </Select>
                 </FormControl>
 
                 {/* Markup Price Input */}
-                {pricingOption === 'add-markup' && (
+                {pricingOption === "add-markup" && (
                   <TextField
                     fullWidth
                     label="Markup Price (NGN)"
@@ -570,45 +615,71 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                 )}
 
                 {/* Price Summary */}
-                <Box sx={{ 
-                  p: 2, 
-                  bgcolor: 'white', 
-                  borderRadius: 1, 
-                  border: 1, 
-                  borderColor: 'grey.300', 
-                  mb: 3 
-                }}>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                <Box
+                  sx={{
+                    p: 2,
+                    bgcolor: "white",
+                    borderRadius: 1,
+                    border: 1,
+                    borderColor: "grey.300",
+                    mb: 3,
+                  }}>
+                  <Typography
+                    variant="subtitle2"
+                    color="text.secondary"
+                    gutterBottom>
                     Price Summary
                   </Typography>
-                  <Box display="flex" justifyContent="space-between" sx={{ mb: 1 }}>
+                  <Box
+                    display="flex"
+                    justifyContent="space-between"
+                    sx={{ mb: 1 }}>
                     <Typography variant="body2">Base Price:</Typography>
                     <Typography variant="body2" fontWeight="medium">
                       NGN {parseFloat(property.price || "0").toLocaleString()}
                     </Typography>
                   </Box>
-                  {pricingOption === 'add-markup' && (
-                    <Box display="flex" justifyContent="space-between" sx={{ mb: 1 }}>
+                  {pricingOption === "add-markup" && (
+                    <Box
+                      display="flex"
+                      justifyContent="space-between"
+                      sx={{ mb: 1 }}>
                       <Typography variant="body2">Markup:</Typography>
                       <Typography variant="body2" fontWeight="medium">
                         + NGN {parseFloat(markupPrice || "0").toLocaleString()}
                       </Typography>
                     </Box>
                   )}
-                  <Box display="flex" justifyContent="space-between" sx={{ mb: 1 }}>
-                    <Typography variant="body2">Your Commission ({property.agentPercentage || 10}%):</Typography>
-                    <Typography variant="body2" fontWeight="medium" color="primary.main">
+                  <Box
+                    display="flex"
+                    justifyContent="space-between"
+                    sx={{ mb: 1 }}>
+                    <Typography variant="body2">
+                      Your Commission ({property.agentPercentage || 10}%):
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      fontWeight="medium"
+                      color="primary.main">
                       NGN {calculateCommission()}
                     </Typography>
                   </Box>
-                  <Box display="flex" justifyContent="space-between" sx={{ 
-                    borderTop: 1, 
-                    borderColor: 'grey.300', 
-                    pt: 1, 
-                    mt: 1 
-                  }}>
-                    <Typography variant="body1" fontWeight="bold">Final Price:</Typography>
-                    <Typography variant="body1" fontWeight="bold" color="primary.main">
+                  <Box
+                    display="flex"
+                    justifyContent="space-between"
+                    sx={{
+                      borderTop: 1,
+                      borderColor: "grey.300",
+                      pt: 1,
+                      mt: 1,
+                    }}>
+                    <Typography variant="body1" fontWeight="bold">
+                      Final Price:
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      fontWeight="bold"
+                      color="primary.main">
                       NGN {calculateFinalPrice()}
                     </Typography>
                   </Box>
@@ -620,35 +691,45 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                   variant="contained"
                   size="large"
                   onClick={handleAddProperty}
-                  disabled={!isFormValid() || isAdding || !(agentInfo?.isVerified || agentInfo?.status === "VERIFIED")}
-                  startIcon={isAdding ? <CircularProgress size={20} /> : <AddIcon />}
+                  disabled={
+                    !isFormValid() ||
+                    isAdding ||
+                    !(agentInfo?.isVerified || agentInfo?.status === "VERIFIED")
+                  }
+                  startIcon={
+                    isAdding ? <CircularProgress size={20} /> : <AddIcon />
+                  }
                   sx={{
-                    mb: 2
-                  }}
-                >
-                  {isAdding ? 'Adding Property...' : 
-                   !(agentInfo?.isVerified || agentInfo?.status === "VERIFIED") ? 'Complete Verification to Add' : 
-                   'Add to My Listings'}
+                    mb: 2,
+                  }}>
+                  {isAdding
+                    ? "Adding Property..."
+                    : !(
+                        agentInfo?.isVerified ||
+                        agentInfo?.status === "VERIFIED"
+                      )
+                    ? "Complete Verification to Add"
+                    : "Add to My Listings"}
                 </Button>
 
                 {/* Validation Error Display */}
                 {validateMarkupPrice() && (
-                  <Typography 
-                    variant="body2" 
-                    color="error" 
-                    sx={{ mt: 1, textAlign: 'center' }}
-                  >
+                  <Typography
+                    variant="body2"
+                    color="error"
+                    sx={{ mt: 1, textAlign: "center" }}>
                     {validateMarkupPrice()}
                   </Typography>
                 )}
 
                 {/* Help Text */}
-                {!(agentInfo?.isVerified || agentInfo?.status === "VERIFIED") && (
-                  <Typography 
-                    variant="caption" 
+                {!(
+                  agentInfo?.isVerified || agentInfo?.status === "VERIFIED"
+                ) && (
+                  <Typography
+                    variant="caption"
                     color="warning.main"
-                    sx={{ display: 'block', textAlign: 'center', mt: 1 }}
-                  >
+                    sx={{ display: "block", textAlign: "center", mt: 1 }}>
                     Please complete your account verification to add properties.
                   </Typography>
                 )}
@@ -663,13 +744,11 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={closeSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={closeSnackbar} 
-          severity={snackbar.severity} 
-          sx={{ width: '100%' }}
-        >
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
+        <Alert
+          onClose={closeSnackbar}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

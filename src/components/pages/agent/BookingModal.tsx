@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import useBookingStore from '../../../stores/bookingStore'; // Adjust import path as needed
+import React, { useState, useEffect } from "react";
+import useBookingStore from "../../../stores/bookingStore"; // Adjust import path as needed
 
 interface Property {
   id: string;
@@ -25,12 +25,17 @@ interface BookingModalProps {
   onSubmit?: (bookingData: any) => void; // Make optional since we're using store
 }
 
-const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, onSubmit }) => {
+const BookingModal: React.FC<BookingModalProps> = ({
+  property,
+  isOpen,
+  onClose,
+  onSubmit,
+}) => {
   const [bookingData, setBookingData] = useState({
-    checkIn: '',
-    checkOut: '',
+    checkIn: "",
+    checkOut: "",
     guests: 1,
-    specialRequests: '',
+    specialRequests: "",
   });
 
   const { createBooking, loading, error, clearError } = useBookingStore();
@@ -38,6 +43,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
   const getNumberOfNights = () => {
     if (bookingData.checkIn && bookingData.checkOut) {
       const checkInDate = new Date(bookingData.checkIn);
+
       const checkOutDate = new Date(bookingData.checkOut);
       const timeDiff = checkOutDate.getTime() - checkInDate.getTime();
       return Math.ceil(timeDiff / (1000 * 3600 * 24));
@@ -47,7 +53,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!property) return;
 
     const nights = getNumberOfNights();
@@ -63,14 +69,14 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
         total_price: totalPrice,
         duration_days: nights,
         // Additional guest info can be added here if available
-        guest_name: '', // You might want to collect this separately
-        guest_email: '', // You might want to collect this separately
-        guest_phone: '', // You might want to collect this separately
+        guest_name: "", // You might want to collect this separately
+        guest_email: "", // You might want to collect this separately
+        guest_phone: "", // You might want to collect this separately
       };
 
       // Use the store to create booking
       await createBooking(bookingPayload);
-      
+
       // Call the original onSubmit if provided (for backward compatibility)
       if (onSubmit) {
         onSubmit({
@@ -80,21 +86,21 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
           totalPrice: totalPrice,
         });
       }
-      
+
       // Close modal on success
       onClose();
     } catch (error) {
       // Error is handled by the store and will show toast
-      console.error('Booking failed:', error);
+      console.error("Booking failed:", error);
     }
   };
 
   const resetForm = () => {
     setBookingData({
-      checkIn: '',
-      checkOut: '',
+      checkIn: "",
+      checkOut: "",
       guests: 1,
-      specialRequests: '',
+      specialRequests: "",
     });
     clearError();
   };
@@ -117,26 +123,39 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
-              disabled={loading}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              disabled={loading}>
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
 
           {/* Property Info */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-semibold text-lg text-gray-900">{property.name}</h3>
+            <h3 className="font-semibold text-lg text-gray-900">
+              {property.name}
+            </h3>
             <p className="text-gray-600 text-sm mt-1">{property.address}</p>
             <div className="flex justify-between items-center mt-2">
-              <span className="text-sm text-gray-500">{property.type} • {property.bedroom} Beds</span>
+              <span className="text-sm text-gray-500">
+                {property.type} • {property.bedroom} Beds
+              </span>
               <span className="text-lg font-bold text-blue-600">
-                {new Intl.NumberFormat('en-NG', {
-                  style: 'currency',
-                  currency: 'NGN',
+                {new Intl.NumberFormat("en-NG", {
+                  style: "currency",
+                  currency: "NGN",
                   minimumFractionDigits: 0,
-                }).format(property.price)}/night
+                }).format(property.price)}
+                /night
               </span>
             </div>
           </div>
@@ -152,8 +171,10 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
                   type="date"
                   required
                   value={bookingData.checkIn}
-                  onChange={(e) => setBookingData({ ...bookingData, checkIn: e.target.value })}
-                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) =>
+                    setBookingData({ ...bookingData, checkIn: e.target.value })
+                  }
+                  min={new Date().toISOString().split("T")[0]}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled={loading}
                 />
@@ -166,8 +187,13 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
                   type="date"
                   required
                   value={bookingData.checkOut}
-                  onChange={(e) => setBookingData({ ...bookingData, checkOut: e.target.value })}
-                  min={bookingData.checkIn || new Date().toISOString().split('T')[0]}
+                  onChange={(e) =>
+                    setBookingData({ ...bookingData, checkOut: e.target.value })
+                  }
+                  min={
+                    bookingData.checkIn ||
+                    new Date().toISOString().split("T")[0]
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled={loading}
                 />
@@ -180,13 +206,17 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
               </label>
               <select
                 value={bookingData.guests}
-                onChange={(e) => setBookingData({ ...bookingData, guests: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setBookingData({
+                    ...bookingData,
+                    guests: parseInt(e.target.value),
+                  })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={loading}
-              >
-                {[1, 2, 3, 4, 5, 6].map(num => (
+                disabled={loading}>
+                {[1, 2, 3, 4, 5, 6].map((num) => (
                   <option key={num} value={num}>
-                    {num} {num === 1 ? 'Guest' : 'Guests'}
+                    {num} {num === 1 ? "Guest" : "Guests"}
                   </option>
                 ))}
               </select>
@@ -198,7 +228,12 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
               </label>
               <textarea
                 value={bookingData.specialRequests}
-                onChange={(e) => setBookingData({ ...bookingData, specialRequests: e.target.value })}
+                onChange={(e) =>
+                  setBookingData({
+                    ...bookingData,
+                    specialRequests: e.target.value,
+                  })
+                }
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Any special requirements or requests..."
@@ -212,9 +247,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
                 <div className="flex justify-between text-sm">
                   <span>Price per night:</span>
                   <span>
-                    {new Intl.NumberFormat('en-NG', {
-                      style: 'currency',
-                      currency: 'NGN',
+                    {new Intl.NumberFormat("en-NG", {
+                      style: "currency",
+                      currency: "NGN",
                       minimumFractionDigits: 0,
                     }).format(property.price)}
                   </span>
@@ -226,9 +261,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
                 <div className="flex justify-between font-semibold text-lg mt-2 pt-2 border-t border-blue-200">
                   <span>Total:</span>
                   <span className="text-blue-600">
-                    {new Intl.NumberFormat('en-NG', {
-                      style: 'currency',
-                      currency: 'NGN',
+                    {new Intl.NumberFormat("en-NG", {
+                      style: "currency",
+                      currency: "NGN",
                       minimumFractionDigits: 0,
                     }).format(property.price * getNumberOfNights())}
                   </span>
@@ -250,16 +285,16 @@ const BookingModal: React.FC<BookingModalProps> = ({ property, isOpen, onClose, 
                 type="button"
                 onClick={onClose}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                disabled={loading}
-              >
+                disabled={loading}>
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={loading || !bookingData.checkIn || !bookingData.checkOut}
-                className="flex-1 px-4 py-2 bg-amber-400 text-white rounded-lg hover:bg-amber-500 transition-colors font-semibold disabled:bg-amber-200 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Booking...' : 'Confirm Booking'}
+                disabled={
+                  loading || !bookingData.checkIn || !bookingData.checkOut
+                }
+                className="flex-1 px-4 py-2 bg-amber-400 text-white rounded-lg hover:bg-amber-500 transition-colors font-semibold disabled:bg-amber-200 disabled:cursor-not-allowed">
+                {loading ? "Booking..." : "Confirm Booking"}
               </button>
             </div>
           </form>
