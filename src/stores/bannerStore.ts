@@ -286,7 +286,6 @@ const useBannerStore = create<BannerState & BannerActions>()(
         }
       },
 
-      // Also update fetchBannerById method similarly
       fetchBannerById: async (id: string) => {
         set({ isLoading: true, error: null });
         try {
@@ -309,9 +308,6 @@ const useBannerStore = create<BannerState & BannerActions>()(
 
           const bannerData = result.result || result.data || result;
 
-          console.log("Raw single banner data:", bannerData); // Debug log
-
-          // Convert backend format to frontend format
           const images = bannerData.image_url ? [bannerData.image_url] : [];
           const description =
             bannerData.description || bannerData.desscription || "";

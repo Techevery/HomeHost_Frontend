@@ -20,7 +20,7 @@ interface AgentInfo {
   next_of_kin_email: string;
   accountBalance?: number;
   id_card?: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 interface AgentData {
