@@ -331,6 +331,7 @@ const AgentProfile = () => {
     };
   };
 
+  console.log({ transformPropertyData });
   if (isLoading && !agentInfo) {
     return (
       <Box

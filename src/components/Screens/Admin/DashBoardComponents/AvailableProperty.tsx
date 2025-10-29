@@ -51,7 +51,7 @@ const BookingModal: React.FC<{
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
   const [loadingBookedDates, setLoadingBookedDates] = useState(false);
 
-  // Payment store integration
+  // Updated Payment store integration
   const {
     initiatePayment,
     isInitializingPayment,
@@ -306,7 +306,7 @@ const BookingModal: React.FC<{
     return true;
   };
 
-  // FIXED: Updated payment initiation function
+  // UPDATED: Payment initiation function with new store signature
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -361,46 +361,40 @@ const BookingModal: React.FC<{
       // Calculate total amount
       const totalAmount = property.price * selectedDates.length;
 
-      // FIXED: Prepare payment data with correct field names and structure
-      const paymentData = {
-        email: bookingData.email,
-        phoneNumber: bookingData.phone,
-        nextofKinName: bookingData.name_of_nxt_of_kin,
-        nextOfKinNumber: bookingData.number_of_nxt_of_kin,
-        channels: ["card"], // Provide multiple options
-        currency: "NGN",
-        agentId: property.agentId,
-        apartmentId: property.id,
-        startDate: selectedDates[0].toISOString().split("T")[0], // Format: YYYY-MM-DD
-        endDate: new Date(
-          selectedDates[selectedDates.length - 1].getTime() + 86400000,
-        )
-          .toISOString()
-          .split("T")[0], // Format: YYYY-MM-DD
-        amount: totalAmount, // CRITICAL: Add amount field
-        metadata: {
-          propertyName: property.name,
-          nights: selectedDates.length,
-          guestName: bookingData.name,
-          checkIn: selectedDates[0].toISOString(),
-          checkOut: new Date(
-            selectedDates[selectedDates.length - 1].getTime() + 86400000,
-          ).toISOString(),
-        },
-      };
-
-      console.log("🚀 Payment data being sent:", paymentData);
+      // Format dates for API
+      const formattedStartDate = selectedDates[0].toISOString().split("T")[0];
+      const formattedEndDate = new Date(
+        selectedDates[selectedDates.length - 1].getTime() + 86400000,
+      )
+        .toISOString()
+        .split("T")[0];
 
       // Show loading toast
       const toastId = toast.loading("Initializing payment...", {
         position: "top-right",
       });
 
-      // Initiate payment
-      const paymentResult = await initiatePayment(paymentData);
+      // UPDATED: Call initiatePayment with new parameter signature
+      const paymentResult = await initiatePayment(
+        bookingData.email,
+        ["card"], // channels
+        "NGN", // currency
+        property.id, // apartmentId
+        formattedStartDate, // startDate
+        formattedEndDate, // endDate
+        bookingData.phone, // phoneNumber
+        bookingData.name_of_nxt_of_kin, // nextofKinName
+        bookingData.number_of_nxt_of_kin, // nextofKinNumber
+        bookingData.name, // fullName
+        property.agentId, // agentId
+      );
+
+      console.log("Payment initiation result:", paymentResult);
 
       // If payment initiation is successful, redirect to payment page
-      if (paymentResult.authorization_url) {
+      if (paymentResult.success && paymentResult.data) {
+        const paymentData = paymentResult.data;
+
         toast.update(toastId, {
           render: "Payment initialized successfully! Redirecting...",
           type: "success",
@@ -419,9 +413,10 @@ const BookingModal: React.FC<{
             selectedDates[selectedDates.length - 1].getTime() + 86400000,
           ),
           totalPrice: totalAmount,
-          paymentReference: paymentResult.reference,
+          paymentReference: paymentData.reference,
           agentId: property.agentId,
-          authorizationUrl: paymentResult.authorization_url,
+          authorizationUrl:
+            paymentData.authorization_url || paymentData.checkout_url,
         };
 
         console.log("💾 Storing booking info:", bookingInfo);
@@ -432,14 +427,24 @@ const BookingModal: React.FC<{
         // Call the onSubmit prop to notify parent component
         onSubmit(bookingInfo);
 
-        // Redirect to payment gateway after a short delay
-        setTimeout(() => {
-          window.location.href = paymentResult.authorization_url;
-        }, 1500);
+        // Redirect to payment gateway if URL is available
+        if (paymentData.authorization_url || paymentData.checkout_url) {
+          setTimeout(() => {
+            window.location.href =
+              paymentData.authorization_url || paymentData.checkout_url;
+          }, 1500);
+        } else {
+          console.warn("No payment URL received, cannot redirect");
+          toast.error(
+            "Payment initialization incomplete. Please contact support.",
+            {
+              position: "top-right",
+              autoClose: 5000,
+            },
+          );
+        }
       } else {
-        throw new Error(
-          "Payment initiation failed - no authorization URL received",
-        );
+        throw new Error(paymentResult.message || "Payment initiation failed");
       }
     } catch (error: any) {
       console.error("❌ Payment initiation failed:", error);
@@ -757,7 +762,7 @@ const AvailableProperty = () => {
     setSelectedProperty(null);
   };
 
-  // FIXED: Enhanced booking submission handler
+  // Enhanced booking submission handler
   const handleBookingSubmit = async (bookingData: any) => {
     try {
       console.log("✅ Booking submitted successfully:", bookingData);

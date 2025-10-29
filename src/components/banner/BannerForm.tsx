@@ -1,7 +1,7 @@
 // components/BannerForm.tsx
-import React, { useState, useEffect } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
-import useBannerStore from '../../stores/bannerStore';
+import React, { useState, useEffect } from "react";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import useBannerStore from "../../stores/bannerStore";
 
 interface BannerFormProps {
   bannerId?: string | null;
@@ -9,17 +9,26 @@ interface BannerFormProps {
   onSuccess: () => void;
 }
 
-const BannerForm: React.FC<BannerFormProps> = ({ bannerId, onClose, onSuccess }) => {
-  const { banners, currentBanner, fetchBannerById, createBanner, updateBanner, loading } = useBannerStore();
-  
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    image: null as File | null,
+const BannerForm: React.FC<BannerFormProps> = ({
+  bannerId,
+  onClose,
+  onSuccess,
+}) => {
+  const {
+    currentBanner,
+    fetchBannerById,
+    createBanner,
+    updateBanner,
+    isLoading,
+  } = useBannerStore();
 
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
   });
 
-  const [imagePreview, setImagePreview] = useState<string>('');
+  const [images, setImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   useEffect(() => {
     if (bannerId) {
@@ -30,54 +39,77 @@ const BannerForm: React.FC<BannerFormProps> = ({ bannerId, onClose, onSuccess })
   useEffect(() => {
     if (currentBanner && bannerId) {
       setFormData({
-        title: currentBanner.title,
-        description: currentBanner.description,
-        image: null,
-  
+        name: currentBanner.name || "",
+        description: currentBanner.description || "",
       });
-      setImagePreview(currentBanner.imageUrl);
-    } else {
-      // Set order to max order + 1 for new banners
-      const maxOrder = Math.max(...banners.map(b => b.order), 0);
-      setFormData(prev => ({
-        ...prev,
-        order: maxOrder + 1
-      }));
-    }
-  }, [currentBanner, bannerId, banners]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({
+      // Set existing images as previews
+      if (currentBanner.images && currentBanner.images.length > 0) {
+        setImagePreviews(currentBanner.images);
+      }
+    } else {
+      // Reset form for new banner
+      setFormData({
+        name: "",
+        description: "",
+      });
+      setImages([]);
+      setImagePreviews([]);
+    }
+  }, [currentBanner, bannerId]);
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      [name]: value,
     }));
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFormData(prev => ({ ...prev, image: file }));
-      
+    const files = e.target.files;
+    if (!files) return;
+
+    const newImages: File[] = [];
+    const newPreviews: string[] = [];
+
+    // Process up to 2 images (as per your backend configuration)
+    for (let i = 0; i < Math.min(files.length, 2); i++) {
+      const file = files[i];
+      newImages.push(file);
+
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+        newPreviews.push(reader.result as string);
+        // Update previews when all images are processed
+        if (newPreviews.length === Math.min(files.length, 2)) {
+          setImagePreviews((prev) => [...prev, ...newPreviews]);
+        }
       };
       reader.readAsDataURL(file);
     }
+
+    setImages((prev) => [...prev, ...newImages]);
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const data = new FormData();
-    data.append('title', formData.title);
-    data.append('description', formData.description);
-   
-    
-    if (formData.image) {
-      data.append('image', formData.image);
-    }
+    data.append("name", formData.name);
+    data.append("description", formData.description);
+
+    // Append images (up to 2 as per backend configuration)
+    images.forEach((image, index) => {
+      data.append("image", image);
+    });
 
     try {
       if (bannerId) {
@@ -96,26 +128,27 @@ const BannerForm: React.FC<BannerFormProps> = ({ bannerId, onClose, onSuccess })
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-900">
-            {bannerId ? 'Edit Banner' : 'Create New Banner'}
+            {bannerId ? "Edit Banner" : "Create New Banner"}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
+            className="text-gray-400 hover:text-gray-600">
             <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-              Title *
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-gray-700 mb-1">
+              Name *
             </label>
             <input
               type="text"
-              id="title"
-              name="title"
-              value={formData.title}
+              id="name"
+              name="name"
+              value={formData.name}
               onChange={handleInputChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -123,7 +156,9 @@ const BannerForm: React.FC<BannerFormProps> = ({ bannerId, onClose, onSuccess })
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="description"
+              className="block text-sm font-medium text-gray-700 mb-1">
               Description
             </label>
             <textarea
@@ -137,50 +172,68 @@ const BannerForm: React.FC<BannerFormProps> = ({ bannerId, onClose, onSuccess })
           </div>
 
           <div>
-            <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">
-              Image {!bannerId && '*'}
+            <label
+              htmlFor="images"
+              className="block text-sm font-medium text-gray-700 mb-1">
+              Images {!bannerId && "*"}
             </label>
             <input
               type="file"
-              id="image"
-              name="image"
+              id="images"
+              name="images"
               accept="image/*"
               onChange={handleImageChange}
-              required={!bannerId}
+              multiple
+              required={!bannerId && images.length === 0}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            {imagePreview && (
-              <div className="mt-2">
-                <img
-                  src={imagePreview}
-                  alt="Preview"
-                  className="w-32 h-32 object-cover rounded-md border"
-                />
+            <p className="text-xs text-gray-500 mt-1">
+              You can upload up to 2 images.{" "}
+              {bannerId && "Leave empty to keep current images."}
+            </p>
+
+            {imagePreviews.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  Image Previews:
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  {imagePreviews.map((preview, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-md border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600">
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-          </div>
-
-         
-          <div className="grid grid-cols-2 gap-4">
-          
-
-           
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-            >
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">
               Cancel
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
-            >
-              {loading ? 'Saving...' : bannerId ? 'Update Banner' : 'Create Banner'}
+              disabled={isLoading}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50">
+              {isLoading
+                ? "Saving..."
+                : bannerId
+                ? "Update Banner"
+                : "Create Banner"}
             </button>
           </div>
         </form>

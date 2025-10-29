@@ -20,6 +20,7 @@ interface AgentInfo {
   next_of_kin_email: string;
   accountBalance?: number;
   id_card?: string;
+  createdAt: string;
 }
 
 interface AgentData {
@@ -300,6 +301,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
                 data.agent?.next_of_kin_email,
               accountBalance: data.accountBalance || data.agent?.accountBalance,
               id_card: data.id_card || data.agent?.id_card,
+              createdAt: data.createdAt || data.agent?.createdAt,
             },
             isAuthenticated: true,
             rememberMe: remember,
@@ -375,6 +377,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
               next_of_kin_email: data.next_of_kin_email || data.nextOfKinEmail,
               accountBalance: data.accountBalance || 0,
               id_card: data.id_card,
+              createdAt: data.createdAt,
             },
             isAuthenticated: true,
           });
@@ -446,6 +449,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
               next_of_kin_email: data.nextOfKinEmail || data.next_of_kin_email,
               accountBalance: data.accountBalance,
               id_card: data.id_card,
+              createdAt: data.createdAt,
             },
           });
         } catch (error: any) {
@@ -571,7 +575,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
           set({ isLoading: false });
         }
       },
-
       enlistApartment: async (
         apartmentId: string,
         markedUpPrice?: number,
@@ -690,19 +693,34 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
           console.log("Enlist property response:", response);
 
-          // 7. Handle different response formats
-          let successMessage = "Property added successfully to your listings!";
+          // 7. Handle successful response and extract pricing information
+          let successMessage = "Apartment added to listing successfully";
+          let pricingInfo = null;
 
+          // Extract message and data from backend response
           if (response.data?.message) {
             successMessage = response.data.message;
-          } else if (response.data?.data?.message) {
-            successMessage = response.data.data.message;
+          }
+
+          // Extract pricing information if available in response
+          if (response.data?.data) {
+            pricingInfo = {
+              finalPrice:
+                response.data.data.finalPrice || response.data.data.totalAmount,
+              originalPrice: response.data.data.originalPrice,
+              markupApplied: response.data.data.markupApplied || hasMarkupPrice,
+              agentPercentage: response.data.data.agentPercentage,
+            };
           }
 
           // 8. Refresh the enlisted properties
           await get().fetchEnlistedProperties(1, 10);
-
-          return { success: true, message: successMessage };
+          console.log({ data: pricingInfo });
+          return {
+            success: true,
+            message: successMessage,
+            data: pricingInfo, // Include pricing information in response
+          };
         } catch (error: any) {
           console.error("❌ Enlist property error:", error);
 
@@ -713,6 +731,25 @@ const useAgentStore = create<AgentState & AgentActions>()(
               data: error.response.data,
               headers: error.response.headers,
             });
+
+            // Handle specific error status codes from backend
+            if (error.response.status === 403) {
+              const errorMessage = "Only verified agents can add properties";
+              set({ error: errorMessage });
+              return { success: false, message: errorMessage };
+            }
+
+            if (error.response.status === 409) {
+              const errorMessage = "Apartment already listed";
+              set({ error: errorMessage });
+              return { success: false, message: errorMessage };
+            }
+
+            if (error.response.status === 404) {
+              const errorMessage = "Apartment not found";
+              set({ error: errorMessage });
+              return { success: false, message: errorMessage };
+            }
           } else if (error.request) {
             console.error("No response received:", error.request);
           }
@@ -745,14 +782,22 @@ const useAgentStore = create<AgentState & AgentActions>()(
             throw new Error("Apartment ID is required.");
           }
 
-          await axios.delete(`${API_BASE_URL}/api/v1/agent/remove-apartment`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
+          // Make API request to remove apartment
+          const response = await axios.delete(
+            `${API_BASE_URL}/api/v1/agent/remove-apartment`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              data: { apartmentId }, // Send apartmentId in request body
+              timeout: 15000,
             },
-            data: { apartmentId },
-            timeout: 15000,
-          });
+          );
 
+          console.log("Remove apartment response:", response);
+
+          // Remove from local state
           const currentProperties = get().enlistedProperties;
           const updatedProperties = currentProperties.filter(
             (property) => property.apartmentId !== apartmentId,
@@ -760,22 +805,55 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
           set({
             enlistedProperties: updatedProperties,
-            totalProperties: get().totalProperties - 1,
+            totalProperties: Math.max(0, get().totalProperties - 1),
           });
+
+          // Success - no return value needed (void)
         } catch (error: any) {
+          console.error("❌ Remove apartment error:", error);
+
+          // Enhanced error handling with backend-specific errors
+          if (error.response) {
+            console.error("Error response:", {
+              status: error.response.status,
+              data: error.response.data,
+            });
+
+            // Handle specific backend error status codes
+            if (error.response.status === 403) {
+              const errorMessage =
+                "Access denied. You do not have permission for this action.";
+              set({ error: errorMessage });
+              throw new Error(errorMessage);
+            }
+
+            if (error.response.status === 404) {
+              const errorMessage = "Listing not found";
+              set({ error: errorMessage });
+              throw new Error(errorMessage);
+            }
+
+            if (error.response.status === 401) {
+              const errorMessage = "Authentication required";
+              set({ error: errorMessage });
+              throw new Error(errorMessage);
+            }
+          }
+
           const errorMessage = handleApiError(
             error,
-            "Failed to remove apartment.",
+            "Failed to remove apartment from listing.",
           );
+
           set({
             error: errorMessage,
           });
+
           throw new Error(errorMessage);
         } finally {
           set({ isLoading: false });
         }
       },
-
       fetchEnlistedProperties: async (page = 1, limit = 10) => {
         set({ isLoading: true, error: null });
         try {

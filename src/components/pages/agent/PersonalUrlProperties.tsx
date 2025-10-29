@@ -1,15 +1,16 @@
+// PersonalUrlProperties.tsx
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import useAgentStore from "../../../stores/agentstore";
 import useBannerStore from "../../../stores/bannerStore";
 import usePaymentStore from "../../../stores/paymentstore";
+import { useAgentFromUrl } from "../agent/useAgentFromUrl";
 import Carousel from "react-grid-carousel";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// Define the property interface based on your API response
 interface Property {
   id: string;
   name: string;
@@ -25,7 +26,8 @@ interface Property {
   apartmentId?: string;
   location?: string;
   amenities?: string[];
-  agentId: string; // Changed from optional to required
+  agentId: string;
+  created?: string;
 }
 
 interface PaginationInfo {
@@ -40,7 +42,6 @@ interface AgentPropertiesResponse {
   pagination: PaginationInfo;
 }
 
-// Sort options - UPDATED
 type SortOption =
   | "newest"
   | "oldest"
@@ -61,8 +62,11 @@ const BannerCarousel: React.FC = () => {
   }
 
   const activeBanners = banners
-    .filter((banner) => banner.isActive)
-    .sort((a, b) => a.order - b.order);
+    .filter((banner) => banner.status === "active")
+    .sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
 
   if (activeBanners.length === 0) {
     return null;
@@ -82,10 +86,14 @@ const BannerCarousel: React.FC = () => {
         {activeBanners.map((banner) => (
           <Carousel.Item key={banner.id}>
             <div className="relative h-64 md:h-80 lg:h-96">
-              {/* Background Image */}
+              {/* Background Image - Use first image from images array */}
               <img
-                src={banner.imageUrl}
-                alt={banner.title}
+                src={
+                  banner.images && banner.images.length > 0
+                    ? banner.images[0]
+                    : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI0MDAiIHZpZXdCb3g9IjAgMCAxMjAwIDQwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjEyMDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjMUY0QThGIi8+CjxwYXRoIGQ9Ik0yMDAgMjAwTDE1MCAyNTBIMjUwTDIwMCAyMDBaIiBmaWxsPSIjMDA3N0VGIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iMzAiIGZpbGw9IiMwMDc3RUYiLz4KPHN2ZyB4PSI4MDAiIHk9IjE1MCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgOUg4VjRIM1Y5Wk0zIDE0SDhWMTlIM1YxNFpNMTMgNEgxOFY5SDEzVjRaTTEzIDE0SDE4VjE5SDEzVjE0WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cjwvc3ZnPg=="
+                }
+                alt={banner.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   e.currentTarget.src =
@@ -99,18 +107,15 @@ const BannerCarousel: React.FC = () => {
               {/* Content */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white px-4">
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 drop-shadow-lg">
-                  {banner.title}
+                  {banner.name}
                 </h1>
                 <p className="text-lg md:text-xl lg:text-2xl mb-6 drop-shadow-md max-w-2xl">
                   {banner.description}
                 </p>
-                {banner.targetUrl && (
-                  <Link
-                    to={banner.targetUrl}
-                    className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg">
-                    Learn More
-                  </Link>
-                )}
+                {/* Removed targetUrl since it doesn't exist in our banner store */}
+                <button className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg">
+                  Learn More
+                </button>
               </div>
             </div>
           </Carousel.Item>
@@ -172,19 +177,37 @@ const PropertyDetailView: React.FC<{
   onClose: () => void;
   onBookNow: () => void;
 }> = ({ property, isOpen, onClose, onBookNow }) => {
+  const { agentInfo } = useAgentFromUrl();
+  const { agentInfo: currentAgentInfo } = useAgentStore();
+
   if (!isOpen || !property) return null;
 
-  // Enhanced helper function to ensure bedroom is displayed as string
+  // Helper function to calculate how long ago the agent registered
+  const getRegistrationTime = (createdAt: string) => {
+    const createdDate = new Date(createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - createdDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffYears = Math.floor(diffDays / 365);
+    const diffMonths = Math.floor((diffDays % 365) / 30);
+
+    if (diffYears > 0) {
+      return `${diffYears} year${diffYears > 1 ? "s" : ""} ago`;
+    } else if (diffMonths > 0) {
+      return `${diffMonths} month${diffMonths > 1 ? "s" : ""} ago`;
+    } else {
+      return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+    }
+  };
+
+  const displayAgent = agentInfo || currentAgentInfo;
+
   const getBedroomText = (bedroom: string | number): string => {
     if (bedroom === null || bedroom === undefined) return "0";
-
     const text = typeof bedroom === "number" ? bedroom.toString() : bedroom;
-
-    // Handle empty strings and non-numeric values
     if (!text || text.trim() === "" || isNaN(parseInt(text))) {
       return "0";
     }
-
     return text;
   };
 
@@ -210,15 +233,7 @@ const PropertyDetailView: React.FC<{
               </h4>
 
               <div className="flex flex-col gap-4 flex-1">
-                <div className="flex gap-4 items-center">
-                  <img
-                    src="/images/location 1.svg"
-                    alt="Location"
-                    className="w-8 h-8"
-                  />
-                  <h6 className="text-lg text-gray-700">{property.address}</h6>
-                </div>
-
+                {/* Agent Verification Status */}
                 <div className="flex gap-3 items-center">
                   <img
                     src="/images/Group 1505.svg"
@@ -226,29 +241,42 @@ const PropertyDetailView: React.FC<{
                     className="w-8 h-8"
                   />
                   <div className="leading-6">
-                    <h6 className="text-lg text-gray-700">Verified Agent</h6>
-                    <h6 className="text-sm text-gray-500">Professional Host</h6>
+                    <h6 className="text-lg text-gray-700">
+                      {displayAgent?.isVerified ? "Verified Agent" : "Agent"}
+                    </h6>
+                    <h6 className="text-sm text-gray-500">
+                      {displayAgent?.status === "VERIFIED"
+                        ? "Professional Host"
+                        : "Host"}
+                    </h6>
                   </div>
                 </div>
 
+                {/* Agent Phone Number */}
                 <div className="flex gap-4 items-center">
                   <img
                     src="/images/Group 1497.svg"
                     alt="Phone"
                     className="w-8 h-8"
                   />
-                  <h6 className="text-lg text-gray-700">+234 7065345534</h6>
+                  <h6 className="text-lg text-gray-700">
+                    {displayAgent?.phone_number || "+234 7065345534"}
+                  </h6>
                 </div>
 
+                {/* Contact Agent */}
                 <div className="flex gap-4 items-center">
                   <img
                     src="/images/Group 1496.svg"
                     alt="Contact"
                     className="w-8 h-8"
                   />
-                  <h6 className="text-lg text-gray-700">Contact Agent</h6>
+                  <h6 className="text-lg text-gray-700">
+                    Contact {displayAgent?.name || "Agent"}
+                  </h6>
                 </div>
 
+                {/* Registration Date */}
                 <div className="flex gap-4 items-center">
                   <img
                     src="/images/Group 1503.svg"
@@ -256,10 +284,14 @@ const PropertyDetailView: React.FC<{
                     className="w-8 h-8"
                   />
                   <h6 className="text-lg text-gray-700">
-                    Registered 2 years ago
+                    Registered{" "}
+                    {displayAgent?.createdAt
+                      ? getRegistrationTime(displayAgent.createdAt)
+                      : "2 years ago"}
                   </h6>
                 </div>
 
+                {/* View All Properties */}
                 <div className="flex gap-4 items-center">
                   <img
                     src="/images/Group 1502.svg"
@@ -305,6 +337,12 @@ const PropertyDetailView: React.FC<{
                         {property.agentId}
                       </span>
                     </div>
+                    {displayAgent?.name && (
+                      <div>
+                        <span className="font-semibold">Agent Name:</span>
+                        <span className="ml-2">{displayAgent.name}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -325,7 +363,7 @@ const PropertyDetailView: React.FC<{
                   <Carousel.Item key={index}>
                     <img
                       src={image}
-                      alt={`${property.name} -${index + 1}`}
+                      alt={`${property.name} - ${index + 1}`}
                       className="w-full h-64 md:h-96 object-cover"
                     />
                   </Carousel.Item>
@@ -355,8 +393,6 @@ const PropertyDetailView: React.FC<{
     </div>
   );
 };
-
-// Updated Booking Modal Component with proper payment initiation
 const BookingModal: React.FC<{
   property: Property | null;
   isOpen: boolean;
@@ -379,7 +415,6 @@ const BookingModal: React.FC<{
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
   const [loadingBookedDates, setLoadingBookedDates] = useState(false);
 
-  // Payment store integration
   const {
     initiatePayment,
     isInitializingPayment,
@@ -387,14 +422,14 @@ const BookingModal: React.FC<{
     clearPaymentInitError,
   } = usePaymentStore();
 
-  // Fetch booked dates for the property
+  const { agentInfo } = useAgentFromUrl();
+
   useEffect(() => {
     if (property && isOpen) {
       fetchBookedDates(property.id);
     }
   }, [property, isOpen]);
 
-  // Show error toast when payment initiation fails
   useEffect(() => {
     if (paymentInitError) {
       toast.error(`Payment Error: ${paymentInitError}`, {
@@ -404,6 +439,13 @@ const BookingModal: React.FC<{
       clearPaymentInitError();
     }
   }, [paymentInitError, clearPaymentInitError]);
+
+  // Ensure property has agentId from URL if missing
+  useEffect(() => {
+    if (property && !property.agentId && agentInfo) {
+      console.log("Using agentId from URL:", agentInfo.id);
+    }
+  }, [property, agentInfo]);
 
   // Fetch booked dates from API
   const fetchBookedDates = async (propertyId: string) => {
@@ -586,7 +628,6 @@ const BookingModal: React.FC<{
     return true;
   };
 
-  // FIXED: Updated payment initiation function
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -606,8 +647,10 @@ const BookingModal: React.FC<{
       return;
     }
 
-    // Validate that we have agentId
-    if (!property.agentId) {
+    // Determine agentId - use property agentId or fallback to URL agentId
+    const finalAgentId = property.agentId || agentInfo?.id;
+
+    if (!finalAgentId) {
       toast.error("Agent information is missing. Please contact support.", {
         position: "top-right",
         autoClose: 5000,
@@ -637,33 +680,23 @@ const BookingModal: React.FC<{
       // Calculate total amount
       const totalAmount = property.price * selectedDates.length;
 
-      // FIXED: Prepare payment data with correct field names and structure
+      // Prepare payment data according to the payment store structure
       const paymentData = {
         email: bookingData.email,
-        phoneNumber: bookingData.phone,
-        nextofKinName: bookingData.name_of_nxt_of_kin,
-        nextOfKinNumber: bookingData.number_of_nxt_of_kin,
-        channels: ["card", "bank"], // Provide multiple options
+        channels: ["card", "bank"],
         currency: "NGN",
-        agentId: property.agentId,
+        agentId: finalAgentId,
         apartmentId: property.id,
-        startDate: selectedDates[0].toISOString().split("T")[0], // Format: YYYY-MM-DD
+        startDate: selectedDates[0].toISOString().split("T")[0],
         endDate: new Date(
           selectedDates[selectedDates.length - 1].getTime() + 86400000,
         )
           .toISOString()
-          .split("T")[0], // Format: YYYY-MM-DD
-        amount: totalAmount, // CRITICAL: Add amount field
-        metadata: {
-          propertyName: property.name,
-          nights: selectedDates.length,
-          guestName: bookingData.name,
-          checkIn: selectedDates[0].toISOString(),
-          checkOut: new Date(
-            selectedDates[selectedDates.length - 1].getTime() + 86400000,
-          ).toISOString(),
-          personalUrl: personalUrl || "direct",
-        },
+          .split("T")[0],
+        phoneNumber: bookingData.phone,
+        nextofKinName: bookingData.name_of_nxt_of_kin,
+        nextofKinNumber: bookingData.number_of_nxt_of_kin,
+        fullName: bookingData.name,
       };
 
       console.log("🚀 Payment data being sent:", paymentData);
@@ -673,11 +706,23 @@ const BookingModal: React.FC<{
         position: "top-right",
       });
 
-      // Initiate payment
-      const paymentResult = await initiatePayment(paymentData);
+      // Use the payment store to initiate payment
+      const paymentResult = await initiatePayment(
+        paymentData.email,
+        paymentData.channels,
+        paymentData.currency,
+        paymentData.apartmentId,
+        paymentData.startDate,
+        paymentData.endDate,
+        paymentData.phoneNumber,
+        paymentData.nextofKinName,
+        paymentData.nextofKinNumber,
+        paymentData.fullName,
+        paymentData.agentId,
+      );
 
-      // If payment initiation is successful, redirect to payment page
-      if (paymentResult.authorization_url) {
+      // Handle payment result based on the store's return structure
+      if (paymentResult.success && paymentResult.data) {
         toast.update(toastId, {
           render: "Payment initialized successfully! Redirecting...",
           type: "success",
@@ -696,9 +741,11 @@ const BookingModal: React.FC<{
             selectedDates[selectedDates.length - 1].getTime() + 86400000,
           ),
           totalPrice: totalAmount,
-          paymentReference: paymentResult.reference,
-          agentId: property.agentId,
-          authorizationUrl: paymentResult.authorization_url,
+          paymentReference: paymentResult.data.reference,
+          agentId: finalAgentId,
+          authorizationUrl:
+            paymentResult.data.authorization_url ||
+            paymentResult.data.paymentUrl,
         };
 
         console.log("💾 Storing booking info:", bookingInfo);
@@ -711,12 +758,17 @@ const BookingModal: React.FC<{
 
         // Redirect to payment gateway after a short delay
         setTimeout(() => {
-          window.location.href = paymentResult.authorization_url;
+          if (paymentResult.data.authorization_url) {
+            window.location.href = paymentResult.data.authorization_url;
+          } else if (paymentResult.data.paymentUrl) {
+            window.location.href = paymentResult.data.paymentUrl;
+          } else {
+            console.error("No payment URL received");
+            toast.error("Payment URL not received. Please try again.");
+          }
         }, 1500);
       } else {
-        throw new Error(
-          "Payment initiation failed - no authorization URL received",
-        );
+        throw new Error(paymentResult.message || "Payment initiation failed");
       }
     } catch (error: any) {
       console.error("❌ Payment initiation failed:", error);
@@ -1044,6 +1096,7 @@ const AgentPropertiesGallery: React.FC = () => {
   } = useAgentStore();
 
   const { banners, fetchBanners } = useBannerStore();
+  const { agentInfo, loading: agentLoading } = useAgentFromUrl();
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
@@ -1139,8 +1192,16 @@ const AgentPropertiesGallery: React.FC = () => {
           );
 
           if (response && response.properties) {
-            setProperties(response.properties);
-            setFilteredProperties(response.properties);
+            // Ensure properties have agentId from URL if missing
+            const propertiesWithAgentId = response.properties.map(
+              (property) => ({
+                ...property,
+                agentId: property.agentId || agentInfo?.id || "",
+              }),
+            );
+
+            setProperties(propertiesWithAgentId);
+            setFilteredProperties(propertiesWithAgentId);
             setPagination(response.pagination);
           }
         } else {
@@ -1161,7 +1222,7 @@ const AgentPropertiesGallery: React.FC = () => {
               status: prop.status,
               apartmentId: prop.apartmentId,
               location: prop.location,
-              agentId: prop.agentId, // Ensure agentId is properly mapped
+              agentId: prop.agentId || agentInfo?.id || "",
             }),
           );
 
@@ -1185,6 +1246,7 @@ const AgentPropertiesGallery: React.FC = () => {
       fetchEnlistedProperties,
       enlistedProperties,
       dataSource,
+      agentInfo,
     ],
   );
 
@@ -1225,7 +1287,7 @@ const AgentPropertiesGallery: React.FC = () => {
           status: prop.status,
           apartmentId: prop.apartmentId,
           location: prop.location,
-          agentId: prop.agentId, // Make sure this field exists in your API response
+          agentId: prop.agentId || agentInfo?.id || "",
         }),
       );
 
@@ -1238,9 +1300,26 @@ const AgentPropertiesGallery: React.FC = () => {
         totalPages: Math.ceil(transformedProperties.length / 9),
       });
     }
-  }, [enlistedProperties, dataSource, currentPage]);
+  }, [enlistedProperties, dataSource, currentPage, agentInfo]);
 
-  // Filter and sort properties - UPDATED VERSION
+  // Ensure properties have agentId when agentInfo is loaded
+  useEffect(() => {
+    if (agentInfo && properties.length > 0) {
+      const propertiesWithAgentId = properties.map((property) => ({
+        ...property,
+        agentId: property.agentId || agentInfo.id,
+      }));
+
+      if (
+        JSON.stringify(propertiesWithAgentId) !== JSON.stringify(properties)
+      ) {
+        setProperties(propertiesWithAgentId);
+        setFilteredProperties(propertiesWithAgentId);
+      }
+    }
+  }, [agentInfo, properties]);
+
+  // Filter and sort properties
   useEffect(() => {
     let result = [...properties];
 
@@ -1261,7 +1340,7 @@ const AgentPropertiesGallery: React.FC = () => {
       );
     }
 
-    // Apply sorting - FIXED IMPLEMENTATION
+    // Apply sorting
     switch (sortOption) {
       case "newest":
         result.sort(
@@ -1372,15 +1451,9 @@ const AgentPropertiesGallery: React.FC = () => {
     setIsBookingModalOpen(true);
   };
 
-  // FIXED: Enhanced booking submission handler
   const handleBookingSubmit = async (bookingData: any) => {
     try {
       console.log("✅ Booking submitted successfully:", bookingData);
-
-      // You can add additional logic here like:
-      // - Send booking confirmation email
-      // - Update property availability
-      // - Create booking record in your database
 
       toast.success(
         "Booking initiated successfully! Redirecting to payment...",
@@ -1484,7 +1557,7 @@ const AgentPropertiesGallery: React.FC = () => {
             </div>
           </form>
 
-          {/* Sort Dropdown - UPDATED */}
+          {/* Sort Dropdown */}
           <div className="relative sort-dropdown">
             <button
               onClick={() => setIsSortOpen(!isSortOpen)}
