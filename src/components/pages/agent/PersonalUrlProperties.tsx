@@ -1,17 +1,29 @@
 // PersonalUrlProperties.tsx
-import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
+import { useParams } from "react-router-dom";
 import useAgentStore from "../../../stores/agentstore";
 import useBannerStore from "../../../stores/bannerStore";
 import usePaymentStore from "../../../stores/paymentstore";
 import useBookingStore from "../../../stores/bookingStore";
-import { useAgentFromUrl } from "../agent/useAgentFromUrl";
 
 import Carousel from "react-grid-carousel";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+// Enhanced Property Interface with Agent Info
+interface PropertyAgent {
+  id: string;
+  name: string;
+  email: string;
+  phone_number: string;
+  status: string;
+  isVerified: boolean;
+  profile_picture: string;
+  personalUrl: string;
+  createdAt?: string;
+}
 
 interface Property {
   id: string;
@@ -29,7 +41,7 @@ interface Property {
   location?: string;
   amenities?: string[];
   agentId: string;
-  created?: string;
+  agent?: PropertyAgent;
 }
 
 interface PaginationInfo {
@@ -55,7 +67,31 @@ type SortOption =
   | "bedrooms-high-low"
   | "location";
 
-// Banner Carousel Component
+// Custom hook to get property and agent information
+const usePropertyAgentInfo = () => {
+  const { agentInfo, fetchAgentProfile } = useAgentStore();
+
+  useEffect(() => {
+    if (!agentInfo) {
+      fetchAgentProfile();
+    }
+  }, [agentInfo, fetchAgentProfile]);
+
+  return {
+    agentInfo,
+    agentId: agentInfo?.id || "",
+    isAgentVerified: agentInfo?.isVerified || false,
+    agentStatus: agentInfo?.status || "",
+    agentPhone: agentInfo?.phone_number || "",
+    agentName: agentInfo?.name || "",
+    agentEmail: agentInfo?.email || "",
+    agentProfilePicture: agentInfo?.profile_picture || "",
+    agentPersonalUrl: agentInfo?.personalUrl || "",
+    agentCreatedAt: agentInfo?.createdAt || "",
+  };
+};
+
+// Banner Carousel Component (same as before)
 const BannerCarousel: React.FC = () => {
   const { banners } = useBannerStore();
 
@@ -88,7 +124,6 @@ const BannerCarousel: React.FC = () => {
         {activeBanners.map((banner) => (
           <Carousel.Item key={banner.id}>
             <div className="relative h-64 md:h-80 lg:h-96">
-              {/* Background Image - Use first image from images array */}
               <img
                 src={
                   banner.images && banner.images.length > 0
@@ -103,10 +138,8 @@ const BannerCarousel: React.FC = () => {
                 }}
               />
 
-              {/* Overlay */}
               <div className="absolute inset-0 bg-black bg-opacity-40"></div>
 
-              {/* Content */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white px-4">
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 drop-shadow-lg">
                   {banner.name}
@@ -114,10 +147,6 @@ const BannerCarousel: React.FC = () => {
                 <p className="text-lg md:text-xl lg:text-2xl mb-6 drop-shadow-md max-w-2xl">
                   {banner.description}
                 </p>
-                {/* Removed targetUrl since it doesn't exist in our banner store */}
-                <button className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg">
-                  Learn More
-                </button>
               </div>
             </div>
           </Carousel.Item>
@@ -127,7 +156,7 @@ const BannerCarousel: React.FC = () => {
   );
 };
 
-// Property Carousel Component
+// Property Carousel Component (same as before)
 const PropertyCarousel: React.FC<{
   images: string[];
   propertyName: string;
@@ -172,20 +201,23 @@ const PropertyCarousel: React.FC<{
   );
 };
 
-// Property Detail View Component
+// Property Detail View Component (same as before)
 const PropertyDetailView: React.FC<{
   property: Property | null;
   isOpen: boolean;
   onClose: () => void;
   onBookNow: () => void;
 }> = ({ property, isOpen, onClose, onBookNow }) => {
-  const { agentInfo } = useAgentFromUrl();
-  const { agentInfo: currentAgentInfo } = useAgentStore();
+  const { agentInfo } = useAgentStore();
 
   if (!isOpen || !property) return null;
 
-  // Helper function to calculate how long ago the agent registered
+  // Use agent info from property or fallback to store
+  const displayAgent = property?.agent || agentInfo;
+
   const getRegistrationTime = (createdAt: string) => {
+    if (!createdAt) return "Unknown";
+
     const createdDate = new Date(createdAt);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - createdDate.getTime());
@@ -201,8 +233,6 @@ const PropertyDetailView: React.FC<{
       return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
     }
   };
-
-  const displayAgent = agentInfo || currentAgentInfo;
 
   const getBedroomText = (bedroom: string | number): string => {
     if (bedroom === null || bedroom === undefined) return "0";
@@ -235,75 +265,81 @@ const PropertyDetailView: React.FC<{
               </h4>
 
               <div className="flex flex-col gap-4 flex-1">
-                {/* Agent Verification Status */}
-                <div className="flex gap-3 items-center">
-                  <img
-                    src="/images/Group 1505.svg"
-                    alt="Agent"
-                    className="w-8 h-8"
-                  />
-                  <div className="leading-6">
-                    <h6 className="text-lg text-gray-700">
-                      {displayAgent?.isVerified ? "Verified Agent" : "Agent"}
-                    </h6>
-                    <h6 className="text-sm text-gray-500">
-                      {displayAgent?.status === "VERIFIED"
-                        ? "Professional Host"
-                        : "Host"}
-                    </h6>
-                  </div>
-                </div>
+                {/* Agent Information Section */}
+                {displayAgent && (
+                  <>
+                    {/* Agent Verification Status */}
+                    <div className="flex gap-3 items-center">
+                      <img
+                        src={
+                          displayAgent.profile_picture ||
+                          "/images/Group 1505.svg"
+                        }
+                        alt="Agent"
+                        className="w-8 h-8 rounded-full"
+                      />
+                      <div className="leading-6">
+                        <h6 className="text-lg text-gray-700">
+                          {displayAgent.isVerified ? "Verified Agent" : "Agent"}
+                        </h6>
+                        <h6 className="text-sm text-gray-500">
+                          {displayAgent.status === "VERIFIED"
+                            ? "Professional Host"
+                            : "Host"}
+                        </h6>
+                      </div>
+                    </div>
 
-                {/* Agent Phone Number */}
-                <div className="flex gap-4 items-center">
-                  <img
-                    src="/images/Group 1497.svg"
-                    alt="Phone"
-                    className="w-8 h-8"
-                  />
-                  <h6 className="text-lg text-gray-700">
-                    {displayAgent?.phone_number || "+234 7065345534"}
-                  </h6>
-                </div>
+                    {/* Agent Phone Number */}
+                    <div className="flex gap-4 items-center">
+                      <img
+                        src="/images/Group 1497.svg"
+                        alt="Phone"
+                        className="w-8 h-8"
+                      />
+                      <h6 className="text-lg text-gray-700">
+                        {displayAgent.phone_number || "Phone not available"}
+                      </h6>
+                    </div>
 
-                {/* Contact Agent */}
-                <div className="flex gap-4 items-center">
-                  <img
-                    src="/images/Group 1496.svg"
-                    alt="Contact"
-                    className="w-8 h-8"
-                  />
-                  <h6 className="text-lg text-gray-700">
-                    Contact {displayAgent?.name || "Agent"}
-                  </h6>
-                </div>
+                    {/* Contact Agent */}
+                    <div className="flex gap-4 items-center">
+                      <img
+                        src="/images/Group 1496.svg"
+                        alt="Contact"
+                        className="w-8 h-8"
+                      />
+                      <h6 className="text-lg text-gray-700">
+                        Contact {displayAgent.name || "Agent"}
+                      </h6>
+                    </div>
 
-                {/* Registration Date */}
-                <div className="flex gap-4 items-center">
-                  <img
-                    src="/images/Group 1503.svg"
-                    alt="Registration"
-                    className="w-8 h-8"
-                  />
-                  <h6 className="text-lg text-gray-700">
-                    Registered{" "}
-                    {displayAgent?.createdAt
-                      ? getRegistrationTime(displayAgent.createdAt)
-                      : "2 years ago"}
-                  </h6>
-                </div>
+                    {/* Registration Date */}
+                    <div className="flex gap-4 items-center">
+                      <img
+                        src="/images/Group 1503.svg"
+                        alt="Registration"
+                        className="w-8 h-8"
+                      />
+                      <h6 className="text-lg text-gray-700">
+                        Registered{" "}
+                        {getRegistrationTime(displayAgent.createdAt || "")}
+                      </h6>
+                    </div>
 
-                {/* View All Properties */}
-                <div className="flex gap-4 items-center">
-                  <img
-                    src="/images/Group 1502.svg"
-                    alt="Properties"
-                    className="w-8 h-8"
-                  />
-                  <h6 className="text-lg text-gray-700">
-                    View all properties from this agent
-                  </h6>
-                </div>
+                    {/* View All Properties */}
+                    <div className="flex gap-4 items-center">
+                      <img
+                        src="/images/Group 1502.svg"
+                        alt="Properties"
+                        className="w-8 h-8"
+                      />
+                      <h6 className="text-lg text-gray-700">
+                        View all properties from this agent
+                      </h6>
+                    </div>
+                  </>
+                )}
 
                 {/* Property Specific Details */}
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
@@ -311,6 +347,10 @@ const PropertyDetailView: React.FC<{
                     <div>
                       <span className="font-semibold">Type:</span>
                       <span className="ml-2">{property.type}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Name:</span>
+                      <span className="ml-2">{property.name}</span>
                     </div>
                     <div>
                       <span className="font-semibold">Bedrooms:</span>
@@ -343,6 +383,33 @@ const PropertyDetailView: React.FC<{
                       <div>
                         <span className="font-semibold">Agent Name:</span>
                         <span className="ml-2">{displayAgent.name}</span>
+                      </div>
+                    )}
+                    {property.location && (
+                      <div className="col-span-2">
+                        <span className="font-semibold">Location:</span>
+                        <span className="ml-2">{property.location}</span>
+                      </div>
+                    )}
+                    {property.amenities && property.amenities.length > 0 && (
+                      <div className="col-span-2">
+                        <span className="font-semibold">Amenities:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {property.amenities
+                            .slice(0, 5)
+                            .map((amenity, index) => (
+                              <span
+                                key={index}
+                                className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                {amenity}
+                              </span>
+                            ))}
+                          {property.amenities.length > 5 && (
+                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                              +{property.amenities.length - 5} more
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -395,6 +462,8 @@ const PropertyDetailView: React.FC<{
     </div>
   );
 };
+
+// Booking Modal Component (same as before)
 const BookingModal: React.FC<{
   property: Property | null;
   isOpen: boolean;
@@ -424,14 +493,7 @@ const BookingModal: React.FC<{
     clearPaymentInitError,
   } = usePaymentStore();
 
-  // Use booking store to fetch bookings
-  const {
-    fetchBookings,
-    bookings,
-    loading: bookingsLoading,
-  } = useBookingStore();
-
-  const { agentInfo } = useAgentFromUrl();
+  const { fetchBookings, bookings } = useBookingStore();
 
   useEffect(() => {
     if (property && isOpen) {
@@ -449,23 +511,11 @@ const BookingModal: React.FC<{
     }
   }, [paymentInitError, clearPaymentInitError]);
 
-  // Ensure property has agentId from URL if missing
-  useEffect(() => {
-    if (property && !property.agentId && agentInfo) {
-      console.log("Using agentId from URL:", agentInfo.id);
-    }
-  }, [property, agentInfo]);
-
-  // Fetch booked dates from booking store
-  // Fetch booked dates from booking store
   const fetchBookedDates = async (propertyId: string) => {
     try {
       setLoadingBookedDates(true);
-
-      // Fetch all bookings from the store
       await fetchBookings();
 
-      // Filter bookings for this specific property and extract booked dates
       const propertyBookings = bookings.filter(
         (booking) => booking.apartment_id === propertyId,
       );
@@ -477,7 +527,6 @@ const BookingModal: React.FC<{
           const start = new Date(booking.booking_start_date);
           const end = new Date(booking.booking_end_date);
 
-          // Add all dates between start and end (inclusive)
           const currentDate = new Date(start);
           while (currentDate <= end) {
             dates.push(new Date(currentDate));
@@ -485,16 +534,13 @@ const BookingModal: React.FC<{
           }
         }
 
-        // Also check for selected_dates if available - FIXED THIS PART
         if (booking.selected_dates && booking.selected_dates.length > 0) {
           booking.selected_dates.forEach((date: Date) => {
-            // Changed from dateStr to date
             dates.push(new Date(date));
           });
         }
       });
 
-      // Remove duplicate dates
       const uniqueDates = Array.from(
         new Set(dates.map((date) => date.toISOString().split("T")[0])),
       ).map((dateStr) => new Date(dateStr));
@@ -509,20 +555,18 @@ const BookingModal: React.FC<{
           autoClose: 3000,
         },
       );
-      // Fallback to empty array instead of mock data
       setBookedDates([]);
     } finally {
       setLoadingBookedDates(false);
     }
   };
-  // Check if a date is booked
+
   const isDateBooked = (date: Date) => {
     return bookedDates.some(
       (bookedDate) => bookedDate.toDateString() === date.toDateString(),
     );
   };
 
-  // Check if a date is selected
   const isDateSelected = (date: Date) => {
     return selectedDates.some(
       (selectedDate) => selectedDate.toDateString() === date.toDateString(),
@@ -532,7 +576,6 @@ const BookingModal: React.FC<{
   const handleDateChange = (date: Date | null) => {
     if (!date) return;
 
-    // Don't allow selection of booked dates
     if (isDateBooked(date)) {
       toast.info("This date is already booked. Please select another date.", {
         position: "top-center",
@@ -574,7 +617,6 @@ const BookingModal: React.FC<{
     }
   };
 
-  // Custom day component for DatePicker
   const renderDayContents = (day: number, date: Date) => {
     const isBooked = isDateBooked(date);
     const isSelected = isDateSelected(date);
@@ -627,7 +669,6 @@ const BookingModal: React.FC<{
       }
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(bookingData.email)) {
       toast.error("Please enter a valid email address", {
@@ -637,7 +678,6 @@ const BookingModal: React.FC<{
       return false;
     }
 
-    // Phone validation (basic)
     if (bookingData.phone.replace(/\D/g, "").length < 10) {
       toast.error("Please enter a valid phone number", {
         position: "top-right",
@@ -646,7 +686,6 @@ const BookingModal: React.FC<{
       return false;
     }
 
-    // Next of kin phone validation
     if (bookingData.number_of_nxt_of_kin.replace(/\D/g, "").length < 10) {
       toast.error("Please enter a valid next of kin phone number", {
         position: "top-right",
@@ -677,9 +716,10 @@ const BookingModal: React.FC<{
       return;
     }
 
-    // Determine agentId - use property agentId or fallback to URL agentId
     const finalAgentId =
-      property.agentId || agentInfo?.id || (property as any).agent?.id;
+      property?.agentId ||
+      property?.agent?.id ||
+      useAgentStore.getState().agentInfo?.id;
 
     if (!finalAgentId) {
       toast.error("Agent information is missing. Please contact support.", {
@@ -689,12 +729,10 @@ const BookingModal: React.FC<{
       return;
     }
 
-    // Validate form fields
     if (!validateForm()) {
       return;
     }
 
-    // Check if any selected date is booked
     const hasBookedDate = selectedDates.some((date) => isDateBooked(date));
     if (hasBookedDate) {
       toast.error(
@@ -708,10 +746,8 @@ const BookingModal: React.FC<{
     }
 
     try {
-      // Calculate total amount
       const totalAmount = property.price * selectedDates.length;
 
-      // Prepare payment data according to the payment store structure
       const paymentData = {
         email: bookingData.email,
         channels: ["card", "bank"],
@@ -732,12 +768,10 @@ const BookingModal: React.FC<{
 
       console.log("🚀 Payment data being sent:", paymentData);
 
-      // Show loading toast
       const toastId = toast.loading("Initializing payment...", {
         position: "top-right",
       });
 
-      // Use the payment store to initiate payment
       const paymentResult = await initiatePayment(
         paymentData.email,
         paymentData.channels,
@@ -752,7 +786,6 @@ const BookingModal: React.FC<{
         paymentData.agentId,
       );
 
-      // Handle payment result based on the store's return structure
       if (paymentResult.success && paymentResult.data) {
         toast.update(toastId, {
           render: "Payment initialized successfully! Redirecting...",
@@ -761,7 +794,6 @@ const BookingModal: React.FC<{
           autoClose: 3000,
         });
 
-        // Store booking data temporarily before redirect
         const bookingInfo = {
           ...bookingData,
           propertyId: property.id,
@@ -780,14 +812,9 @@ const BookingModal: React.FC<{
         };
 
         console.log("💾 Storing booking info:", bookingInfo);
-
-        // Store in session storage for retrieval after payment
         sessionStorage.setItem("pendingBooking", JSON.stringify(bookingInfo));
-
-        // Call the onSubmit prop to notify parent component
         onSubmit(bookingInfo);
 
-        // Redirect to payment gateway after a short delay
         setTimeout(() => {
           if (paymentResult.data.authorization_url) {
             window.location.href = paymentResult.data.authorization_url;
@@ -803,8 +830,6 @@ const BookingModal: React.FC<{
       }
     } catch (error: any) {
       console.error("❌ Payment initiation failed:", error);
-
-      // Show specific error message
       toast.error(`Payment failed: ${error.message || "Please try again"}`, {
         position: "top-right",
         autoClose: 5000,
@@ -945,7 +970,6 @@ const BookingModal: React.FC<{
                 Select Dates
               </h3>
 
-              {/* Legend for date colors */}
               <div className="flex flex-wrap gap-4 mb-4 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
@@ -986,7 +1010,6 @@ const BookingModal: React.FC<{
                     }}
                   />
 
-                  {/* Tooltip for booked dates */}
                   {hoveredDate && (
                     <div className="absolute z-10 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg top-4 right-4">
                       <div className="font-semibold">Already Booked</div>
@@ -1127,7 +1150,9 @@ const AgentPropertiesGallery: React.FC = () => {
   } = useAgentStore();
 
   const { banners, fetchBanners } = useBannerStore();
-  const { agentInfo, loading: agentLoading } = useAgentFromUrl();
+
+  // Get agent information
+  const { agentInfo, agentId } = usePropertyAgentInfo();
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
@@ -1154,7 +1179,6 @@ const AgentPropertiesGallery: React.FC = () => {
 
     const text = typeof bedroom === "number" ? bedroom.toString() : bedroom;
 
-    // Handle empty strings and non-numeric values
     if (!text || text.trim() === "" || isNaN(parseInt(text))) {
       return "0";
     }
@@ -1178,6 +1202,43 @@ const AgentPropertiesGallery: React.FC = () => {
 
     return displayNames[option] || option;
   };
+
+  // Enhanced property transformation with agent info - using useCallback
+  const transformPropertiesWithAgentInfo = useCallback(
+    (properties: any[]): Property[] => {
+      return properties.map((prop) => ({
+        id: prop.id,
+        name: prop.name,
+        address: prop.address,
+        type: prop.type,
+        servicing: prop.servicing || "",
+        bedroom: prop.bedroom || "",
+        price: prop.price,
+        images: prop.images,
+        createdAt: prop.createdAt,
+        updatedAt: prop.updatedAt || prop.createdAt,
+        status: prop.status,
+        apartmentId: prop.apartmentId,
+        location: prop.location,
+        amenities: prop.amenities || [],
+        agentId: prop.agentId || agentId,
+        agent: agentInfo
+          ? {
+              id: agentInfo.id,
+              name: agentInfo.name,
+              email: agentInfo.email,
+              phone_number: agentInfo.phone_number,
+              status: agentInfo.status,
+              isVerified: agentInfo.isVerified,
+              profile_picture: agentInfo.profile_picture,
+              personalUrl: agentInfo.personalUrl,
+              createdAt: agentInfo.createdAt,
+            }
+          : undefined,
+      }));
+    },
+    [agentInfo, agentId],
+  );
 
   // Show error toast when fetching properties fails
   useEffect(() => {
@@ -1207,8 +1268,8 @@ const AgentPropertiesGallery: React.FC = () => {
     };
   }, [isSortOpen]);
 
-  // Load properties
-  const loadProperties = React.useCallback(
+  // Load properties - using useCallback to avoid infinite re-renders
+  const loadProperties = useCallback(
     async (page: number = 1) => {
       if (!personalUrl && dataSource === "slug") return;
 
@@ -1223,39 +1284,18 @@ const AgentPropertiesGallery: React.FC = () => {
           );
 
           if (response && response.properties) {
-            // Ensure properties have agentId from URL if missing
-            const propertiesWithAgentId = response.properties.map(
-              (property) => ({
-                ...property,
-                agentId: property.agentId || agentInfo?.id || "",
-              }),
+            const propertiesWithAgentInfo = transformPropertiesWithAgentInfo(
+              response.properties,
             );
 
-            setProperties(propertiesWithAgentId);
-            setFilteredProperties(propertiesWithAgentId);
+            setProperties(propertiesWithAgentInfo);
+            setFilteredProperties(propertiesWithAgentInfo);
             setPagination(response.pagination);
           }
         } else {
           await fetchEnlistedProperties(page, 9);
-
-          const transformedProperties: Property[] = enlistedProperties.map(
-            (prop) => ({
-              id: prop.id,
-              name: prop.name,
-              address: prop.address,
-              type: prop.type,
-              servicing: prop.servicing || "",
-              bedroom: prop.bedroom || "",
-              price: prop.price,
-              images: prop.images,
-              createdAt: prop.createdAt,
-              updatedAt: prop.updatedAt || prop.createdAt,
-              status: prop.status,
-              apartmentId: prop.apartmentId,
-              location: prop.location,
-              agentId: prop.agentId || agentInfo?.id || "",
-            }),
-          );
+          const transformedProperties =
+            transformPropertiesWithAgentInfo(enlistedProperties);
 
           setProperties(transformedProperties);
           setFilteredProperties(transformedProperties);
@@ -1272,12 +1312,12 @@ const AgentPropertiesGallery: React.FC = () => {
     },
     [
       personalUrl,
+      dataSource,
       clearError,
       fetchPropertiesBySlug,
       fetchEnlistedProperties,
+      transformPropertiesWithAgentInfo,
       enlistedProperties,
-      dataSource,
-      agentInfo,
     ],
   );
 
@@ -1303,24 +1343,8 @@ const AgentPropertiesGallery: React.FC = () => {
   // Update properties when enlistedProperties changes
   useEffect(() => {
     if (dataSource === "enlisted" && enlistedProperties.length > 0) {
-      const transformedProperties: Property[] = enlistedProperties.map(
-        (prop) => ({
-          id: prop.id,
-          name: prop.name,
-          address: prop.address,
-          type: prop.type,
-          servicing: prop.servicing || "",
-          bedroom: prop.bedroom || "",
-          price: prop.price,
-          images: prop.images,
-          createdAt: prop.createdAt,
-          updatedAt: prop.updatedAt || prop.createdAt,
-          status: prop.status,
-          apartmentId: prop.apartmentId,
-          location: prop.location,
-          agentId: prop.agentId || agentInfo?.id || "",
-        }),
-      );
+      const transformedProperties =
+        transformPropertiesWithAgentInfo(enlistedProperties);
 
       setProperties(transformedProperties);
       setFilteredProperties(transformedProperties);
@@ -1331,11 +1355,16 @@ const AgentPropertiesGallery: React.FC = () => {
         totalPages: Math.ceil(transformedProperties.length / 9),
       });
     }
-  }, [enlistedProperties, dataSource, currentPage, agentInfo]);
+  }, [
+    enlistedProperties,
+    dataSource,
+    currentPage,
+    transformPropertiesWithAgentInfo,
+  ]);
 
   // Ensure properties have agentId when agentInfo is loaded
   useEffect(() => {
-    if (agentInfo && properties.length > 0) {
+    if (properties.length > 0 && agentInfo) {
       const propertiesWithAgentId = properties.map((property) => ({
         ...property,
         agentId: property.agentId || agentInfo.id,
@@ -1348,7 +1377,7 @@ const AgentPropertiesGallery: React.FC = () => {
         setFilteredProperties(propertiesWithAgentId);
       }
     }
-  }, [agentInfo, properties]);
+  }, [properties, agentInfo]);
 
   // Filter and sort properties
   useEffect(() => {
@@ -1542,7 +1571,6 @@ const AgentPropertiesGallery: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Add ToastContainer at the top level */}
       <ToastContainer
         position="top-right"
         autoClose={5000}
@@ -1556,13 +1584,10 @@ const AgentPropertiesGallery: React.FC = () => {
         theme="light"
       />
 
-      {/* Banner Carousel Header */}
       <BannerCarousel />
 
-      {/* Search and Sort Controls */}
       <div className="container mx-auto px-4 py-6">
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
-          {/* Search Form */}
           <form onSubmit={handleSearch} className="flex-1">
             <div className="relative">
               <input
@@ -1591,7 +1616,6 @@ const AgentPropertiesGallery: React.FC = () => {
             </div>
           </form>
 
-          {/* Sort Dropdown */}
           <div className="relative sort-dropdown">
             <button
               onClick={() => setIsSortOpen(!isSortOpen)}
@@ -1634,7 +1658,6 @@ const AgentPropertiesGallery: React.FC = () => {
                     Sort Properties By
                   </div>
 
-                  {/* Date Sorting */}
                   <div className="px-3 py-1">
                     <div className="text-xs font-medium text-gray-400 mb-1">
                       Date
@@ -1658,7 +1681,6 @@ const AgentPropertiesGallery: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Price Sorting */}
                   <div className="px-3 py-1">
                     <div className="text-xs font-medium text-gray-400 mb-1">
                       Price
@@ -1682,7 +1704,6 @@ const AgentPropertiesGallery: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Name Sorting */}
                   <div className="px-3 py-1">
                     <div className="text-xs font-medium text-gray-400 mb-1">
                       Name
@@ -1706,7 +1727,6 @@ const AgentPropertiesGallery: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Bedrooms Sorting */}
                   <div className="px-3 py-1">
                     <div className="text-xs font-medium text-gray-400 mb-1">
                       Bedrooms
@@ -1736,7 +1756,6 @@ const AgentPropertiesGallery: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Location Sorting */}
                   <div className="px-3 py-1">
                     <button
                       onClick={() => handleSortChange("location" as SortOption)}
@@ -1754,7 +1773,6 @@ const AgentPropertiesGallery: React.FC = () => {
           </div>
         </div>
 
-        {/* Properties Grid */}
         {filteredProperties.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-500 text-lg">No properties found</div>
@@ -1772,13 +1790,11 @@ const AgentPropertiesGallery: React.FC = () => {
                   key={property.id}
                   className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => handleViewProperty(property)}>
-                  {/* Property Carousel */}
                   <PropertyCarousel
                     images={property.images}
                     propertyName={property.name}
                   />
 
-                  {/* Property Details */}
                   <div className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">
@@ -1841,7 +1857,6 @@ const AgentPropertiesGallery: React.FC = () => {
               ))}
             </div>
 
-            {/* Pagination */}
             {pagination.totalPages > 1 && (
               <div className="flex justify-center items-center space-x-2">
                 <button
@@ -1867,7 +1882,6 @@ const AgentPropertiesGallery: React.FC = () => {
         )}
       </div>
 
-      {/* Property Detail View Modal */}
       <PropertyDetailView
         property={selectedProperty}
         isOpen={isDetailViewOpen}
@@ -1878,7 +1892,6 @@ const AgentPropertiesGallery: React.FC = () => {
         }}
       />
 
-      {/* Booking Modal */}
       <BookingModal
         property={selectedProperty}
         isOpen={isBookingModalOpen}
