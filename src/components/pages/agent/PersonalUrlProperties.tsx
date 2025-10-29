@@ -4,7 +4,9 @@ import { useParams, Link } from "react-router-dom";
 import useAgentStore from "../../../stores/agentstore";
 import useBannerStore from "../../../stores/bannerStore";
 import usePaymentStore from "../../../stores/paymentstore";
+import useBookingStore from "../../../stores/bookingStore";
 import { useAgentFromUrl } from "../agent/useAgentFromUrl";
+
 import Carousel from "react-grid-carousel";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -422,6 +424,13 @@ const BookingModal: React.FC<{
     clearPaymentInitError,
   } = usePaymentStore();
 
+  // Use booking store to fetch bookings
+  const {
+    fetchBookings,
+    bookings,
+    loading: bookingsLoading,
+  } = useBookingStore();
+
   const { agentInfo } = useAgentFromUrl();
 
   useEffect(() => {
@@ -447,20 +456,50 @@ const BookingModal: React.FC<{
     }
   }, [property, agentInfo]);
 
-  // Fetch booked dates from API
+  // Fetch booked dates from booking store
+  // Fetch booked dates from booking store
   const fetchBookedDates = async (propertyId: string) => {
     try {
       setLoadingBookedDates(true);
-      // Mock API call - replace with your actual API endpoint
-      const response = await fetch(`/api/properties/${propertyId}/bookings`);
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch booked dates");
-      }
+      // Fetch all bookings from the store
+      await fetchBookings();
 
-      const { bookedDates } = await response.json();
-      const dates = bookedDates.map((dateStr: string) => new Date(dateStr));
-      setBookedDates(dates);
+      // Filter bookings for this specific property and extract booked dates
+      const propertyBookings = bookings.filter(
+        (booking) => booking.apartment_id === propertyId,
+      );
+
+      const dates: Date[] = [];
+
+      propertyBookings.forEach((booking) => {
+        if (booking.booking_start_date && booking.booking_end_date) {
+          const start = new Date(booking.booking_start_date);
+          const end = new Date(booking.booking_end_date);
+
+          // Add all dates between start and end (inclusive)
+          const currentDate = new Date(start);
+          while (currentDate <= end) {
+            dates.push(new Date(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+        }
+
+        // Also check for selected_dates if available - FIXED THIS PART
+        if (booking.selected_dates && booking.selected_dates.length > 0) {
+          booking.selected_dates.forEach((date: Date) => {
+            // Changed from dateStr to date
+            dates.push(new Date(date));
+          });
+        }
+      });
+
+      // Remove duplicate dates
+      const uniqueDates = Array.from(
+        new Set(dates.map((date) => date.toISOString().split("T")[0])),
+      ).map((dateStr) => new Date(dateStr));
+
+      setBookedDates(uniqueDates);
     } catch (error) {
       console.error("Failed to fetch booked dates:", error);
       toast.warning(
@@ -470,21 +509,12 @@ const BookingModal: React.FC<{
           autoClose: 3000,
         },
       );
-      // Fallback to mock data
-      const mockBookedDates = [
-        new Date(new Date().setDate(new Date().getDate() + 2)),
-        new Date(new Date().setDate(new Date().getDate() + 3)),
-        new Date(new Date().setDate(new Date().getDate() + 7)),
-        new Date(new Date().setDate(new Date().getDate() + 8)),
-        new Date(new Date().setDate(new Date().getDate() + 9)),
-        new Date(new Date().setDate(new Date().getDate() + 15)),
-      ];
-      setBookedDates(mockBookedDates);
+      // Fallback to empty array instead of mock data
+      setBookedDates([]);
     } finally {
       setLoadingBookedDates(false);
     }
   };
-
   // Check if a date is booked
   const isDateBooked = (date: Date) => {
     return bookedDates.some(
@@ -648,7 +678,8 @@ const BookingModal: React.FC<{
     }
 
     // Determine agentId - use property agentId or fallback to URL agentId
-    const finalAgentId = property.agentId || agentInfo?.id;
+    const finalAgentId =
+      property.agentId || agentInfo?.id || (property as any).agent?.id;
 
     if (!finalAgentId) {
       toast.error("Agent information is missing. Please contact support.", {
@@ -1323,7 +1354,6 @@ const AgentPropertiesGallery: React.FC = () => {
   useEffect(() => {
     let result = [...properties];
 
-    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
@@ -1340,7 +1370,6 @@ const AgentPropertiesGallery: React.FC = () => {
       );
     }
 
-    // Apply sorting
     switch (sortOption) {
       case "newest":
         result.sort(
@@ -1365,11 +1394,19 @@ const AgentPropertiesGallery: React.FC = () => {
         break;
 
       case "name-asc":
-        result.sort((a, b) => a.name.localeCompare(b.name));
+        result.sort((a, b) => {
+          const nameA = a.name?.toLowerCase() || "";
+          const nameB = b.name?.toLowerCase() || "";
+          return nameA.localeCompare(nameB);
+        });
         break;
 
       case "name-desc":
-        result.sort((a, b) => b.name.localeCompare(a.name));
+        result.sort((a, b) => {
+          const nameA = a.name?.toLowerCase() || "";
+          const nameB = b.name?.toLowerCase() || "";
+          return nameB.localeCompare(nameA);
+        });
         break;
 
       case "bedrooms-low-high":
@@ -1390,14 +1427,13 @@ const AgentPropertiesGallery: React.FC = () => {
 
       case "location":
         result.sort((a, b) => {
-          const locationA = a.location || a.address || "";
-          const locationB = b.location || b.address || "";
+          const locationA = (a.location || a.address || "").toLowerCase();
+          const locationB = (b.location || b.address || "").toLowerCase();
           return locationA.localeCompare(locationB);
         });
         break;
 
       default:
-        // Default to newest if no valid sort option
         result.sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -1432,8 +1468,6 @@ const AgentPropertiesGallery: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // The search is already handled by the useEffect that watches searchQuery
-    // This prevents form submission and page refresh
   };
 
   const handleSortChange = (option: SortOption) => {

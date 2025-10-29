@@ -668,6 +668,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
           // 5. Prepare request data based on selected option
           const requestData: any = {
             apartmentId: apartmentId.trim(),
+            agentId: agentInfo?.id,
           };
 
           if (hasMarkupPrice) {
