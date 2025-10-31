@@ -914,6 +914,8 @@ const useAgentStore = create<AgentState & AgentActions>()(
             throw new Error("Slug is required.");
           }
 
+          console.log("🔍 Store - Fetching properties for slug:", slug);
+
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/agent/${slug}/properties`,
             {
@@ -922,9 +924,27 @@ const useAgentStore = create<AgentState & AgentActions>()(
             },
           );
 
+          console.log("🔍 Store - API Response:", response.data);
+
           const { data } = response.data;
-          return data;
+
+          if (!data) {
+            throw new Error("Invalid response from server.");
+          }
+
+          // Return the complete response structure that the component expects
+          return {
+            properties: data.properties || [],
+            pagination: data.pagination || {
+              total: 0,
+              page,
+              limit,
+              totalPages: 1,
+            },
+            agent: data.agent || null,
+          };
         } catch (error: any) {
+          console.error("❌ Store - Error fetching properties by slug:", error);
           const errorMessage = handleApiError(
             error,
             "Failed to fetch properties by slug.",

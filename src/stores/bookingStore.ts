@@ -25,6 +25,7 @@ interface Apartment {
   address: string;
   type: string;
   servicing: string;
+  price?: number; // Added from booking.service
 }
 
 interface Booking {
@@ -52,6 +53,8 @@ interface Booking {
   start_date?: string;
   end_date?: string;
   guests?: number;
+  email?: string;
+  phone_number?: string;
 }
 
 interface Receipt {
@@ -64,6 +67,11 @@ interface Receipt {
   email_sent: boolean;
 }
 
+interface BookingDate {
+  booking_start_date: Date | null;
+  booking_end_date: Date | null;
+}
+
 interface BookingState {
   bookings: Booking[];
   currentBooking: Booking | null;
@@ -74,6 +82,8 @@ interface BookingState {
   selectedDates: Date[];
   startDate: Date | null;
   endDate: Date | null;
+  bookingDates: BookingDate[]; // Added for fetchBookingDates
+  managedBookings: Booking[]; // Added for manageBooking
 }
 
 interface BookingActions {
@@ -84,6 +94,9 @@ interface BookingActions {
   setEndDate: (date: Date | null) => void;
   clearError: () => void;
   clearCurrentBooking: () => void;
+  // New actions
+  fetchBookingDates: (apartmentId: string) => Promise<void>;
+  manageBooking: (email?: string, phoneNumber?: string) => Promise<void>;
 }
 
 const initialState: BookingState = {
@@ -96,6 +109,8 @@ const initialState: BookingState = {
   selectedDates: [],
   startDate: null,
   endDate: null,
+  bookingDates: [], // Added
+  managedBookings: [], // Added
 };
 
 const API_BASE_URL =
@@ -179,6 +194,70 @@ const useBookingStore = create<BookingState & BookingActions>()(
         }
       },
 
+      // New function: Fetch booking dates for a specific apartment
+      fetchBookingDates: async (apartmentId: string) => {
+        set({ loading: true, error: null });
+        try {
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/booking/booking-dates`,
+            {
+              params: { apartmentId },
+            },
+          );
+
+          const bookingDatesData = response.data.data || response.data || [];
+          set({ bookingDates: bookingDatesData });
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            "Failed to fetch booking dates";
+          set({
+            error: errorMessage,
+          });
+          toast.error(errorMessage);
+        } finally {
+          set({ loading: false });
+        }
+      },
+
+      // New function: Manage booking by email and/or phone number
+      manageBooking: async (email?: string, phoneNumber?: string) => {
+        set({ loading: true, error: null });
+        try {
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/booking/manage-booking`,
+            {
+              params: {
+                ...(email && { email }),
+                ...(phoneNumber && { phoneNumber }),
+              },
+            },
+          );
+
+          const managedBookingsData = response.data.data || [];
+          set({ managedBookings: managedBookingsData });
+
+          // Show success message if bookings were found
+          if (managedBookingsData.length > 0) {
+            toast.success(`Found ${managedBookingsData.length} booking(s)`);
+          } else {
+            toast.error("No bookings found with the provided criteria");
+          }
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            "Failed to manage booking";
+          set({
+            error: errorMessage,
+          });
+          toast.error(errorMessage);
+        } finally {
+          set({ loading: false });
+        }
+      },
+
       setSelectedDates: (dates: Date[]) => {
         set({ selectedDates: dates });
       },
@@ -211,6 +290,8 @@ const useBookingStore = create<BookingState & BookingActions>()(
         currentBooking: state.currentBooking,
         receipts: state.receipts,
         currentReceipt: state.currentReceipt,
+        bookingDates: state.bookingDates, // Added to persistence
+        managedBookings: state.managedBookings, // Added to persistence
       }),
     },
   ),

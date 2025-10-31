@@ -209,7 +209,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
           }
 
           const response = await axios.post(
-            `${API_BASE_URL}/api/v1/payments/initiate`,
+            `${API_BASE_URL}/api/v1/payment/initiate`,
             paymentData,
             {
               headers,
@@ -300,7 +300,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
           console.log("Verifying payment with reference:", reference);
 
           const response = await axios.post(
-            `${API_BASE_URL}/api/v1/payments/verify`,
+            `${API_BASE_URL}/api/v1/payment/verify`,
             { reference },
             {
               headers: {
