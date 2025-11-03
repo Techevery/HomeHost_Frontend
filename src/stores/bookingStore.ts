@@ -25,7 +25,8 @@ interface Apartment {
   address: string;
   type: string;
   servicing: string;
-  price?: number; // Added from booking.service
+  price?: number;
+  agent: string;
 }
 
 interface Booking {

@@ -796,7 +796,7 @@ const AvailableProperty = () => {
           <h4 className="text-2xl font-bold text-gray-900">
             Available Properties
           </h4>
-          <div className="text-primary-600 font-medium text-sm">View All →</div>
+          {/* <div className="text-primary-600 font-medium text-sm">View All →</div> */}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(4)].map((_, index) => (
@@ -847,11 +847,11 @@ const AvailableProperty = () => {
           <h4 className="text-2xl font-bold text-gray-900">
             Available Properties
           </h4>
-          <Link
+          {/* <Link
             to="/view-properties"
             className="text-primary-600 hover:text-primary-700 font-medium text-sm">
             View All →
-          </Link>
+          </Link> */}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -922,11 +922,11 @@ const AvailableProperty = () => {
                         {property.status || "Available"}
                       </span>
                     </div>
-                    <button
+                    {/* <button
                       onClick={() => handleBookNow(property)}
                       className="bg-gray-900 hover:bg-gray-800 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">
                       Book Now
-                    </button>
+                    </button> */}
                   </div>
                 </div>
               </div>

@@ -1,4 +1,3 @@
-// PersonalUrlProperties.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import useAgentStore from "../../../stores/agentstore";
@@ -14,7 +13,6 @@ import "react-toastify/dist/ReactToastify.css";
 import { ErrorMessage, Field, Form, Formik } from "formik";
 import * as Yup from "yup";
 
-// Enhanced Property Interface with Agent Info
 interface PropertyAgent {
   id: string;
   name: string;
@@ -69,7 +67,6 @@ type SortOption =
   | "bedrooms-high-low"
   | "location";
 
-// Custom hook to get agent information from fetchPropertiesBySlug
 const useAgentDataFromSlug = () => {
   const [agentData, setAgentData] = useState<PropertyAgent | null>(null);
   const { personalUrl } = useParams<{ personalUrl: string }>();
@@ -84,7 +81,7 @@ const useAgentDataFromSlug = () => {
         setAgentData(response.agent);
       }
     } catch (error) {
-      console.error("Failed to fetch agent data:", error);
+      toast.error("Failed to fetch agent data");
     }
   }, [personalUrl, fetchPropertiesBySlug]);
 

@@ -193,7 +193,7 @@ const Home = () => {
                     }>
                     Contact Us
                   </NavLink>
-                  <NavLink
+                  {/* <NavLink
                     to="/manage-booking"
                     className="flex space-x-4 z-10 py-2 pr-4 text-sm tracking-wider font-normal hover:font-semibold leading-5 hover:bg-gray-50 lg:hover:bg-transparent lg:border-0 lg:hover:text-amber-400 lg:pb-5 transition-all duration-300"
                     style={({ isActive }) =>
@@ -202,7 +202,7 @@ const Home = () => {
                         : { color: "#FFFFFF" }
                     }>
                     Manage Booking
-                  </NavLink>
+                  </NavLink> */}
 
                   <div className="relative">
                     <Accordion

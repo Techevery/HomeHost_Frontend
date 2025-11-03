@@ -14,6 +14,12 @@ import {
   Divider,
   Grid,
   Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  IconButton,
 } from "@mui/material";
 import {
   Edit,
@@ -24,12 +30,22 @@ import {
   LocationOn,
   CalendarToday,
   Security,
+  Close,
 } from "@mui/icons-material";
 import useAdminStore from "../../../stores/admin";
 
 const AdminProfile = () => {
   const { adminInfo, fetchAdminProfile, isLoading } = useAdminStore();
   const [loading, setLoading] = useState(true);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phoneNumber: "",
+    address: "",
+    gender: "",
+  });
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -45,14 +61,81 @@ const AdminProfile = () => {
     loadProfile();
   }, [fetchAdminProfile]);
 
+  // Initialize form data when adminInfo is available
+  useEffect(() => {
+    if (adminInfo) {
+      setFormData({
+        name: adminInfo.name || "",
+        email: adminInfo.email || "",
+        phoneNumber: adminInfo.phoneNumber || "",
+        address: adminInfo.address || "",
+        gender: adminInfo.gender || "",
+      });
+    }
+  }, [adminInfo]);
+
+  const handleEditModalOpen = () => {
+    setEditModalOpen(true);
+  };
+
+  const handleEditModalClose = () => {
+    if (!isUpdating) {
+      setEditModalOpen(false);
+      // Reset form data to original values when closing
+      if (adminInfo) {
+        setFormData({
+          name: adminInfo.name || "",
+          email: adminInfo.email || "",
+          phoneNumber: adminInfo.phoneNumber || "",
+          address: adminInfo.address || "",
+          gender: adminInfo.gender || "",
+        });
+      }
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdating(true);
+
+    try {
+      // Your update logic here
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+
+      // In a real application, you would call an update API here
+      // await updateAdminProfile(formData);
+
+      // Refresh the profile data
+      await fetchAdminProfile();
+      setEditModalOpen(false);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDialogClose = (
+    event: {},
+    reason: "backdropClick" | "escapeKeyDown",
+  ) => {
+    if (reason === "backdropClick" || reason === "escapeKeyDown") {
+      handleEditModalClose();
+    }
+  };
+
   if (loading || isLoading) {
     return (
       <Box
         display="flex"
         justifyContent="center"
         alignItems="center"
-        minHeight="80vh"
-      >
+        minHeight="80vh">
         <CircularProgress size={60} />
       </Box>
     );
@@ -66,8 +149,7 @@ const AdminProfile = () => {
         alignItems="center"
         minHeight="80vh"
         flexDirection="column"
-        gap={3}
-      >
+        gap={3}>
         <Typography variant="h5" color="error">
           Failed to load profile data
         </Typography>
@@ -86,7 +168,15 @@ const AdminProfile = () => {
     });
   };
 
-  const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
+  const InfoRow = ({
+    icon,
+    label,
+    value,
+  }: {
+    icon: React.ReactNode;
+    label: string;
+    value: string;
+  }) => (
     <Box display="flex" alignItems="center" gap={2} py={2}>
       <Box
         sx={{
@@ -96,8 +186,7 @@ const AdminProfile = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-        }}
-      >
+        }}>
         {icon}
       </Box>
       <Box flex={1}>
@@ -114,7 +203,11 @@ const AdminProfile = () => {
   return (
     <Box sx={{ maxWidth: 1200, margin: "0 auto", p: 3 }}>
       {/* Header */}
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={4}>
+      <Box
+        display="flex"
+        alignItems="center"
+        justifyContent="space-between"
+        mb={4}>
         <Box display="flex" alignItems="center" gap={2}>
           <Button
             component={Link}
@@ -134,8 +227,7 @@ const AdminProfile = () => {
           </Typography>
         </Box>
         <Button
-          component={Link}
-          to="/edit-profile"
+          onClick={handleEditModalOpen}
           variant="contained"
           startIcon={<Edit />}
           sx={{
@@ -146,8 +238,7 @@ const AdminProfile = () => {
             px: 3,
             py: 1,
             borderRadius: 2,
-          }}
-        >
+          }}>
           Edit Profile
         </Button>
       </Box>
@@ -160,8 +251,7 @@ const AdminProfile = () => {
               borderRadius: 3,
               boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
               overflow: "visible",
-            }}
-          >
+            }}>
             <CardContent sx={{ p: 0 }}>
               {/* Profile Header */}
               <Box
@@ -173,7 +263,7 @@ const AdminProfile = () => {
                   borderTopRightRadius: 12,
                 }}
               />
-              
+
               {/* Profile Picture */}
               <Box
                 sx={{
@@ -183,8 +273,7 @@ const AdminProfile = () => {
                   mt: -8,
                   position: "relative",
                   zIndex: 2,
-                }}
-              >
+                }}>
                 <Avatar
                   src={adminInfo.profilePicture}
                   sx={{
@@ -192,22 +281,21 @@ const AdminProfile = () => {
                     height: 120,
                     border: "4px solid white",
                     boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
-                  }}
-                >
+                  }}>
                   {adminInfo.name?.charAt(0).toUpperCase() || "A"}
                 </Avatar>
-                
+
                 <Typography variant="h5" fontWeight="bold" mt={2}>
                   {adminInfo.name}
                 </Typography>
-                
+
                 <Chip
                   label={adminInfo.role}
                   color="primary"
                   variant="filled"
                   sx={{ mt: 1, fontWeight: 600 }}
                 />
-                
+
                 {adminInfo.isSuperAdmin && (
                   <Chip
                     label="Super Admin"
@@ -221,7 +309,10 @@ const AdminProfile = () => {
               {/* Quick Stats */}
               <Box p={3}>
                 <Divider sx={{ my: 2 }} />
-                <Box display="flex" justifyContent="space-between" textAlign="center">
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  textAlign="center">
                   <Box>
                     <Typography variant="h6" fontWeight="bold" color="primary">
                       {adminInfo.permissions?.length || 0}
@@ -233,8 +324,9 @@ const AdminProfile = () => {
                   <Box>
                     <Typography variant="h6" fontWeight="bold" color="primary">
                       {Math.ceil(
-                        (new Date().getTime() - new Date(adminInfo.createdAt).getTime()) / 
-                        (1000 * 60 * 60 * 24)
+                        (new Date().getTime() -
+                          new Date(adminInfo.createdAt).getTime()) /
+                          (1000 * 60 * 60 * 24),
                       )}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -247,7 +339,12 @@ const AdminProfile = () => {
           </Card>
 
           {/* Permissions Card */}
-          <Card sx={{ mt: 3, borderRadius: 3, boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }}>
+          <Card
+            sx={{
+              mt: 3,
+              borderRadius: 3,
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+            }}>
             <CardContent>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
                 <Security color="primary" />
@@ -276,7 +373,11 @@ const AdminProfile = () => {
 
         {/* Right Column - Detailed Information */}
         <Grid item xs={12} md={8}>
-          <Card sx={{ borderRadius: 3, boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }}>
+          <Card
+            sx={{
+              borderRadius: 3,
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+            }}>
             <CardContent sx={{ p: 4 }}>
               <Typography variant="h5" fontWeight="bold" mb={3}>
                 Personal Information
@@ -289,35 +390,35 @@ const AdminProfile = () => {
                   value={adminInfo.name}
                 />
                 <Divider />
-                
+
                 <InfoRow
                   icon={<Email />}
                   label="Email Address"
                   value={adminInfo.email}
                 />
                 <Divider />
-                
+
                 <InfoRow
                   icon={<Phone />}
                   label="Phone Number"
                   value={adminInfo.phoneNumber || "Not provided"}
                 />
                 <Divider />
-                
+
                 <InfoRow
                   icon={<LocationOn />}
                   label="Address"
                   value={adminInfo.address || "Not provided"}
                 />
                 <Divider />
-                
+
                 <InfoRow
                   icon={<Person />}
                   label="Gender"
                   value={adminInfo.gender || "Not specified"}
                 />
                 <Divider />
-                
+
                 <InfoRow
                   icon={<CalendarToday />}
                   label="Member Since"
@@ -326,47 +427,122 @@ const AdminProfile = () => {
               </Box>
             </CardContent>
           </Card>
-
-          {/* System Information
-          <Card sx={{ mt: 3, borderRadius: 3, boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }}>
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h5" fontWeight="bold" mb={3}>
-                System Information
-              </Typography>
-              
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <Paper
-                    variant="outlined"
-                    sx={{ p: 3, borderRadius: 2, textAlign: "center" }}
-                  >
-                    <Typography variant="h4" fontWeight="bold" color="primary">
-                      {adminInfo.role}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Role
-                    </Typography>
-                  </Paper>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Paper
-                    variant="outlined"
-                    sx={{ p: 3, borderRadius: 2, textAlign: "center" }}
-                  >
-                    <Typography variant="h4" fontWeight="bold" color="secondary">
-                      {adminInfo.isSuperAdmin ? "Yes" : "No"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Super Admin
-                    </Typography>
-                  </Paper>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card> */}
         </Grid>
       </Grid>
+
+      {/* Edit Profile Modal */}
+      <Dialog
+        open={editModalOpen}
+        onClose={handleDialogClose}
+        maxWidth="md"
+        fullWidth
+        disableEscapeKeyDown={isUpdating}>
+        <DialogTitle>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between">
+            <Typography variant="h5" fontWeight="bold">
+              Edit Profile Information
+            </Typography>
+            <IconButton onClick={handleEditModalClose} disabled={isUpdating}>
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+
+        <form onSubmit={handleSubmit}>
+          <DialogContent>
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Full Name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  variant="outlined"
+                  disabled={isUpdating}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Email Address"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  variant="outlined"
+                  disabled={isUpdating}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Phone Number"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleInputChange}
+                  variant="outlined"
+                  disabled={isUpdating}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Gender"
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleInputChange}
+                  variant="outlined"
+                  disabled={isUpdating}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="Address"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  variant="outlined"
+                  disabled={isUpdating}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+
+          <DialogActions sx={{ p: 3, gap: 2 }}>
+            <Button
+              type="button"
+              onClick={handleEditModalClose}
+              variant="outlined"
+              disabled={isUpdating}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={isUpdating}
+              startIcon={isUpdating ? <CircularProgress size={20} /> : null}
+              sx={{
+                backgroundColor: "#002221",
+                "&:hover": {
+                  backgroundColor: "#003833",
+                },
+              }}>
+              {isUpdating ? "Updating..." : "Update Profile"}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
     </Box>
   );
 };

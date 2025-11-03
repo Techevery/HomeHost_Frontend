@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import axios from 'axios';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import axios from "axios";
 
 interface AdminState {
   token: string | null;
@@ -33,9 +33,14 @@ interface AdminActions {
   }) => Promise<any>;
   logout: () => void;
   fetchAdminProfile: () => Promise<void>;
-  updateAdminProfile: (updatedData: Partial<AdminState['adminInfo']> | FormData) => Promise<void>;
+  updateAdminProfile: (
+    updatedData: Partial<AdminState["adminInfo"]> | FormData,
+  ) => Promise<void>;
   clearError: () => void;
-  verifyAgent: (agentId: string, status: "VERIFIED" | "UNVERIFIED") => Promise<any>;
+  verifyAgent: (
+    agentId: string,
+    status: "VERIFIED" | "UNVERIFIED",
+  ) => Promise<any>;
   listProperties: (page?: number, pageSize?: number) => Promise<any>;
   listAgents: (page?: number, pageSize?: number) => Promise<any>;
   getAgentProfile: (agentId: string) => Promise<any>;
@@ -54,71 +59,84 @@ const initialState: AdminState = {
 };
 
 // Fixed: Removed trailing space
-const API_BASE_URL = process.env.REACT_APP_DEV_BASE_URL || 'https://homeyhost.ng/api';
+const API_BASE_URL =
+  process.env.REACT_APP_DEV_BASE_URL || "https://homeyhost.ng/api";
 
 const useAdminStore = create<AdminState & AdminActions>()(
   persist(
     (set, get) => ({
       ...initialState,
-      
+
       login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-         
-          
           const response = await axios.post(
             `${API_BASE_URL}/api/v1/auth/admin-login`,
-            { email, password }
+            { email, password },
           );
-       
-          
+
           // Handle different response structures
           const responseData = response.data;
-          const token = responseData.token || responseData.data?.token || responseData.accessToken;
-          const adminData = responseData.data || responseData.user || responseData.admin;
-          
+          const token =
+            responseData.token ||
+            responseData.data?.token ||
+            responseData.accessToken;
+          const adminData =
+            responseData.data || responseData.user || responseData.admin;
+
           if (!token) {
-            throw new Error('No token received from server');
+            throw new Error("No token received from server");
           }
-          
-    
-          
-          // Set store state
+
+          // Set store state with initial login data
           set({
             token,
             adminInfo: {
-              id: adminData?.id || adminData?._id || '',
-              name: adminData?.name || '',
-              email: adminData?.email || '',
-              role: adminData?.role || 'admin',
+              id: adminData?.id || adminData?._id || "",
+              name: adminData?.name || "",
+              email: adminData?.email || "",
+              role: adminData?.role || "admin",
               permissions: adminData?.permissions || [],
-              profilePicture: adminData?.profilePicture || '',
-              isSuperAdmin: adminData?.isSuperAdmin || false,
+              profilePicture: adminData?.profilePicture || "",
+              isSuperAdmin:
+                adminData?.isSuperAdmin ||
+                adminData?.is_super_admin ||
+                adminData?.superAdmin ||
+                false,
               createdAt: adminData?.createdAt || new Date().toISOString(),
               address: adminData?.address,
               gender: adminData?.gender,
-              phoneNumber: adminData?.phoneNumber || '',
+              phoneNumber: adminData?.phoneNumber || "",
             },
             isAuthenticated: true,
             isLoading: false,
           });
-          
+
           // Store token in localStorage
           try {
-            localStorage.setItem('token', token);
-          
+            localStorage.setItem("token", token);
           } catch (storageError) {
-           
+            console.error("Storage error:", storageError);
           }
-          
+
+          // Automatically fetch complete admin profile after successful login
+          try {
+            await get().fetchAdminProfile();
+          } catch (profileError) {
+            console.warn(
+              "Failed to fetch complete admin profile, but login was successful:",
+              profileError,
+            );
+            // Don't throw error here as login was successful
+          }
         } catch (error: any) {
-        
-          const errorMessage = error.response?.data?.message || 
-                             error.response?.data?.error || 
-                             error.message || 
-                             'Login failed. Please check your credentials.';
-          
-          set({ 
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            "Login failed. Please check your credentials.";
+
+          set({
             error: errorMessage,
             isAuthenticated: false,
             isLoading: false,
@@ -132,41 +150,38 @@ const useAdminStore = create<AdminState & AdminActions>()(
         try {
           const response = await axios.post(
             `${API_BASE_URL}/api/v1/auth/register-admin`,
-            adminData
+            adminData,
           );
-          
+
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          const errorMessage = error.response?.data?.message ;
-          set({ 
+          const errorMessage = error.response?.data?.message;
+          set({
             error: errorMessage,
             isLoading: false,
           });
           throw error;
         }
       },
-      
+
       logout: () => {
-    
         set(initialState);
         try {
-          localStorage.removeItem('token');
-          localStorage.removeItem('admin-storage');
-         
+          localStorage.removeItem("token");
+          localStorage.removeItem("admin-storage");
         } catch (error) {
-         
+          console.error("Logout storage error:", error);
         }
       },
-      
+
       fetchAdminProfile: async () => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem('token');
-        
-          
+          const token = get().token || localStorage.getItem("token");
+
           if (!token) {
-            throw new Error('Authentication token not found');
+            throw new Error("Authentication token not found");
           }
 
           const response = await axios.get(
@@ -175,11 +190,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
               headers: {
                 Authorization: `Bearer ${token}`,
               },
-            }
+            },
           );
-          
-       
-          
+
           const data = response.data.data || response.data;
           set({
             adminInfo: {
@@ -189,48 +202,54 @@ const useAdminStore = create<AdminState & AdminActions>()(
               role: data.role,
               permissions: data.permissions,
               profilePicture: data.profilePicture,
-              isSuperAdmin: data.isSuperAdmin,
+              isSuperAdmin:
+                data.isSuperAdmin ||
+                data.is_super_admin ||
+                data.superAdmin ||
+                data.role === "super_admin" ||
+                data.role === "super-admin" ||
+                false,
               createdAt: data.createdAt,
               address: data.address,
               gender: data.gender,
-              phoneNumber: data.phoneNumber || '',
+              phoneNumber: data.phoneNumber || "",
             },
             isLoading: false,
           });
         } catch (error: any) {
-       
-          set({ 
-            error: error.response?.data?.message ,
+          set({
+            error: error.response?.data?.message,
             isLoading: false,
           });
           if (error.response?.status === 401) {
             get().logout();
           }
+          throw error;
         }
       },
-      
+
       updateAdminProfile: async (updatedData) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem('token');
+          const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error('Authentication token not found');
+            throw new Error("Authentication token not found");
           }
 
           const isFormData = updatedData instanceof FormData;
           const config = {
             headers: {
               Authorization: `Bearer ${token}`,
-              ...(isFormData ? {} : { 'Content-Type': 'application/json' })
+              ...(isFormData ? {} : { "Content-Type": "application/json" }),
             },
           };
 
           const response = await axios.patch(
             `${API_BASE_URL}/api/v1/admin/edit-profile`,
             isFormData ? updatedData : updatedData,
-            config
+            config,
           );
-          
+
           const data = response.data.data;
           set({
             adminInfo: {
@@ -240,8 +259,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             isLoading: false,
           });
         } catch (error: any) {
-          set({ 
-            error: error.response?.data?.message ,
+          set({
+            error: error.response?.data?.message,
             isLoading: false,
           });
           throw error;
@@ -251,9 +270,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
       verifyAgent: async (agentId, status) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem('token');
+          const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error('Authentication token not found');
+            throw new Error("Authentication token not found");
           }
 
           const response = await axios.put(
@@ -262,16 +281,16 @@ const useAdminStore = create<AdminState & AdminActions>()(
             {
               headers: {
                 Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                "Content-Type": "application/json",
               },
-            }
+            },
           );
-          
+
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          set({ 
-            error: error.response?.data?.message ,
+          set({
+            error: error.response?.data?.message,
             isLoading: false,
           });
           throw error;
@@ -281,11 +300,13 @@ const useAdminStore = create<AdminState & AdminActions>()(
       listProperties: async (page = 1, pageSize = 10) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem('token');
-          console.log('🔑 Token for listProperties:', token);
-          
+          const token = get().token || localStorage.getItem("token");
+          console.log("🔑 Token for listProperties:", token);
+
           if (!token) {
-            throw new Error('Authentication token not found. Please log in again.');
+            throw new Error(
+              "Authentication token not found. Please log in again.",
+            );
           }
 
           const response = await axios.get(
@@ -295,24 +316,21 @@ const useAdminStore = create<AdminState & AdminActions>()(
               headers: {
                 Authorization: `Bearer ${token}`,
               },
-            }
+            },
           );
-          
-         
-          
+
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-        
-          set({ 
-            error: error.response?.data?.message ,
+          set({
+            error: error.response?.data?.message,
             isLoading: false,
           });
-          
+
           if (error.response?.status === 401) {
             get().logout();
           }
-          
+
           throw error;
         }
       },
@@ -320,9 +338,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
       listAgents: async (page = 1, pageSize = 10) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem('token');
+          const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error('Authentication token not found');
+            throw new Error("Authentication token not found");
           }
 
           const response = await axios.get(
@@ -332,14 +350,14 @@ const useAdminStore = create<AdminState & AdminActions>()(
               headers: {
                 Authorization: `Bearer ${token}`,
               },
-            }
+            },
           );
-          
+
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          set({ 
-            error: error.response?.data?.message ,
+          set({
+            error: error.response?.data?.message,
             isLoading: false,
           });
           throw error;
@@ -349,9 +367,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
       getAgentProfile: async (agentId) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem('token');
+          const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error('Authentication token not found');
+            throw new Error("Authentication token not found");
           }
 
           const response = await axios.get(
@@ -361,13 +379,13 @@ const useAdminStore = create<AdminState & AdminActions>()(
               headers: {
                 Authorization: `Bearer ${token}`,
               },
-            }
+            },
           );
-          
+
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          set({ 
+          set({
             error: error.response?.data?.message,
             isLoading: false,
           });
@@ -378,9 +396,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
       getDashboardStats: async () => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem('token');
+          const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error('Authentication token not found');
+            throw new Error("Authentication token not found");
           }
 
           const response = await axios.get(
@@ -389,13 +407,13 @@ const useAdminStore = create<AdminState & AdminActions>()(
               headers: {
                 Authorization: `Bearer ${token}`,
               },
-            }
+            },
           );
-          
+
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          set({ 
+          set({
             error: error.response?.data?.message,
             isLoading: false,
           });
@@ -406,9 +424,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
       getTransactionDetailsByYear: async (year) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem('token');
+          const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error('Authentication token not found');
+            throw new Error("Authentication token not found");
           }
 
           const response = await axios.post(
@@ -417,15 +435,15 @@ const useAdminStore = create<AdminState & AdminActions>()(
             {
               headers: {
                 Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                "Content-Type": "application/json",
               },
-            }
+            },
           );
-          
+
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          set({ 
+          set({
             error: error.response?.data?.message,
             isLoading: false,
           });
@@ -436,9 +454,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
       deleteApartment: async (apartmentId) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem('token');
+          const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error('Authentication token not found');
+            throw new Error("Authentication token not found");
           }
 
           const response = await axios.delete(
@@ -447,14 +465,14 @@ const useAdminStore = create<AdminState & AdminActions>()(
               headers: {
                 Authorization: `Bearer ${token}`,
               },
-            }
+            },
           );
-          
+
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          set({ 
-            error: error.response?.data?.message ,
+          set({
+            error: error.response?.data?.message,
             isLoading: false,
           });
           throw error;
@@ -464,9 +482,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
       searchApartment: async (query) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem('token');
+          const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error('Authentication token not found');
+            throw new Error("Authentication token not found");
           }
 
           const response = await axios.get(
@@ -476,34 +494,34 @@ const useAdminStore = create<AdminState & AdminActions>()(
               headers: {
                 Authorization: `Bearer ${token}`,
               },
-            }
+            },
           );
-          
+
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          set({ 
-            error: error.response?.data?.message ,
+          set({
+            error: error.response?.data?.message,
             isLoading: false,
           });
           throw error;
         }
       },
-      
+
       clearError: () => {
         set({ error: null });
       },
     }),
     {
-      name: 'admin-storage',
+      name: "admin-storage",
       partialize: (state) => ({
         token: state.token,
         adminInfo: state.adminInfo,
         isAuthenticated: state.isAuthenticated,
       }),
       version: 1,
-    }
-  )
+    },
+  ),
 );
 
 export default useAdminStore;

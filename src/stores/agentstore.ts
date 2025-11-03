@@ -109,7 +109,7 @@ interface AgentState {
 
 interface AgentActions {
   login: (email: string, password: string, remember: boolean) => Promise<void>;
-  registerAgent: (formData: FormData) => Promise<void>;
+  registerAgent: (formData: FormData) => Promise<boolean>;
   logout: () => void;
   fetchAgentProfile: () => Promise<void>;
   updateAgentProfile: (updatedData: any) => Promise<void>;
@@ -352,35 +352,41 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
           const { data } = response.data;
 
-          if (!data || !data.token) {
-            throw new Error("Invalid response from server.");
-          }
+          // Check if we have a successful response
+          if (response.status === 201 && data) {
+            set({
+              token: data.token, // Make sure token is included in response
+              agentInfo: {
+                id: data.id,
+                name: data.name,
+                email: data.email,
+                status: data.status,
+                slug: data.slug,
+                phone_number: data.phone_number || data.phoneNumber,
+                address: data.address,
+                gender: data.gender,
+                profile_picture: data.profile_picture || data.avatar,
+                bank_name: data.bank_name || data.bankName,
+                account_number: data.account_number || data.accountNumber,
+                isVerified: data.isVerified || false,
+                personalUrl: data.personalUrl,
+                next_of_kin_full_name:
+                  data.nextOfKinName || data.next_of_kin_full_name,
+                next_of_kin_email:
+                  data.nextOfKinEmail || data.next_of_kin_email,
+                accountBalance: data.accountBalance || 0,
+                id_card: data.id_card,
+                createdAt: data.createdAt,
+              },
+              isAuthenticated: true,
+            });
 
-          set({
-            token: data.token,
-            agentInfo: {
-              id: data.id,
-              name: data.name,
-              email: data.email,
-              status: data.status,
-              slug: data.slug,
-              phone_number: data.phone_number || data.phoneNumber,
-              address: data.address,
-              gender: data.gender,
-              profile_picture: data.avatar || data.profile_picture,
-              bank_name: data.bank_name || data.bankName,
-              account_number: data.account_number || data.accountNumber,
-              isVerified: data.isVerified || false,
-              personalUrl: data.personalUrl,
-              next_of_kin_full_name:
-                data.next_of_kin_full_name || data.nextOfKinName,
-              next_of_kin_email: data.next_of_kin_email || data.nextOfKinEmail,
-              accountBalance: data.accountBalance || 0,
-              id_card: data.id_card,
-              createdAt: data.createdAt,
-            },
-            isAuthenticated: true,
-          });
+            console.log("Registration successful, returning true");
+            return true; // Return true on success
+          } else {
+            console.log("Registration response missing expected data");
+            return false;
+          }
         } catch (error: any) {
           console.error("Registration error:", error);
           const errorMessage = handleApiError(
@@ -390,7 +396,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
           set({
             error: errorMessage,
           });
-          throw new Error(errorMessage);
+          return false; // Return false on error
         } finally {
           set({ isLoading: false });
         }
