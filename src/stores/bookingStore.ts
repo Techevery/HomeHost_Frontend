@@ -69,8 +69,11 @@ interface Receipt {
 }
 
 interface BookingDate {
+  id?: string;
   booking_start_date: Date | null;
   booking_end_date: Date | null;
+  apartment_id?: string;
+  status?: string;
 }
 
 interface BookingState {
@@ -83,8 +86,8 @@ interface BookingState {
   selectedDates: Date[];
   startDate: Date | null;
   endDate: Date | null;
-  bookingDates: BookingDate[]; // Added for fetchBookingDates
-  managedBookings: Booking[]; // Added for manageBooking
+  bookingDates: BookingDate[];
+  managedBookings: Booking[];
 }
 
 interface BookingActions {
@@ -95,7 +98,7 @@ interface BookingActions {
   setEndDate: (date: Date | null) => void;
   clearError: () => void;
   clearCurrentBooking: () => void;
-  // New actions
+
   fetchBookingDates: (apartmentId: string) => Promise<void>;
   manageBooking: (email?: string, phoneNumber?: string) => Promise<void>;
 }
@@ -110,8 +113,8 @@ const initialState: BookingState = {
   selectedDates: [],
   startDate: null,
   endDate: null,
-  bookingDates: [], // Added
-  managedBookings: [], // Added
+  bookingDates: [],
+  managedBookings: [],
 };
 
 const API_BASE_URL =
@@ -136,10 +139,26 @@ const useBookingStore = create<BookingState & BookingActions>()(
             },
           });
 
-          // Handle different response structures
           const bookingsData = response.data.data || response.data || [];
-          set({ bookings: bookingsData });
+
+          const processedBookings = bookingsData.map((booking: any) => ({
+            ...booking,
+            selected_dates: booking.selected_dates || [],
+            start_date: booking.start_date
+              ? new Date(booking.start_date)
+              : null,
+            end_date: booking.end_date ? new Date(booking.end_date) : null,
+            booking_start_date: booking.booking_start_date
+              ? new Date(booking.booking_start_date)
+              : null,
+            booking_end_date: booking.booking_end_date
+              ? new Date(booking.booking_end_date)
+              : null,
+          }));
+
+          set({ bookings: processedBookings });
         } catch (error: any) {
+          console.error("❌ Failed to fetch bookings:", error);
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||
@@ -152,7 +171,6 @@ const useBookingStore = create<BookingState & BookingActions>()(
           set({ loading: false });
         }
       },
-
       fetchBookingById: async (id: string) => {
         set({ loading: true, error: null });
         try {
@@ -170,18 +188,36 @@ const useBookingStore = create<BookingState & BookingActions>()(
             },
           );
 
+          console.log("📖 Fetch booking by ID response:", response.data);
+
           const bookingData = response.data.data || response.data;
-          set({
-            currentBooking: bookingData,
-            selectedDates: bookingData.selected_dates || [],
-            startDate: bookingData.start_date
+
+          // Process the booking data
+          const processedBooking = {
+            ...bookingData,
+            selected_dates: bookingData.selected_dates || [],
+            start_date: bookingData.start_date
               ? new Date(bookingData.start_date)
               : null,
-            endDate: bookingData.end_date
+            end_date: bookingData.end_date
               ? new Date(bookingData.end_date)
               : null,
+            booking_start_date: bookingData.booking_start_date
+              ? new Date(bookingData.booking_start_date)
+              : null,
+            booking_end_date: bookingData.booking_end_date
+              ? new Date(bookingData.booking_end_date)
+              : null,
+          };
+
+          set({
+            currentBooking: processedBooking,
+            selectedDates: processedBooking.selected_dates || [],
+            startDate: processedBooking.start_date,
+            endDate: processedBooking.end_date,
           });
         } catch (error: any) {
+          console.error("❌ Failed to fetch booking details:", error);
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||
@@ -195,20 +231,50 @@ const useBookingStore = create<BookingState & BookingActions>()(
         }
       },
 
-      // New function: Fetch booking dates for a specific apartment
       fetchBookingDates: async (apartmentId: string) => {
         set({ loading: true, error: null });
         try {
+          const token = localStorage.getItem("token");
+
+          const headers: any = {
+            "Content-Type": "application/json",
+          };
+
+          if (token) {
+            headers.Authorization = `Bearer ${token}`;
+          }
+
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/booking/booking-dates`,
             {
-              params: { apartmentId },
+              params: {
+                apartmentId: apartmentId,
+              },
+              headers,
             },
           );
 
+          console.log("📅 Booking dates API response:", response.data);
+
           const bookingDatesData = response.data.data || response.data || [];
-          set({ bookingDates: bookingDatesData });
+
+          const processedBookingDates = bookingDatesData.map(
+            (bookingDate: any) => ({
+              booking_start_date: bookingDate.booking_start_date
+                ? new Date(bookingDate.booking_start_date)
+                : null,
+              booking_end_date: bookingDate.booking_end_date
+                ? new Date(bookingDate.booking_end_date)
+                : null,
+              ...bookingDate,
+            }),
+          );
+
+          console.log("📅 Processed booking dates:", processedBookingDates);
+
+          set({ bookingDates: processedBookingDates });
         } catch (error: any) {
+          console.error("❌ Failed to fetch booking dates:", error);
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||
@@ -222,10 +288,19 @@ const useBookingStore = create<BookingState & BookingActions>()(
         }
       },
 
-      // New function: Manage booking by email and/or phone number
       manageBooking: async (email?: string, phoneNumber?: string) => {
         set({ loading: true, error: null });
         try {
+          const token = localStorage.getItem("token");
+
+          const headers: any = {
+            "Content-Type": "application/json",
+          };
+
+          if (token) {
+            headers.Authorization = `Bearer ${token}`;
+          }
+
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/booking/manage-booking`,
             {
@@ -233,19 +308,38 @@ const useBookingStore = create<BookingState & BookingActions>()(
                 ...(email && { email }),
                 ...(phoneNumber && { phoneNumber }),
               },
+              headers,
             },
           );
 
-          const managedBookingsData = response.data.data || [];
-          set({ managedBookings: managedBookingsData });
+          console.log("🔍 Manage booking API response:", response.data);
 
-          // Show success message if bookings were found
-          if (managedBookingsData.length > 0) {
-            toast.success(`Found ${managedBookingsData.length} booking(s)`);
+          const managedBookingsData = response.data.data || response.data || [];
+
+          const processedBookings = managedBookingsData.map((booking: any) => ({
+            ...booking,
+            selected_dates: booking.selected_dates || [],
+            start_date: booking.start_date
+              ? new Date(booking.start_date)
+              : null,
+            end_date: booking.end_date ? new Date(booking.end_date) : null,
+            booking_start_date: booking.booking_start_date
+              ? new Date(booking.booking_start_date)
+              : null,
+            booking_end_date: booking.booking_end_date
+              ? new Date(booking.booking_end_date)
+              : null,
+          }));
+
+          set({ managedBookings: processedBookings });
+
+          if (processedBookings.length > 0) {
+            toast.success(`Found ${processedBookings.length} booking(s)`);
           } else {
             toast.error("No bookings found with the provided criteria");
           }
         } catch (error: any) {
+          console.error("❌ Failed to manage booking:", error);
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||
@@ -291,8 +385,8 @@ const useBookingStore = create<BookingState & BookingActions>()(
         currentBooking: state.currentBooking,
         receipts: state.receipts,
         currentReceipt: state.currentReceipt,
-        bookingDates: state.bookingDates, // Added to persistence
-        managedBookings: state.managedBookings, // Added to persistence
+        bookingDates: state.bookingDates,
+        managedBookings: state.managedBookings,
       }),
     },
   ),

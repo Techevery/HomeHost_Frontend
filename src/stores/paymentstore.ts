@@ -136,7 +136,6 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
           let finalAgentId: string | null = null;
           let authToken: string | null = null;
 
-          // Try to get agentId from agentStore first (if logged in)
           try {
             const agentStoreModule = await import("./agentstore");
             const agentStore = agentStoreModule.default;
@@ -151,13 +150,11 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             console.log("Agent store not available or agent not logged in");
           }
 
-          // If no agentId from store, use the provided agentId (for unauthenticated)
           if (!finalAgentId && agentId) {
             finalAgentId = agentId;
             console.log("Using provided agent ID:", finalAgentId);
           }
 
-          // If still no agentId, we cannot proceed
           if (!finalAgentId) {
             return {
               success: false,
@@ -166,7 +163,6 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             };
           }
 
-          // Input validation
           if (!email || !apartmentId || !startDate || !endDate) {
             return {
               success: false,
@@ -182,15 +178,17 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             };
           }
 
-          // Prepare payment data
+          const startDates = [startDate];
+          const endDates = [endDate];
+
           const paymentData = {
             email,
             channels,
             currency: currency || "NGN",
             agentId: finalAgentId,
             apartmentId,
-            startDate,
-            endDate,
+            startDates,
+            endDates,
             phoneNumber: phoneNumber || "",
             nextofKinName: nextofKinName || "",
             nextofKinNumber: nextofKinNumber || "",
@@ -199,7 +197,6 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
 
           console.log("Initiating payment with data:", paymentData);
 
-          // Prepare headers (with auth token if available)
           const headers: any = {
             "Content-Type": "application/json",
           };
@@ -275,13 +272,11 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
         set({ isLoading: true, error: null });
 
         try {
-          // Import agentStore dynamically to avoid circular dependencies
           const agentStoreModule = await import("./agentstore");
           const agentStore = agentStoreModule.default;
 
           const { token, isAuthenticated } = agentStore.getState();
 
-          // Validate authentication
           if (!isAuthenticated || !token) {
             return {
               success: false,
@@ -289,7 +284,6 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             };
           }
 
-          // Input validation
           if (!reference) {
             return {
               success: false,
@@ -326,7 +320,6 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             isLoading: false,
           });
 
-          // Update payment data if it exists
           const currentPaymentData = get().paymentData;
           if (
             currentPaymentData &&

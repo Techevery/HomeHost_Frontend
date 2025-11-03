@@ -798,37 +798,49 @@ const BookingModal: React.FC<{
     const fetchBookedDates = async (propertyId: string) => {
       try {
         setLoadingBookedDates(true);
+        console.log("🔄 Fetching booked dates for property:", propertyId);
+
         await fetchBookingDates(propertyId);
-        console.log("📅 Booking dates from API:", bookingDates);
+
+        console.log("📅 Raw booking dates from store:", bookingDates);
 
         const dates: Date[] = [];
 
         // Process booking dates from the API response
-        bookingDates.forEach((bookingDate) => {
-          console.log("📋 Processing booking date:", bookingDate);
+        if (bookingDates && bookingDates.length > 0) {
+          bookingDates.forEach((bookingDate) => {
+            console.log("📋 Processing booking date:", bookingDate);
 
-          // Handle booking_start_date and booking_end_date
-          if (bookingDate.booking_start_date && bookingDate.booking_end_date) {
-            const start = new Date(bookingDate.booking_start_date);
-            const end = new Date(bookingDate.booking_end_date);
+            // Handle booking_start_date and booking_end_date
+            if (
+              bookingDate.booking_start_date &&
+              bookingDate.booking_end_date
+            ) {
+              const start = new Date(bookingDate.booking_start_date);
+              const end = new Date(bookingDate.booking_end_date);
 
-            // Reset time to avoid timezone issues
-            start.setHours(0, 0, 0, 0);
-            end.setHours(0, 0, 0, 0);
+              // Reset time to avoid timezone issues
+              start.setHours(0, 0, 0, 0);
+              end.setHours(0, 0, 0, 0);
 
-            console.log(
-              `📅 Date range: ${start.toDateString()} to ${end.toDateString()}`,
-            );
+              console.log(
+                `📅 Date range: ${start.toDateString()} to ${end.toDateString()}`,
+              );
 
-            const currentDate = new Date(start);
-            while (currentDate <= end) {
-              const dateToAdd = new Date(currentDate);
-              dates.push(dateToAdd);
-              console.log(`🔴 Marking as booked: ${dateToAdd.toDateString()}`);
-              currentDate.setDate(currentDate.getDate() + 1);
+              const currentDate = new Date(start);
+              while (currentDate <= end) {
+                const dateToAdd = new Date(currentDate);
+                dates.push(dateToAdd);
+                console.log(
+                  `🔴 Marking as booked: ${dateToAdd.toDateString()}`,
+                );
+                currentDate.setDate(currentDate.getDate() + 1);
+              }
             }
-          }
-        });
+          });
+        } else {
+          console.log("📅 No booked dates found for this property");
+        }
 
         // Remove duplicates and sort
         const uniqueDates = Array.from(
@@ -1139,7 +1151,6 @@ const BookingModal: React.FC<{
       const dateClusters = getDateClusters(selectedDates);
       const totalNights = calculateTotalNights(dateClusters);
       const totalAmount = property.price * totalNights;
-
       const paymentData = {
         email: bookingData.email,
         channels: ["card", "bank"],
@@ -1162,6 +1173,7 @@ const BookingModal: React.FC<{
 
       const toastId = toast.loading("Initializing payment...", {
         position: "top-right",
+        autoClose: 3000,
       });
 
       const paymentResult = await initiatePayment(
