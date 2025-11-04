@@ -11,14 +11,24 @@ interface PaymentData {
   email: string;
   apartmentId: string;
   agentId: string;
-  startDate: string;
-  endDate: string;
+  startDates: string[];
+  endDates: string[];
   phoneNumber: string;
   nextofKinName: string;
   nextofKinNumber: string;
   fullName: string;
   createdAt: string;
   updatedAt: string;
+  paymentUrl?: string;
+  totalDurationDays?: number;
+  dailyPrice?: number;
+  isMarkedUp?: boolean;
+  bookingPeriods?: Array<{
+    startDate: string;
+    endDate: string;
+    durationDays: number;
+  }>;
+  totalBookingPeriods?: number;
 }
 
 interface PaymentState {
@@ -36,8 +46,8 @@ interface PaymentActions {
     channels: string[],
     currency: string,
     apartmentId: string,
-    startDate: string,
-    endDate: string,
+    startDates: string[],
+    endDates: string[],
     phoneNumber: string,
     nextofKinName: string,
     nextofKinNumber: string,
@@ -65,7 +75,7 @@ const initialState: PaymentState = {
 const API_BASE_URL =
   process.env.REACT_APP_DEV_BASE_URL || "https://homeyhost.ng/api";
 
-// Enhanced error handler utility (consistent with agentStore)
+// Enhanced error handler utility
 const handleApiError = (error: any, defaultMessage: string): string => {
   console.error("Payment API Error:", error);
 
@@ -122,8 +132,8 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
         channels: string[],
         currency: string,
         apartmentId: string,
-        startDate: string,
-        endDate: string,
+        startDates: string[],
+        endDates: string[],
         phoneNumber: string,
         nextofKinName: string,
         nextofKinNumber: string,
@@ -163,11 +173,26 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             };
           }
 
-          if (!email || !apartmentId || !startDate || !endDate) {
+          if (!email || !apartmentId || !startDates || !endDates) {
             return {
               success: false,
               message:
-                "Email, apartment ID, start date, and end date are required.",
+                "Email, apartment ID, start dates, and end dates are required.",
+            };
+          }
+
+          if (startDates.length !== endDates.length) {
+            return {
+              success: false,
+              message:
+                "Start dates and end dates arrays must have the same length.",
+            };
+          }
+
+          if (startDates.length === 0) {
+            return {
+              success: false,
+              message: "At least one booking period is required.",
             };
           }
 
@@ -177,9 +202,6 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
               message: "At least one payment channel is required.",
             };
           }
-
-          const startDates = [startDate];
-          const endDates = [endDate];
 
           const paymentData = {
             email,
@@ -222,24 +244,32 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             throw new Error("Invalid response from payment service.");
           }
 
+          const paymentDataToStore: PaymentData = {
+            reference: result.reference,
+            status: result.status || "pending",
+            amount: result.totalAmount,
+            currency: result.currency || "NGN",
+            email: result.email || email,
+            apartmentId: result.apartmentId || apartmentId,
+            agentId: result.agentId || finalAgentId,
+            startDates: result.startDates || startDates,
+            endDates: result.endDates || endDates,
+            phoneNumber: result.phoneNumber || phoneNumber,
+            nextofKinName: result.nextofKinName || nextofKinName,
+            nextofKinNumber: result.nextofKinNumber || nextofKinNumber,
+            fullName: result.fullName || fullName,
+            createdAt: result.createdAt || new Date().toISOString(),
+            updatedAt: result.updatedAt || new Date().toISOString(),
+            paymentUrl: result.paymentUrl || result.authorizationUrl,
+            totalDurationDays: result.totalDurationDays,
+            dailyPrice: result.dailyPrice,
+            isMarkedUp: result.isMarkedUp,
+            bookingPeriods: result.bookingPeriods,
+            totalBookingPeriods: result.totalBookingPeriods,
+          };
+
           set({
-            paymentData: {
-              reference: result.reference,
-              status: result.status,
-              amount: result.amount,
-              currency: result.currency,
-              email: result.email,
-              apartmentId: result.apartmentId,
-              agentId: result.agentId,
-              startDate: result.startDate,
-              endDate: result.endDate,
-              phoneNumber: result.phoneNumber,
-              nextofKinName: result.nextofKinName,
-              nextofKinNumber: result.nextofKinNumber,
-              fullName: result.fullName,
-              createdAt: result.createdAt,
-              updatedAt: result.updatedAt,
-            },
+            paymentData: paymentDataToStore,
             isInitializingPayment: false,
           });
 
@@ -328,8 +358,8 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             set({
               paymentData: {
                 ...currentPaymentData,
-                status: result.status,
-                updatedAt: result.updatedAt,
+                status: result.transaction?.status || result.status,
+                updatedAt: new Date().toISOString(),
               },
             });
           }

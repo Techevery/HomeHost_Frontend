@@ -309,11 +309,6 @@ const PropertyDetailView: React.FC<{
 
                     {/* Agent Phone Number */}
                     <div className="flex gap-4 items-center">
-                      {/* <img
-                        src="/images/Group 1497.svg"
-                        alt="Phone"
-                        className="w-8 h-8"
-                      /> */}
                       <span className="font-semibold">Agent Phone Number:</span>
                       <h6 className="text-lg text-gray-700">
                         {displayAgent.phone_number || "Phone not available"}
@@ -335,8 +330,6 @@ const PropertyDetailView: React.FC<{
                         {getRegistrationTime(displayAgent.createdAt || "")}
                       </h6>
                     </div>
-
-                    {/* View All Properties */}
                   </>
                 )}
 
@@ -494,12 +487,12 @@ const ManageBookingModal: React.FC<{
       await manageBooking(values.email, values.phone);
       setSearchPerformed(true);
 
-      if (managedBookings.length === 0) {
-        toast.info("No bookings found with the provided information.", {
-          position: "top-right",
-          autoClose: 4000,
-        });
-      }
+      // if (managedBookings.length === 0) {
+      //   toast.info("No bookings found with the provided information.", {
+      //     position: "top-right",
+      //     autoClose: 4000,
+      //   });
+      // }
     } catch (error) {
       console.error("Failed to search bookings:", error);
       toast.error("Failed to search bookings. Please try again.", {
@@ -764,8 +757,6 @@ const ManageBookingModal: React.FC<{
 };
 
 // Booking Modal Component
-
-// Booking Modal Component
 const BookingModal: React.FC<{
   property: Property | null;
   isOpen: boolean;
@@ -794,11 +785,17 @@ const BookingModal: React.FC<{
 
   const { fetchBookingDates, bookingDates, loading, error } = useBookingStore();
 
+  // In the BookingModal component in PersonalUrlProperties.tsx
+
+  // Replace the entire fetchBookedDates useEffect with this:
   useEffect(() => {
     const fetchBookedDates = async (propertyId: string) => {
       try {
         setLoadingBookedDates(true);
         console.log("🔄 Fetching booked dates for property:", propertyId);
+
+        // Clear previous booking dates first
+        setBookedDates([]);
 
         await fetchBookingDates(propertyId);
 
@@ -806,18 +803,23 @@ const BookingModal: React.FC<{
 
         const dates: Date[] = [];
 
-        // Process booking dates from the API response
+        // Process booking dates from the store
         if (bookingDates && bookingDates.length > 0) {
           bookingDates.forEach((bookingDate) => {
             console.log("📋 Processing booking date:", bookingDate);
 
-            // Handle booking_start_date and booking_end_date
             if (
               bookingDate.booking_start_date &&
               bookingDate.booking_end_date
             ) {
               const start = new Date(bookingDate.booking_start_date);
               const end = new Date(bookingDate.booking_end_date);
+
+              // Validate dates
+              if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                console.warn("Invalid date found:", bookingDate);
+                return;
+              }
 
               // Reset time to avoid timezone issues
               start.setHours(0, 0, 0, 0);
@@ -827,6 +829,7 @@ const BookingModal: React.FC<{
                 `📅 Date range: ${start.toDateString()} to ${end.toDateString()}`,
               );
 
+              // Add all dates in the range to booked dates
               const currentDate = new Date(start);
               while (currentDate <= end) {
                 const dateToAdd = new Date(currentDate);
@@ -853,6 +856,8 @@ const BookingModal: React.FC<{
           "✅ Final booked dates:",
           uniqueDates.map((d) => d.toDateString()),
         );
+        console.log("✅ Total booked dates:", uniqueDates.length);
+
         setBookedDates(uniqueDates);
       } catch (error) {
         console.error("❌ Failed to fetch booked dates:", error);
@@ -869,25 +874,37 @@ const BookingModal: React.FC<{
       }
     };
 
-    if (property && isOpen) {
+    if (property && isOpen && property.id) {
       fetchBookedDates(property.id);
     }
   }, [property, isOpen, fetchBookingDates, bookingDates]);
 
-  // Improved date comparison function
+  // Add this useEffect to clear booking dates when property changes
+  useEffect(() => {
+    if (property && isOpen) {
+      // Clear previous booking dates when property changes
+      setBookedDates([]);
+    }
+  }, [property?.id, isOpen]);
+
+  // Also update the isDateBooked function to be more robust:
   const isDateBooked = (date: Date) => {
+    if (!date || bookedDates.length === 0) return false;
+
     const dateToCheck = new Date(date);
     dateToCheck.setHours(0, 0, 0, 0);
 
     const isBooked = bookedDates.some((bookedDate) => {
+      if (!bookedDate) return false;
+
       const normalizedBookedDate = new Date(bookedDate);
       normalizedBookedDate.setHours(0, 0, 0, 0);
+
       return normalizedBookedDate.getTime() === dateToCheck.getTime();
     });
 
     return isBooked;
   };
-
   const isDateSelected = (date: Date) => {
     const dateToCheck = new Date(date);
     dateToCheck.setHours(0, 0, 0, 0);
@@ -991,6 +1008,28 @@ const BookingModal: React.FC<{
     });
   };
 
+  // NEW: Convert date clusters to start and end date arrays for backend
+  const convertClustersToDateArrays = (
+    clusters: Date[][],
+  ): { startDates: string[]; endDates: string[] } => {
+    const startDates: string[] = [];
+    const endDates: string[] = [];
+
+    clusters.forEach((cluster) => {
+      if (cluster.length > 0) {
+        // Start date is the first date in the cluster
+        startDates.push(cluster[0].toISOString().split("T")[0]);
+
+        // End date is the last date in the cluster (check-out is day after last night)
+        const endDate = new Date(cluster[cluster.length - 1]);
+        endDate.setDate(endDate.getDate() + 1); // Add one day for check-out
+        endDates.push(endDate.toISOString().split("T")[0]);
+      }
+    });
+
+    return { startDates, endDates };
+  };
+
   const renderDayContents = (day: number, date: Date) => {
     const normalizedDate = new Date(date);
     normalizedDate.setHours(0, 0, 0, 0);
@@ -1047,7 +1086,6 @@ const BookingModal: React.FC<{
     );
   };
 
-  // Rest of the component remains the same...
   const validateForm = () => {
     const requiredFields = [
       { field: bookingData.name, message: "Full name is required" },
@@ -1151,18 +1189,39 @@ const BookingModal: React.FC<{
       const dateClusters = getDateClusters(selectedDates);
       const totalNights = calculateTotalNights(dateClusters);
       const totalAmount = property.price * totalNights;
+
+      console.log("💰 Amount Verification:");
+      console.log("Property Price:", property.price);
+      console.log("Total Nights:", totalNights);
+      console.log("Calculated Total:", totalAmount);
+      console.log(
+        "Individual Bookings Total:",
+        dateClusters.reduce(
+          (sum, cluster) => sum + property.price * cluster.length,
+          0,
+        ),
+      );
+
+      // Convert clusters to start and end date arrays for backend
+      const { startDates, endDates } =
+        convertClustersToDateArrays(dateClusters);
+
+      console.log("📅 Date clusters for backend:", {
+        startDates,
+        endDates,
+        clusters: dateClusters.map((cluster) =>
+          cluster.map((d) => d.toISOString().split("T")[0]),
+        ),
+      });
+
       const paymentData = {
         email: bookingData.email,
         channels: ["card", "bank"],
         currency: "NGN",
         agentId: finalAgentId,
         apartmentId: property.id,
-        startDate: selectedDates[0].toISOString().split("T")[0],
-        endDate: new Date(
-          selectedDates[selectedDates.length - 1].getTime() + 86400000,
-        )
-          .toISOString()
-          .split("T")[0],
+        startDates: startDates, // CHANGED: Now an array
+        endDates: endDates, // CHANGED: Now an array
         phoneNumber: bookingData.phone,
         nextofKinName: bookingData.name_of_nxt_of_kin,
         nextofKinNumber: bookingData.number_of_nxt_of_kin,
@@ -1176,13 +1235,14 @@ const BookingModal: React.FC<{
         autoClose: 3000,
       });
 
+      // UPDATED: Call initiatePayment with arrays for startDates and endDates
       const paymentResult = await initiatePayment(
         paymentData.email,
         paymentData.channels,
         paymentData.currency,
         paymentData.apartmentId,
-        paymentData.startDate,
-        paymentData.endDate,
+        paymentData.startDates, // Now an array
+        paymentData.endDates, // Now an array
         paymentData.phoneNumber,
         paymentData.nextofKinName,
         paymentData.nextofKinNumber,
@@ -1209,19 +1269,19 @@ const BookingModal: React.FC<{
           paymentReference: paymentResult.data.reference,
           agentId: finalAgentId,
           authorizationUrl:
-            paymentResult.data.authorization_url ||
-            paymentResult.data.paymentUrl,
+            paymentResult.data.paymentUrl ||
+            paymentResult.data.authorizationUrl,
         };
 
-        console.log("💾 Storing booking info:", bookingInfo);
+        console.log("💾 Stored booking info:", bookingInfo);
         sessionStorage.setItem("pendingBooking", JSON.stringify(bookingInfo));
         onSubmit(bookingInfo);
 
         setTimeout(() => {
-          if (paymentResult.data.authorization_url) {
-            window.location.href = paymentResult.data.authorization_url;
-          } else if (paymentResult.data.paymentUrl) {
+          if (paymentResult.data.paymentUrl) {
             window.location.href = paymentResult.data.paymentUrl;
+          } else if (paymentResult.data.authorizationUrl) {
+            window.location.href = paymentResult.data.authorizationUrl;
           } else {
             console.error("No payment URL received");
             toast.error("Payment URL not received. Please try again.");
@@ -1265,6 +1325,7 @@ const BookingModal: React.FC<{
 
   const dateClusters = getDateClusters(selectedDates);
   const totalNights = calculateTotalNights(dateClusters);
+  const totalAmount = property.price * totalNights;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1531,6 +1592,28 @@ const BookingModal: React.FC<{
                           }).format(property.price)}
                         </span>
                       </div>
+
+                      {/* Show individual booking totals when multiple clusters */}
+                      {dateClusters.length > 1 && (
+                        <div className="flex justify-between items-center mb-2 text-sm">
+                          <span className="text-gray-600">
+                            Individual bookings:
+                          </span>
+                          <span className="text-gray-900 text-right">
+                            {dateClusters.map((cluster, index) => (
+                              <div key={index} className="text-right">
+                                Booking {index + 1}:{" "}
+                                {new Intl.NumberFormat("en-NG", {
+                                  style: "currency",
+                                  currency: "NGN",
+                                  minimumFractionDigits: 0,
+                                }).format(property.price * cluster.length)}
+                              </div>
+                            ))}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex justify-between items-center font-semibold text-lg">
                         <span>Total Amount:</span>
                         <span className="text-green-600">
@@ -1538,7 +1621,7 @@ const BookingModal: React.FC<{
                             style: "currency",
                             currency: "NGN",
                             minimumFractionDigits: 0,
-                          }).format(property.price * totalNights)}
+                          }).format(totalAmount)}
                         </span>
                       </div>
                     </div>
@@ -1580,6 +1663,7 @@ const BookingModal: React.FC<{
     </div>
   );
 };
+
 const AgentPropertiesGallery: React.FC = () => {
   const { personalUrl } = useParams<{ personalUrl: string }>();
   const { fetchPropertiesBySlug, isLoading, error, clearError } =
@@ -1882,13 +1966,25 @@ const AgentPropertiesGallery: React.FC = () => {
   const handleBookingSubmit = async (bookingData: any) => {
     try {
       console.log("✅ Booking submitted successfully:", bookingData);
-      toast.success(
-        "Booking initiated successfully! Redirecting to payment...",
-        {
-          position: "top-right",
-          autoClose: 3000,
-        },
-      );
+
+      // Check if we have multiple booking periods
+      if (bookingData.dateClusters && bookingData.dateClusters.length > 1) {
+        toast.success(
+          `Booking initiated successfully! You have ${bookingData.dateClusters.length} separate booking periods. Redirecting to payment...`,
+          {
+            position: "top-right",
+            autoClose: 4000,
+          },
+        );
+      } else {
+        toast.success(
+          "Booking initiated successfully! Redirecting to payment...",
+          {
+            position: "top-right",
+            autoClose: 3000,
+          },
+        );
+      }
     } catch (error) {
       console.error("Failed to process booking:", error);
       toast.error("Failed to process booking. Please try again.", {
