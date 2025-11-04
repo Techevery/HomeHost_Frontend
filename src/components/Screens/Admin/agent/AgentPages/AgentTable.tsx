@@ -25,7 +25,7 @@ import {
   Button,
   Grid,
   Divider,
-  Avatar
+  Avatar,
 } from "@mui/material";
 import {
   Visibility,
@@ -42,10 +42,10 @@ import {
   Fingerprint,
   Payment,
   VerifiedUser,
-  PersonPin
+  PersonPin,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import useAdminStore from '../../../../../stores/admin';
+import useAdminStore from "../../../../../stores/admin";
 
 interface AgentData {
   id: string;
@@ -76,28 +76,28 @@ const AgentTable: React.FC = () => {
   const [verificationDialog, setVerificationDialog] = useState<{
     open: boolean;
     agentId: string;
-    field: 'front_id_status' | 'back_id_status';
+    field: "front_id_status" | "back_id_status";
     currentStatus: boolean;
     agentName: string;
     documentType: string;
   } | null>(null);
-  
+
   // New state for agent detail modal
   const [agentDetailModal, setAgentDetailModal] = useState<{
     open: boolean;
     agent: AgentData | null;
   }>({
     open: false,
-    agent: null
+    agent: null,
   });
-  
+
   const navigate = useNavigate();
-  const { 
-    token, 
-    isLoading: storeLoading, 
-    listAgents, 
+  const {
+    token,
+    isLoading: storeLoading,
+    listAgents,
     verifyAgent,
-    clearError 
+    clearError,
   } = useAdminStore();
 
   useEffect(() => {
@@ -111,16 +111,16 @@ const AgentTable: React.FC = () => {
       try {
         setLoading(true);
         const result = await listAgents(currentPage, itemsPerPage);
-        
+
         console.log("API Response:", result); // Debug log
-        
+
         // Handle the actual API response structure
         const agentsData = result?.data?.agents || [];
         const pagination = result?.data?.pagination || {};
-        
+
         console.log("Agents data:", agentsData); // Debug log
         console.log("Pagination data:", pagination); // Debug log
-        
+
         setData(Array.isArray(agentsData) ? agentsData : []);
         setTotalAgents(pagination.totalAgents || 0);
         setTotalPages(pagination.totalPages || 1);
@@ -139,11 +139,11 @@ const AgentTable: React.FC = () => {
   }, [token, currentPage, itemsPerPage, listAgents]);
 
   const handleViewProfile = (agent: AgentData) => {
-    navigate(`/admin/agents/${agent.id}`, { 
-      state: { 
+    navigate(`/admin/agents/${agent.id}`, {
+      state: {
         agent,
-        from: 'agent-table'
-      } 
+        from: "agent-table",
+      },
     });
   };
 
@@ -151,7 +151,7 @@ const AgentTable: React.FC = () => {
   const openAgentDetailModal = (agent: AgentData) => {
     setAgentDetailModal({
       open: true,
-      agent
+      agent,
     });
   };
 
@@ -159,16 +159,16 @@ const AgentTable: React.FC = () => {
   const closeAgentDetailModal = () => {
     setAgentDetailModal({
       open: false,
-      agent: null
+      agent: null,
     });
   };
 
   const openVerificationDialog = (
     agentId: string,
-    field: 'front_id_status' | 'back_id_status',
+    field: "front_id_status" | "back_id_status",
     currentStatus: boolean,
     agentName: string,
-    documentType: string
+    documentType: string,
   ) => {
     setVerificationDialog({
       open: true,
@@ -176,7 +176,7 @@ const AgentTable: React.FC = () => {
       field,
       currentStatus,
       agentName,
-      documentType
+      documentType,
     });
   };
 
@@ -187,21 +187,20 @@ const AgentTable: React.FC = () => {
   const handleStatusChange = async () => {
     if (!verificationDialog) return;
 
-    const { agentId, field, currentStatus, agentName, documentType } = verificationDialog;
-    
+    const { agentId, field, currentStatus, agentName, documentType } =
+      verificationDialog;
+
     try {
       // The verifyAgent method expects "VERIFIED" or "UNVERIFIED" status
       const newStatus = !currentStatus ? "VERIFIED" : "UNVERIFIED";
-      
+
       await verifyAgent(agentId, newStatus);
 
       // Update local state to reflect the change
-      setData(prevData => 
-        prevData.map(agent => 
-          agent.id === agentId 
-            ? { ...agent, [field]: !currentStatus }
-            : agent
-        )
+      setData((prevData) =>
+        prevData.map((agent) =>
+          agent.id === agentId ? { ...agent, [field]: !currentStatus } : agent,
+        ),
       );
 
       closeVerificationDialog();
@@ -211,46 +210,55 @@ const AgentTable: React.FC = () => {
     }
   };
 
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+  const handlePageChange = (
+    event: React.ChangeEvent<unknown>,
+    value: number,
+  ) => {
     setCurrentPage(value);
   };
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'active': 
-      case 'verified': 
-        return 'success';
-      case 'pending': 
-        return 'warning';
-      case 'suspended': 
-      case 'rejected': 
-      case 'unverified': 
-        return 'error';
-      default: 
-        return 'default';
+      case "active":
+      case "verified":
+        return "success";
+      case "pending":
+        return "warning";
+      case "suspended":
+      case "rejected":
+      case "unverified":
+        return "error";
+      default:
+        return "default";
     }
   };
 
-  const getVerificationStatus = (frontStatus?: boolean, backStatus?: boolean) => {
-    if (frontStatus && backStatus) return 'Verified';
-    if (frontStatus || backStatus) return 'Partial';
-    return 'Not Verified';
+  const getVerificationStatus = (
+    frontStatus?: boolean,
+    backStatus?: boolean,
+  ) => {
+    if (frontStatus && backStatus) return "Verified";
+    if (frontStatus || backStatus) return "Partial";
+    return "Not Verified";
   };
 
-  const getVerificationColor = (frontStatus?: boolean, backStatus?: boolean) => {
-    if (frontStatus && backStatus) return 'success';
-    if (frontStatus || backStatus) return 'warning';
-    return 'error';
+  const getVerificationColor = (
+    frontStatus?: boolean,
+    backStatus?: boolean,
+  ) => {
+    if (frontStatus && backStatus) return "success";
+    if (frontStatus || backStatus) return "warning";
+    return "error";
   };
 
   const defaultMaterialTheme = createTheme({
     palette: {
       mode: "light",
       primary: {
-        main: '#1976d2',
+        main: "#1976d2",
       },
       secondary: {
-        main: '#dc004e',
+        main: "#dc004e",
       },
     },
     typography: {
@@ -260,7 +268,11 @@ const AgentTable: React.FC = () => {
 
   if (loading || storeLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="400px">
         <CircularProgress />
       </Box>
     );
@@ -270,9 +282,12 @@ const AgentTable: React.FC = () => {
     <ThemeProvider theme={defaultMaterialTheme}>
       <div className="p-6">
         {/* Header */}
-        <Card sx={{ mb: 3, backgroundColor: 'primary.main', color: 'white' }}>
+        <Card sx={{ mb: 3, backgroundColor: "primary.main", color: "white" }}>
           <CardContent>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box
+              display="flex"
+              justifyContent="space-between"
+              alignItems="center">
               <Typography variant="h4" component="h1" fontWeight="bold">
                 Agent Management
               </Typography>
@@ -292,14 +307,13 @@ const AgentTable: React.FC = () => {
         </Card>
 
         {error && (
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             sx={{ mb: 3 }}
             onClose={() => {
               setError(null);
               clearError();
-            }}
-          >
+            }}>
             {error}
           </Alert>
         )}
@@ -309,47 +323,62 @@ const AgentTable: React.FC = () => {
           <CardContent sx={{ p: 0 }}>
             <TableContainer>
               <Table sx={{ minWidth: 1200 }}>
-                <TableHead sx={{ backgroundColor: 'grey.50' }}>
+                <TableHead sx={{ backgroundColor: "grey.50" }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold', py: 3 }}>Agent Information</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', py: 3 }}>Contact Details</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', py: 3 }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', py: 3 }}>Registration</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', py: 3 }}>Actions</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", py: 3 }}>
+                      Agent Information
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: "bold", py: 3 }}>
+                      Contact Details
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: "bold", py: 3 }}>
+                      Status
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: "bold", py: 3 }}>
+                      Registration
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: "bold", py: 3 }}>
+                      Actions
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {data.map((agent) => (
-                    <TableRow 
+                    <TableRow
                       key={agent.id}
-                      sx={{ 
-                        '&:hover': { 
-                          backgroundColor: 'grey.50',
+                      sx={{
+                        "&:hover": {
+                          backgroundColor: "grey.50",
                         },
-                        transition: 'background-color 0.2s'
-                      }}
-                    >
+                        transition: "background-color 0.2s",
+                      }}>
                       {/* Agent Information */}
                       <TableCell sx={{ py: 2 }}>
-                        <Box 
-                          display="flex" 
-                          alignItems="center" 
+                        <Box
+                          display="flex"
+                          alignItems="center"
                           gap={2}
-                          sx={{ cursor: 'pointer' }}
-                          onClick={() => handleViewProfile(agent)}
-                        >
+                          sx={{ cursor: "pointer" }}
+                          onClick={() => handleViewProfile(agent)}>
                           <Person color="primary" sx={{ fontSize: 32 }} />
                           <Box>
                             <Typography variant="body1" fontWeight="bold">
-                              {agent.name || 'Unnamed Agent'}
+                              {agent.name || "Unnamed Agent"}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               ID: {agent.id}
                             </Typography>
-                            <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                            <Box
+                              display="flex"
+                              alignItems="center"
+                              gap={1}
+                              mt={0.5}>
                               <LinkIcon fontSize="small" color="action" />
-                              <Typography variant="caption" color="text.secondary">
-                                {agent.slug || 'No URL'}
+                              <Typography
+                                variant="caption"
+                                color="text.secondary">
+                                https://homeyhost.ng/shortlet/
+                                {agent.slug || "No URL"}
                               </Typography>
                             </Box>
                           </Box>
@@ -361,28 +390,26 @@ const AgentTable: React.FC = () => {
                         <Box display="flex" flexDirection="column" gap={1}>
                           <Box display="flex" alignItems="center" gap={1}>
                             <Email fontSize="small" color="primary" />
-                            <Typography 
-                              variant="body2" 
-                              sx={{ 
-                                cursor: 'pointer',
-                                '&:hover': { textDecoration: 'underline' }
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                cursor: "pointer",
+                                "&:hover": { textDecoration: "underline" },
                               }}
-                              onClick={() => handleViewProfile(agent)}
-                            >
+                              onClick={() => handleViewProfile(agent)}>
                               {agent.email}
                             </Typography>
                           </Box>
                           <Box display="flex" alignItems="center" gap={1}>
                             <Phone fontSize="small" color="primary" />
-                            <Typography 
+                            <Typography
                               variant="body2"
-                              sx={{ 
-                                cursor: 'pointer',
-                                '&:hover': { textDecoration: 'underline' }
+                              sx={{
+                                cursor: "pointer",
+                                "&:hover": { textDecoration: "underline" },
                               }}
-                              onClick={() => handleViewProfile(agent)}
-                            >
-                              {agent.phone_number || 'N/A'}
+                              onClick={() => handleViewProfile(agent)}>
+                              {agent.phone_number || "N/A"}
                             </Typography>
                           </Box>
                         </Box>
@@ -390,8 +417,8 @@ const AgentTable: React.FC = () => {
 
                       {/* Status */}
                       <TableCell sx={{ py: 2 }}>
-                        <Chip 
-                          label={agent.status || 'Unknown'} 
+                        <Chip
+                          label={agent.status || "Unknown"}
                           color={getStatusColor(agent.status) as any}
                           size="medium"
                           variant="filled"
@@ -399,17 +426,18 @@ const AgentTable: React.FC = () => {
                       </TableCell>
 
                       {/* Registration Date */}
-                      <TableCell 
-                        sx={{ py: 2, cursor: 'pointer' }}
-                        onClick={() => handleViewProfile(agent)}
-                      >
+                      <TableCell
+                        sx={{ py: 2, cursor: "pointer" }}
+                        onClick={() => handleViewProfile(agent)}>
                         <Box display="flex" alignItems="center" gap={1}>
                           <CalendarToday fontSize="small" color="primary" />
                           <Box>
                             <Typography variant="body2" fontWeight="medium">
                               {new Date(agent.createdAt).toLocaleDateString()}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary">
                               {new Date(agent.createdAt).toLocaleTimeString()}
                             </Typography>
                           </Box>
@@ -419,22 +447,20 @@ const AgentTable: React.FC = () => {
                       {/* Actions */}
                       <TableCell sx={{ py: 2 }}>
                         <Tooltip title="View Agent Details">
-                          <IconButton 
+                          <IconButton
                             color="primary"
                             onClick={() => openAgentDetailModal(agent)}
                             sx={{
-                              backgroundColor: 'primary.light',
-                              color: 'white',
-                              '&:hover': {
-                                backgroundColor: 'primary.main',
+                              backgroundColor: "primary.light",
+                              color: "white",
+                              "&:hover": {
+                                backgroundColor: "primary.main",
                               },
-                              mr: 1
-                            }}
-                          >
+                              mr: 1,
+                            }}>
                             <Visibility />
                           </IconButton>
                         </Tooltip>
-                     
                       </TableCell>
                     </TableRow>
                   ))}
@@ -444,7 +470,11 @@ const AgentTable: React.FC = () => {
 
             {/* Empty State */}
             {data.length === 0 && !loading && (
-              <Box display="flex" justifyContent="center" alignItems="center" py={8}>
+              <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                py={8}>
                 <Typography variant="h6" color="text.secondary">
                   No agents found
                 </Typography>
@@ -473,8 +503,7 @@ const AgentTable: React.FC = () => {
           open={agentDetailModal.open}
           onClose={closeAgentDetailModal}
           maxWidth="md"
-          fullWidth
-        >
+          fullWidth>
           <DialogTitle>
             <Box display="flex" alignItems="center" gap={2}>
               <AccountCircle color="primary" />
@@ -489,12 +518,13 @@ const AgentTable: React.FC = () => {
                 {/* Profile Section */}
                 <Grid item xs={12}>
                   <Box display="flex" alignItems="center" gap={2} mb={2}>
-                    <Avatar sx={{ width: 60, height: 60, bgcolor: 'primary.main' }}>
+                    <Avatar
+                      sx={{ width: 60, height: 60, bgcolor: "primary.main" }}>
                       <Person sx={{ fontSize: 32 }} />
                     </Avatar>
                     <Box>
                       <Typography variant="h5" fontWeight="bold">
-                        {agentDetailModal.agent.name || 'Unnamed Agent'}
+                        {agentDetailModal.agent.name || "Unnamed Agent"}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         Agent ID: {agentDetailModal.agent.id}
@@ -506,28 +536,40 @@ const AgentTable: React.FC = () => {
 
                 {/* Basic Information */}
                 <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  <Typography
+                    variant="subtitle1"
+                    fontWeight="bold"
+                    gutterBottom>
                     <Fingerprint sx={{ fontSize: 18, mr: 1 }} />
                     Basic Information
                   </Typography>
                   <Box display="flex" flexDirection="column" gap={1}>
-                    <Box display="flex" justifyContent="space-between">
-                      <Typography variant="body2" color="text.secondary">Account:</Typography>
+                    {/* <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">
+                        Account:
+                      </Typography>
                       <Typography variant="body2" fontWeight="medium">
-                        {agentDetailModal.agent.account || 'N/A'}
+                        {agentDetailModal.agent.account || "N/A"}
+                      </Typography>
+                    </Box> */}
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">
+                        Slug/URL:
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        https://homeyhost.ng/shortlet/
+                        {agentDetailModal.agent.slug || "N/A"}
                       </Typography>
                     </Box>
                     <Box display="flex" justifyContent="space-between">
-                      <Typography variant="body2" color="text.secondary">Slug/URL:</Typography>
-                      <Typography variant="body2" fontWeight="medium">
-                        {agentDetailModal.agent.slug || 'N/A'}
+                      <Typography variant="body2" color="text.secondary">
+                        Status:
                       </Typography>
-                    </Box>
-                    <Box display="flex" justifyContent="space-between">
-                      <Typography variant="body2" color="text.secondary">Status:</Typography>
-                      <Chip 
-                        label={agentDetailModal.agent.status || 'Unknown'} 
-                        color={getStatusColor(agentDetailModal.agent.status) as any}
+                      <Chip
+                        label={agentDetailModal.agent.status || "Unknown"}
+                        color={
+                          getStatusColor(agentDetailModal.agent.status) as any
+                        }
                         size="small"
                       />
                     </Box>
@@ -536,21 +578,28 @@ const AgentTable: React.FC = () => {
 
                 {/* Contact Information */}
                 <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  <Typography
+                    variant="subtitle1"
+                    fontWeight="bold"
+                    gutterBottom>
                     <Email sx={{ fontSize: 18, mr: 1 }} />
                     Contact Information
                   </Typography>
                   <Box display="flex" flexDirection="column" gap={1}>
                     <Box display="flex" justifyContent="space-between">
-                      <Typography variant="body2" color="text.secondary">Email:</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Email:
+                      </Typography>
                       <Typography variant="body2" fontWeight="medium">
                         {agentDetailModal.agent.email}
                       </Typography>
                     </Box>
                     <Box display="flex" justifyContent="space-between">
-                      <Typography variant="body2" color="text.secondary">Phone:</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Phone:
+                      </Typography>
                       <Typography variant="body2" fontWeight="medium">
-                        {agentDetailModal.agent.phone_number || 'N/A'}
+                        {agentDetailModal.agent.phone_number || "N/A"}
                       </Typography>
                     </Box>
                   </Box>
@@ -650,14 +699,16 @@ const AgentTable: React.FC = () => {
           open={!!verificationDialog}
           onClose={closeVerificationDialog}
           maxWidth="sm"
-          fullWidth
-        >
+          fullWidth>
           <DialogTitle>
-            {verificationDialog?.currentStatus ? 'Revoke Verification' : 'Approve Verification'}
+            {verificationDialog?.currentStatus
+              ? "Revoke Verification"
+              : "Approve Verification"}
           </DialogTitle>
           <DialogContent>
             <Typography>
-              Are you sure you want to {verificationDialog?.currentStatus ? 'revoke' : 'approve'} the{" "}
+              Are you sure you want to{" "}
+              {verificationDialog?.currentStatus ? "revoke" : "approve"} the{" "}
               {verificationDialog?.documentType?.toLowerCase()} for agent{" "}
               <strong>{verificationDialog?.agentName}</strong>?
             </Typography>
@@ -666,12 +717,11 @@ const AgentTable: React.FC = () => {
             <Button onClick={closeVerificationDialog} color="inherit">
               Cancel
             </Button>
-            <Button 
-              onClick={handleStatusChange} 
+            <Button
+              onClick={handleStatusChange}
               color={verificationDialog?.currentStatus ? "warning" : "success"}
-              variant="contained"
-            >
-              {verificationDialog?.currentStatus ? 'Revoke' : 'Approve'}
+              variant="contained">
+              {verificationDialog?.currentStatus ? "Revoke" : "Approve"}
             </Button>
           </DialogActions>
         </Dialog>
