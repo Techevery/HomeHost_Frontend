@@ -684,13 +684,6 @@ const AgentTable: React.FC = () => {
             <Button onClick={closeAgentDetailModal} color="inherit">
               Close
             </Button>
-            {/* <Button 
-              onClick={() => agentDetailModal.agent && handleViewProfile(agentDetailModal.agent)} 
-              color="primary"
-              variant="contained"
-            >
-              View Full Profile
-            </Button> */}
           </DialogActions>
         </Dialog>
 

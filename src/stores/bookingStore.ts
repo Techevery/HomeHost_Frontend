@@ -24,7 +24,6 @@ interface Transaction {
   payment_year?: number;
   metadata?: any;
 }
-
 interface Apartment {
   id: string;
   name: string;
@@ -78,7 +77,6 @@ interface Booking {
   email?: string;
   phone_number?: string;
 }
-
 interface Receipt {
   id: string;
   booking_id: string;
@@ -253,43 +251,102 @@ const useBookingStore = create<BookingState & BookingActions>()(
             },
           );
 
-          const bookingsData = response.data.data || response.data || [];
+          console.log("🔍 RAW API RESPONSE:", response);
+          console.log("🔍 Response data:", response.data);
+          console.log("🔍 Response data type:", typeof response.data);
+          console.log("🔍 Is array?", Array.isArray(response.data));
+
+          // Handle different response structures safely
+          let bookingsData = [];
+
+          if (Array.isArray(response.data)) {
+            bookingsData = response.data;
+          } else if (response.data && Array.isArray(response.data.data)) {
+            bookingsData = response.data.data;
+          } else if (response.data && Array.isArray(response.data.bookings)) {
+            bookingsData = response.data.bookings;
+          } else if (
+            response.data &&
+            response.data.data &&
+            typeof response.data.data === "object"
+          ) {
+            // Handle case where data is a single object
+            bookingsData = [response.data.data];
+          } else if (response.data && typeof response.data === "object") {
+            // If it's a single booking object, wrap it in array
+            bookingsData = [response.data];
+          } else {
+            console.warn(
+              "⚠️ Unexpected API response structure, using empty array",
+            );
+            bookingsData = [];
+          }
+
+          console.log("📊 Final bookingsData to process:", bookingsData);
 
           const processedBookings = bookingsData.map((booking: any) => ({
-            id: booking.id,
-            apartment_id: booking.apartment_id,
-            availability: booking.availability,
-            status: booking.status,
-            created_at: booking.created_at,
-            transaction_id: booking.transaction_id,
+            id: booking.id || `temp-${Math.random()}`,
+            apartment_id: booking.apartment_id || "",
+            availability: booking.availability || false,
+            status: booking.status || "pending",
+            created_at: booking.created_at || new Date().toISOString(),
+            transaction_id: booking.transaction_id || "",
+            booking_period_id: booking.booking_period_id || "",
+            guest_name: booking.guest_name || "",
+            guest_phone: booking.guest_phone || "",
+            guest_email: booking.guest_email || "",
+            duration_days: booking.duration_days || 0,
+            booking_start_date: booking.booking_start_date || "",
+            booking_end_date: booking.booking_end_date || "",
+            amount: booking.amount || "",
             transaction: booking.transaction
               ? {
-                  reference: booking.transaction.reference,
+                  id: booking.transaction.id,
+                  reference: booking.transaction.reference || "",
+                  status: booking.transaction.status || "",
+                  amount: booking.transaction.amount || 0,
+                  email: booking.transaction.email || "",
+                  phone_number: booking.transaction.phone_number || "",
+                  booking_start_date:
+                    booking.transaction.booking_start_date || "",
+                  booking_end_date: booking.transaction.booking_end_date || "",
+                  duration_days: booking.transaction.duration_days || 0,
                 }
               : undefined,
             apartment: booking.apartment
               ? {
-                  name: booking.apartment.name,
-                  address: booking.apartment.address,
-                  type: booking.apartment.type,
-                  servicing: booking.apartment.servicing,
+                  id: booking.apartment.id || "",
+                  name: booking.apartment.name || "Unknown Apartment",
+                  address: booking.apartment.address || "",
+                  type: booking.apartment.type || "",
+                  servicing: booking.apartment.servicing || "",
+                  agent: booking.apartment.agent || "",
                 }
-              : undefined,
+              : {
+                  id: "",
+                  name: "Unknown Apartment",
+                  address: "",
+                  type: "",
+                  servicing: "",
+                  agent: "",
+                },
             booking_period: booking.booking_period
               ? {
-                  start_date: booking.booking_period.start_date,
-                  end_date: booking.booking_period.end_date,
-                  duration_days: booking.booking_period.duration_days,
+                  start_date: booking.booking_period.start_date || "",
+                  end_date: booking.booking_period.end_date || "",
+                  duration_days: booking.booking_period.duration_days || 0,
                 }
               : undefined,
           }));
 
+          console.log("✅ Final processed bookings:", processedBookings);
           set({ bookings: processedBookings });
         } catch (error: any) {
           console.error("❌ Failed to fetch admin bookings:", error);
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||
+            error.message ||
             "Failed to fetch bookings";
           set({
             error: errorMessage,
@@ -508,35 +565,53 @@ const useBookingStore = create<BookingState & BookingActions>()(
 
           const managedBookingsData = response.data.data || response.data || [];
 
-          const processedBookings = managedBookingsData.map((booking: any) => ({
-            id: booking.id,
-            apartment_id: booking.apartment_id,
-            availability: booking.availability,
-            status: booking.status,
-            created_at: booking.created_at,
-            transaction_id: booking.transaction_id,
-            apartment: booking.apartment
-              ? {
-                  id: booking.apartment.id,
-                  name: booking.apartment.name,
-                  address: booking.apartment.address,
-                  price: booking.apartment.price,
-                }
-              : undefined,
-            transaction: booking.transaction
-              ? {
-                  id: booking.transaction.id,
-                  email: booking.transaction.email,
-                  phone_number: booking.transaction.phone_number,
-                  status: booking.transaction.status,
-                  amount: booking.transaction.amount,
-                  booking_start_date: booking.transaction.booking_start_date,
-                  booking_end_date: booking.transaction.booking_end_date,
-                  duration_days: booking.transaction.duration_days,
-                }
-              : undefined,
-          }));
+          const processedBookings = managedBookingsData.map((booking: any) => {
+            const bookingStartDate =
+              booking.transaction?.booking_start_date ||
+              booking.booking_start_date;
+            const bookingEndDate =
+              booking.transaction?.booking_end_date || booking.booking_end_date;
+            const durationDays =
+              booking.transaction?.duration_days || booking.duration_days;
 
+            return {
+              id: booking.id,
+              apartment_id: booking.apartment_id,
+              availability: booking.availability,
+              status: booking.status,
+              created_at: booking.created_at,
+              transaction_id: booking.transaction_id,
+              booking_period_id: booking.booking_period_id,
+              booking_start_date: bookingStartDate,
+              booking_end_date: bookingEndDate,
+              duration_days: durationDays,
+              amount: booking.transaction?.amount?.toString(),
+
+              apartment: booking.apartment
+                ? {
+                    id: booking.apartment.id,
+                    name: booking.apartment.name,
+                    address: booking.apartment.address,
+                    price: booking.apartment.price,
+                  }
+                : undefined,
+              transaction: booking.transaction
+                ? {
+                    id: booking.transaction.id,
+                    email: booking.transaction.email,
+                    phone_number: booking.transaction.phone_number,
+                    status: booking.transaction.status,
+                    amount: booking.transaction.amount,
+                    booking_start_date: booking.transaction.booking_start_date,
+                    booking_end_date: booking.transaction.booking_end_date,
+                    duration_days: booking.transaction.duration_days,
+                    reference: booking.transaction.reference,
+                  }
+                : undefined,
+            };
+          });
+
+          console.log("✅ Processed bookings:", processedBookings);
           set({ managedBookings: processedBookings });
 
           if (processedBookings.length > 0) {
@@ -558,7 +633,6 @@ const useBookingStore = create<BookingState & BookingActions>()(
           set({ loading: false });
         }
       },
-
       setSelectedDates: (dates: Date[]) => {
         set({ selectedDates: dates });
       },

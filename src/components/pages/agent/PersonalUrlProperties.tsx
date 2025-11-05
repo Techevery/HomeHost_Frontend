@@ -438,6 +438,7 @@ const PropertyDetailView: React.FC<{
 };
 
 // Manage Booking Modal Component
+// Manage Booking Modal Component
 const ManageBookingModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -445,6 +446,10 @@ const ManageBookingModal: React.FC<{
   const navigate = useNavigate();
   const { manageBooking, managedBookings, loading, error } = useBookingStore();
   const [searchPerformed, setSearchPerformed] = useState(false);
+
+  // NEW: State for booking details modal
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   // Initial form data
   const initialData = {
@@ -486,13 +491,6 @@ const ManageBookingModal: React.FC<{
       // Use the manageBooking function from the booking store
       await manageBooking(values.email, values.phone);
       setSearchPerformed(true);
-
-      // if (managedBookings.length === 0) {
-      //   toast.info("No bookings found with the provided information.", {
-      //     position: "top-right",
-      //     autoClose: 4000,
-      //   });
-      // }
     } catch (error) {
       console.error("Failed to search bookings:", error);
       toast.error("Failed to search bookings. Please try again.", {
@@ -524,6 +522,7 @@ const ManageBookingModal: React.FC<{
       pending: { class: "bg-yellow-100 text-yellow-800", text: "Pending" },
       cancelled: { class: "bg-red-100 text-red-800", text: "Cancelled" },
       completed: { class: "bg-blue-100 text-blue-800", text: "Completed" },
+      booked: { class: "bg-purple-100 text-purple-800", text: "Booked" },
     };
 
     const config = statusConfig[status.toLowerCase()] || {
@@ -537,9 +536,79 @@ const ManageBookingModal: React.FC<{
     );
   };
 
-  const handleViewBookingDetails = (bookingId: string) => {
-    navigate(`/view-booking/${bookingId}`);
-    onClose();
+  // NEW: Handle view booking details in modal
+  const handleViewBookingDetails = (booking: any) => {
+    setSelectedBooking(booking);
+    setIsDetailsModalOpen(true);
+  };
+
+  // NEW: Handle download booking details
+  const handleDownloadBooking = (booking: any) => {
+    const content = generateDownloadContent(booking);
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `booking-details-${booking.id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast.success("Booking details downloaded successfully!", {
+      position: "top-right",
+      autoClose: 3000,
+    });
+  };
+
+  // NEW: Generate downloadable content
+  const generateDownloadContent = (booking: any) => {
+    // Use transaction dates if booking dates are not available
+    const checkInDate =
+      booking.booking_start_date || booking.transaction?.booking_start_date;
+    const checkOutDate =
+      booking.booking_end_date || booking.transaction?.booking_end_date;
+    const duration =
+      booking.duration_days || booking.transaction?.duration_days;
+    const amount = booking.amount || booking.transaction?.amount;
+
+    const content = `
+Booking Details Receipt
+=======================
+
+Booking ID: ${booking.id}
+Property: ${booking.apartment?.name || "N/A"}
+Address: ${booking.apartment?.address || "N/A"}
+
+Booking Information:
+-------------------
+Status: ${booking.status}
+Check-in: ${checkInDate ? formatDate(checkInDate) : "N/A"}
+Check-out: ${checkOutDate ? formatDate(checkOutDate) : "N/A"}
+Duration: ${duration || "N/A"} days
+
+Payment Details:
+----------------
+Amount: ${amount ? formatPrice(Number(amount)) : "N/A"}
+Transaction Status: ${booking.transaction?.status || "N/A"}
+Transaction Reference: ${booking.transaction?.reference || "N/A"}
+
+Contact Information:
+-------------------
+Email: ${booking.transaction?.email || "N/A"}
+Phone: ${booking.transaction?.phone_number || "N/A"}
+
+Booking Date: ${booking.created_at ? formatDate(booking.created_at) : "N/A"}
+Generated on: ${new Date().toLocaleDateString()}
+    `;
+
+    return content;
+  };
+
+  // NEW: Close details modal
+  const handleCloseDetailsModal = () => {
+    setIsDetailsModalOpen(false);
+    setSelectedBooking(null);
   };
 
   useEffect(() => {
@@ -554,104 +623,241 @@ const ManageBookingModal: React.FC<{
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-6">
-            <button
-              onClick={onClose}
-              className="text-gray-600 hover:text-gray-800 transition-colors">
-              <img src="/images/Frame 67.svg" alt="Back" className="w-8 h-8" />
-            </button>
-            <h4 className="text-[#002221] text-[20px] font-semibold">
-              Manage Booking
-            </h4>
-          </div>
+    <>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-6">
+              <button
+                onClick={onClose}
+                className="text-gray-600 hover:text-gray-800 transition-colors">
+                <img
+                  src="/images/Frame 67.svg"
+                  alt="Back"
+                  className="w-8 h-8"
+                />
+              </button>
+              <h4 className="text-[#002221] text-[20px] font-semibold">
+                Manage Booking
+              </h4>
+            </div>
 
-          <div className="grid md:grid-cols-12 gap-8 items-start">
-            <div className="md:col-span-5">
-              <div className="flex flex-col">
-                <h4 className="text-[#000000] py-4 text-[20px] md:text-[24px] font-semibold">
-                  Enter your email or your phone number
-                </h4>
+            <div className="grid md:grid-cols-12 gap-8 items-start">
+              <div className="md:col-span-5">
+                <div className="flex flex-col">
+                  <h4 className="text-[#000000] py-4 text-[20px] md:text-[24px] font-semibold">
+                    Enter your email or your phone number
+                  </h4>
 
-                <Formik
-                  initialValues={initialData}
-                  validationSchema={validation}
-                  onSubmit={onSubmit}>
-                  {({ isSubmitting }) => (
-                    <Form className="w-full lg:mt-5 mb-6 flex flex-col justify-between">
-                      <div className="mb-5">
-                        <div className="relative mb-4">
-                          <Field
-                            className="block w-full h-14 text-center border pl-3 rounded-[15px] focus:outline-none border-[#002221]"
-                            name="email"
-                            type="email"
-                            id="email"
-                            placeholder="Email Address"
-                          />
-                          <p className="text-red-700 text-xs mt-1 text-left">
-                            <ErrorMessage name="email" />
-                          </p>
+                  <Formik
+                    initialValues={initialData}
+                    validationSchema={validation}
+                    onSubmit={onSubmit}>
+                    {({ isSubmitting }) => (
+                      <Form className="w-full lg:mt-5 mb-6 flex flex-col justify-between">
+                        <div className="mb-5">
+                          <div className="relative mb-4">
+                            <Field
+                              className="block w-full h-14 text-center border pl-3 rounded-[15px] focus:outline-none border-[#002221]"
+                              name="email"
+                              type="email"
+                              id="email"
+                              placeholder="Email Address"
+                            />
+                            <p className="text-red-700 text-xs mt-1 text-left">
+                              <ErrorMessage name="email" />
+                            </p>
+                          </div>
+
+                          <div className="relative mb-4">
+                            <Field
+                              className="block w-full h-14 text-center border pl-3 rounded-[15px] focus:outline-none border-[#002221]"
+                              name="phone"
+                              type="tel"
+                              id="phone"
+                              placeholder="Phone Number"
+                            />
+                            <p className="text-red-700 text-xs mt-1 text-left">
+                              <ErrorMessage name="phone" />
+                            </p>
+                          </div>
+
+                          <div className="text-xs text-gray-500 text-center mb-4">
+                            Enter either your email or phone number to search
+                            for bookings
+                          </div>
                         </div>
 
-                        <div className="relative mb-4">
-                          <Field
-                            className="block w-full h-14 text-center border pl-3 rounded-[15px] focus:outline-none border-[#002221]"
-                            name="phone"
-                            type="tel"
-                            id="phone"
-                            placeholder="Phone Number"
-                          />
-                          <p className="text-red-700 text-xs mt-1 text-left">
-                            <ErrorMessage name="phone" />
-                          </p>
-                        </div>
+                        <button
+                          type="submit"
+                          disabled={loading || isSubmitting}
+                          className="w-full bg-black text-white rounded-lg py-3 px-6 font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center">
+                          {loading || isSubmitting ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Searching...
+                            </>
+                          ) : (
+                            "Search Bookings"
+                          )}
+                        </button>
+                      </Form>
+                    )}
+                  </Formik>
+                </div>
+              </div>
 
-                        <div className="text-xs text-gray-500 text-center mb-4">
-                          Enter either your email or phone number to search for
-                          bookings
-                        </div>
-                      </div>
+              {/* Right Column - Results */}
+              <div className="md:col-span-7">
+                {!searchPerformed ? (
+                  <div className="flex flex-col items-center justify-center h-64 text-center">
+                    <img
+                      src="/images/cuate.svg"
+                      alt="Search bookings"
+                      className="w-48 h-48 mb-4"
+                    />
+                    <p className="text-gray-500">
+                      Enter your email or phone number to search for your
+                      bookings
+                    </p>
+                  </div>
+                ) : managedBookings.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-64 text-center">
+                    <div className="text-gray-400 mb-4">
+                      <svg
+                        className="w-16 h-16"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                      No Bookings Found
+                    </h3>
+                    <p className="text-gray-500">
+                      No bookings were found with the provided information.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="max-h-96 overflow-y-auto">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      Your Bookings ({managedBookings.length})
+                    </h3>
+                    <div className="space-y-4">
+                      {managedBookings.map((booking) => {
+                        // Use transaction dates if booking dates are not available
+                        const checkInDate =
+                          booking.booking_start_date ||
+                          booking.transaction?.booking_start_date;
+                        const checkOutDate =
+                          booking.booking_end_date ||
+                          booking.transaction?.booking_end_date;
+                        const duration =
+                          booking.duration_days ||
+                          booking.transaction?.duration_days;
+                        const amount =
+                          booking.amount || booking.transaction?.amount;
 
-                      <button
-                        type="submit"
-                        disabled={loading || isSubmitting}
-                        className="w-full bg-black text-white rounded-lg py-3 px-6 font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center">
-                        {loading || isSubmitting ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Searching...
-                          </>
-                        ) : (
-                          "Search Bookings"
-                        )}
-                      </button>
-                    </Form>
-                  )}
-                </Formik>
+                        return (
+                          <div
+                            key={booking.id}
+                            className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                            onClick={() => handleViewBookingDetails(booking)}>
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-semibold text-gray-900">
+                                {booking.apartment?.name || "Unknown Property"}
+                              </h4>
+                              {getStatusBadge(booking.status)}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
+                              <div>
+                                <span className="font-medium">Check-in:</span>
+                                <span className="ml-1">
+                                  {checkInDate
+                                    ? formatDate(checkInDate)
+                                    : "N/A"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-medium">Check-out:</span>
+                                <span className="ml-1">
+                                  {checkOutDate
+                                    ? formatDate(checkOutDate)
+                                    : "N/A"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-medium">Amount:</span>
+                                <span className="ml-1">
+                                  {amount ? formatPrice(Number(amount)) : "N/A"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-medium">Duration:</span>
+                                <span className="ml-1">
+                                  {duration || "N/A"} days
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center text-xs text-gray-500">
+                              <span>
+                                Ref: {booking.transaction?.reference || "N/A"}
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewBookingDetails(booking);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 font-medium">
+                                View Details →
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Right Column - Results */}
-            <div className="md:col-span-7">
-              {!searchPerformed ? (
-                <div className="flex flex-col items-center justify-center h-64 text-center">
-                  <img
-                    src="/images/cuate.svg"
-                    alt="Search bookings"
-                    className="w-48 h-48 mb-4"
-                  />
-                  <p className="text-gray-500">
-                    Enter your email or phone number to search for your bookings
-                  </p>
-                </div>
-              ) : managedBookings.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 text-center">
-                  <div className="text-gray-400 mb-4">
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={onClose}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* NEW: Booking Details Modal */}
+      {selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Booking Details
+                </h2>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleDownloadBooking(selectedBooking)}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
                     <svg
-                      className="w-16 h-16"
+                      className="w-4 h-4"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24">
@@ -659,100 +865,229 @@ const ManageBookingModal: React.FC<{
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                       />
                     </svg>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                    No Bookings Found
-                  </h3>
-                  <p className="text-gray-500">
-                    No bookings were found with the provided information.
-                  </p>
+                    Download
+                  </button>
+                  <button
+                    onClick={handleCloseDetailsModal}
+                    className="text-gray-500 hover:text-gray-700 transition-colors">
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
                 </div>
-              ) : (
-                <div className="max-h-96 overflow-y-auto">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Your Bookings ({managedBookings.length})
+              </div>
+
+              {/* Booking Information */}
+              <div className="space-y-6">
+                {/* Property Information */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    Property Information
                   </h3>
-                  <div className="space-y-4">
-                    {managedBookings.map((booking) => (
-                      <div
-                        key={booking.id}
-                        className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                        onClick={() => handleViewBookingDetails(booking.id)}>
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-semibold text-gray-900">
-                            {booking.apartment?.name || "Unknown Property"}
-                          </h4>
-                          {getStatusBadge(booking.status)}
-                        </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Property Name
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.apartment?.name || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Address
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.apartment?.address || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Price per Night
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.apartment?.price
+                          ? formatPrice(Number(selectedBooking.apartment.price))
+                          : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-                        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
-                          <div>
-                            <span className="font-medium">Check-in:</span>
-                            <span className="ml-1">
-                              {booking.booking_start_date
-                                ? formatDate(booking.booking_start_date)
-                                : "N/A"}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-medium">Check-out:</span>
-                            <span className="ml-1">
-                              {booking.booking_end_date
-                                ? formatDate(booking.booking_end_date)
-                                : "N/A"}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-medium">Amount:</span>
-                            <span className="ml-1">
-                              {booking.amount
-                                ? formatPrice(Number(booking.amount))
-                                : "N/A"}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-medium">Guests:</span>
-                            <span className="ml-1">
-                              {booking.guests || "N/A"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex justify-between items-center text-xs text-gray-500">
-                          <span>
-                            Ref: {booking.transaction?.reference || "N/A"}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleViewBookingDetails(booking.id);
-                            }}
-                            className="text-blue-600 hover:text-blue-800 font-medium">
-                            View Details →
-                          </button>
-                        </div>
+                {/* Booking Details */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    Booking Details
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Booking ID
+                      </label>
+                      <p className="text-gray-900 font-mono text-sm">
+                        {selectedBooking.id}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Status
+                      </label>
+                      <div className="mt-1">
+                        {getStatusBadge(selectedBooking.status)}
                       </div>
-                    ))}
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Check-in Date
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.booking_start_date ||
+                        selectedBooking.transaction?.booking_start_date
+                          ? formatDate(
+                              selectedBooking.booking_start_date ||
+                                selectedBooking.transaction?.booking_start_date,
+                            )
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Check-out Date
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.booking_end_date ||
+                        selectedBooking.transaction?.booking_end_date
+                          ? formatDate(
+                              selectedBooking.booking_end_date ||
+                                selectedBooking.transaction?.booking_end_date,
+                            )
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Duration
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.duration_days ||
+                          selectedBooking.transaction?.duration_days ||
+                          "N/A"}{" "}
+                        days
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Booking Date
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.created_at
+                          ? formatDate(selectedBooking.created_at)
+                          : "N/A"}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              )}
+
+                {/* Payment Information */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    Payment Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Total Amount
+                      </label>
+                      <p className="text-gray-900 text-lg font-semibold">
+                        {selectedBooking.amount ||
+                        selectedBooking.transaction?.amount
+                          ? formatPrice(
+                              Number(
+                                selectedBooking.amount ||
+                                  selectedBooking.transaction?.amount,
+                              ),
+                            )
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Transaction Status
+                      </label>
+                      <div className="mt-1">
+                        {getStatusBadge(
+                          selectedBooking.transaction?.status || "N/A",
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Transaction Reference
+                      </label>
+                      <p className="text-gray-900 font-mono text-sm">
+                        {selectedBooking.transaction?.reference || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Payment Method
+                      </label>
+                      <p className="text-gray-900">Online Payment</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Guest Information */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    Guest Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Email
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.transaction?.email || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Phone Number
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.transaction?.phone_number || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
+                <button
+                  onClick={handleCloseDetailsModal}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
-            <button
-              onClick={onClose}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-              Close
-            </button>
-          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 };
 
