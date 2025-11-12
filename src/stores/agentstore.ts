@@ -143,7 +143,7 @@ interface AgentActions {
     markedUpPrice?: number,
     agentPercentage?: number,
   ) => Promise<{ success: boolean; message: string; data?: any }>;
-  removeApartment: (apartmentId: string) => Promise<void>;
+  removeApartment: (apartmentId: string) => Promise<{ success: boolean; message: string }>;
   fetchEnlistedProperties: (page?: number, limit?: number) => Promise<void>;
   fetchPropertiesBySlug: (
     slug: string,
@@ -803,12 +803,24 @@ const useAgentStore = create<AgentState & AgentActions>()(
           const { token, isAuthenticated } = get();
           const authValidation = validateAuth(token, isAuthenticated);
           if (!authValidation.valid) {
-            throw new Error(authValidation.message);
+            return {
+              success: false,
+              message: authValidation.message ?? "Authentication failed.",
+            };
           }
 
           if (!apartmentId) {
-            throw new Error("Apartment ID is required.");
+            return {
+              success: false,
+              message: "Apartment ID is required.",
+            };
           }
+
+          console.log("🔍 Remove Property Debug:", {
+            agentId: get().agentInfo?.id,
+            apartmentId,
+            token: token ? `${token.substring(0, 20)}...` : "NO TOKEN",
+          });
 
           const response = await axios.delete(
             `${API_BASE_URL}/api/v1/agent/remove-apartment`,
@@ -824,6 +836,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
           console.log("Remove apartment response:", response);
 
+          // Update local state by removing the deleted property
           const currentProperties = get().enlistedProperties;
           const updatedProperties = currentProperties.filter(
             (property) => property.apartmentId !== apartmentId,
@@ -833,6 +846,9 @@ const useAgentStore = create<AgentState & AgentActions>()(
             enlistedProperties: updatedProperties,
             totalProperties: Math.max(0, get().totalProperties - 1),
           });
+
+          // Show success message
+          return { success: true, message: "Apartment removed from listing successfully" };
         } catch (error: any) {
           console.error("❌ Remove apartment error:", error);
 
@@ -843,22 +859,21 @@ const useAgentStore = create<AgentState & AgentActions>()(
             });
 
             if (error.response.status === 403) {
-              const errorMessage =
-                "Access denied. You do not have permission for this action.";
+              const errorMessage = "Access denied. You do not have permission for this action.";
               set({ error: errorMessage });
-              throw new Error(errorMessage);
+              return { success: false, message: errorMessage };
             }
 
             if (error.response.status === 404) {
               const errorMessage = "Listing not found";
               set({ error: errorMessage });
-              throw new Error(errorMessage);
+              return { success: false, message: errorMessage };
             }
 
             if (error.response.status === 401) {
               const errorMessage = "Authentication required";
               set({ error: errorMessage });
-              throw new Error(errorMessage);
+              return { success: false, message: errorMessage };
             }
           }
 
@@ -871,7 +886,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
             error: errorMessage,
           });
 
-          throw new Error(errorMessage);
+          return { success: false, message: errorMessage };
         } finally {
           set({ isLoading: false });
         }
@@ -1283,60 +1298,58 @@ const useAgentStore = create<AgentState & AgentActions>()(
         }
       },
 
+      fetchBanner: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
 
-fetchBanner: async () => {
-  set({ isLoading: true, error: null });
-  try {
-    const { token, isAuthenticated } = get();
-    const authValidation = validateAuth(token, isAuthenticated);
-    if (!authValidation.valid) {
-      throw new Error(authValidation.message);
-    }
+          console.log("🔍 Store - Fetching banners for authenticated agent");
 
-    console.log("🔍 Store - Fetching banners for authenticated agent");
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/agent/banner`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              timeout: 15000,
+            },
+          );
 
-    const response = await axios.get(
-      `${API_BASE_URL}/api/v1/agent/banner`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        timeout: 15000,
+          console.log("🔍 Store - Banners API response:", response.data);
+
+          const { result } = response.data;
+
+          if (!result) {
+            throw new Error("Invalid response from server.");
+          }
+
+          const banners = Array.isArray(result) ? result : [];
+
+          console.log("🔍 Store - Banners for authenticated agent:", banners);
+
+          set({
+            agentBanners: banners,
+            totalBanners: banners.length,
+            hasMoreBanners: false,
+          });
+        } catch (error: any) {
+          console.error("❌ Store - Error fetching agent banners:", error);
+          const errorMessage = handleApiError(
+            error,
+            "Failed to fetch agent banners.",
+          );
+          set({
+            error: errorMessage,
+          });
+          throw new Error(errorMessage);
+        } finally {
+          set({ isLoading: false });
+        }
       },
-    );
-
-    console.log("🔍 Store - Banners API response:", response.data);
-
-    const { result } = response.data;
-
-    if (!result) {
-      throw new Error("Invalid response from server.");
-    }
-
-   
-    const banners = Array.isArray(result) ? result : [];
-
-    console.log("🔍 Store - Banners for authenticated agent:", banners);
-
-    set({
-      agentBanners: banners,
-      totalBanners: banners.length,
-      hasMoreBanners: false,
-    });
-  } catch (error: any) {
-    console.error("❌ Store - Error fetching agent banners:", error);
-    const errorMessage = handleApiError(
-      error,
-      "Failed to fetch agent banners.",
-    );
-    set({
-      error: errorMessage,
-    });
-    throw new Error(errorMessage);
-  } finally {
-    set({ isLoading: false });
-  }
-},
 
       fetchBannersBySlug: async (slug, page = 1, limit = 12) => {
         set({ isLoading: true, error: null });

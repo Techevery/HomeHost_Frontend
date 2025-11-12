@@ -219,7 +219,16 @@ const AgentProfile = () => {
     showSnackbar("Property added successfully to your listings!", "success");
   };
 
-  const handleDeleteProperty = (propertyId: string) => {
+  const handleDeleteProperty = async (propertyId: string) => {
+    console.log("🔄 Delete property called with ID:", propertyId);
+    console.log("📋 Available properties:", enlistedProperties);
+    
+    // Find the property to verify we have the right ID
+    const propertyToDelete = enlistedProperties.find(p => 
+      p.apartmentId === propertyId || p.id === propertyId
+    );
+    console.log("🔍 Property to delete:", propertyToDelete);
+    
     setPropertyToDelete(propertyId);
     setDeleteDialogOpen(true);
   };
@@ -228,12 +237,16 @@ const AgentProfile = () => {
     if (!propertyToDelete) return;
 
     try {
-      await removeApartment(propertyToDelete);
-      showSnackbar("Property deleted successfully", "success");
-      await loadProperties();
-    } catch (error) {
+      const result = await removeApartment(propertyToDelete);
+      if (result.success) {
+        showSnackbar("Property removed from listing successfully", "success");
+        await loadProperties();
+      } else {
+        showSnackbar(result.message, "error");
+      }
+    } catch (error: any) {
       console.error("Error deleting property:", error);
-      showSnackbar("Failed to delete property", "error");
+      showSnackbar(error.message || "Failed to delete property", "error");
     } finally {
       setDeleteDialogOpen(false);
       setPropertyToDelete(null);
@@ -441,9 +454,12 @@ const AgentProfile = () => {
     const markedUpPrice = agentPricing.markedUpPrice || 0; 
     const totalPrice = agentPricing.total || property.price || 0;
     
+    // Make sure we're using the correct apartment ID
+    const apartmentId = property.apartmentId || property.id || property._id;
+    
     return {
       id: property.id || property._id,
-      apartmentId: property.apartmentId || property.listingId || "",
+      apartmentId: apartmentId, // This is the ID that removeApartment expects
       title: property.title || property.name || "Untitled Property",
       price: basePrice, 
       markedUpPrice: markedUpPrice, 
@@ -593,14 +609,14 @@ const AgentProfile = () => {
             variant={activeTab === "properties" ? "contained" : "text"}
             onClick={() => setActiveTab("properties")}
             sx={{ py: 2, borderRadius: 0 }}>
-            My Properties ({enlistedProperties.length})
+            My Properties 
           </Button>
           <Button
             fullWidth
             variant={activeTab === "banners" ? "contained" : "text"}
             onClick={() => setActiveTab("banners")}
             sx={{ py: 2, borderRadius: 0 }}>
-            My Banners ({agentBanners.length})
+            My Banners 
           </Button>
         </Box>
       </Paper>
