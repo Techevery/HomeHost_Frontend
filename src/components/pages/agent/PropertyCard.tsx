@@ -3,7 +3,6 @@ import {
   Card,
   CardMedia,
   CardContent,
-  //   Typography,
   Box,
   Chip,
   IconButton,
@@ -11,6 +10,7 @@ import {
   Button,
   Badge,
   Tooltip,
+  Divider,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -21,6 +21,11 @@ import {
   Bathtub as BathIcon,
   Hotel as BedIcon,
   SquareFoot as SizeIcon,
+  CalendarToday as CalendarIcon,
+  TrendingUp as TrendingUpIcon,
+  AccountBalanceWallet as WalletIcon,
+  PriceChange as PriceChangeIcon,
+  Remove as RemoveIcon,
 } from "@mui/icons-material";
 
 import Typography from "@mui/material/Typography";
@@ -32,7 +37,7 @@ export interface Property {
   services?: string[];
   amenities?: string[];
   price: number;
-  markedUpPrice?: number;
+  markedUpPrice?: number; // This is the markup AMOUNT (2000), not the final price
   location: string;
   images: string[];
   status: "active" | "inactive" | "pending" | "sold";
@@ -40,6 +45,12 @@ export interface Property {
   bedroom?: number;
   agentPercentage?: number;
   createdAt?: string;
+  
+  // Enhanced pricing fields
+  basePrice?: number;
+  totalPrice?: number;
+  priceChangedAt?: string;
+  servicing?: string;
 }
 
 interface PropertyCardProps {
@@ -103,14 +114,40 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
     }
   };
 
-  const calculateProfit = () => {
-    if (!property.markedUpPrice) return 0;
-    return property.markedUpPrice - property.price;
+  const formatPrice = (price: number): string => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price);
   };
 
-  const profit = calculateProfit();
-  const profitPercentage =
-    property.price > 0 ? (profit / property.price) * 100 : 0;
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  // Use data directly from backend
+  const basePrice = property.basePrice || property.price || 0;
+  const totalPrice = property.totalPrice || property.price || 0;
+  const markupAmount = property.markedUpPrice || 0;
+  const hasMarkup = markupAmount > 0;
+  const markupPercentage = basePrice > 0 ? (markupAmount / basePrice) * 100 : 0;
+
+  console.log('Property Card Data (All Properties):', {
+    basePrice,
+    totalPrice,
+    markupAmount,
+    hasMarkup,
+    markupPercentage,
+    priceChangedAt: property.priceChangedAt,
+    agentPercentage: property.agentPercentage
+  });
 
   return (
     <Card
@@ -127,6 +164,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         cursor: onView ? "pointer" : "default",
       }}
       onClick={handleView}>
+      
       {/* Property Image with Badges */}
       <Box sx={{ position: "relative" }}>
         <CardMedia
@@ -147,34 +185,24 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           />
         </Box>
 
-        {/* Featured Badge
-        {property.isFeatured && (
-          <Box sx={{ position: "absolute", top: 12, right: 12 }}>
-            <Chip
-              icon={<StarIcon />}
-              label="Featured"
-              color="warning"
-              size="small"
-              variant="filled"
-            />
-          </Box>
-        )} */}
-
-        {/* Profit Badge for Agent View */}
-        {/* {variant === "agent" && property.markedUpPrice && (
+        {/* Markup Badge for Agent View - Show for ALL properties */}
+        {variant === "agent" && (
           <Box sx={{ position: "absolute", bottom: 12, right: 12 }}>
-            <Tooltip
-              title={`Profit: $${profit} (${profitPercentage.toFixed(1)}%)`}>
+            <Tooltip title={hasMarkup ? 
+              `Markup: ${formatPrice(markupAmount)} (${markupPercentage.toFixed(1)}%)` : 
+              'No markup applied'
+            }>
               <Chip
-                label={`+${profitPercentage.toFixed(1)}%`}
-                color={profitPercentage > 0 ? "success" : "error"}
+                icon={hasMarkup ? <TrendingUpIcon /> : <RemoveIcon />}
+                label={hasMarkup ? `+${markupPercentage.toFixed(1)}%` : 'No Markup'}
+                color={hasMarkup ? "success" : "default"}
                 size="small"
                 variant="filled"
                 sx={{ fontWeight: "bold" }}
               />
             </Tooltip>
           </Box>
-        )} */}
+        )}
       </Box>
 
       <CardContent sx={{ flexGrow: 1, p: 3 }}>
@@ -194,20 +222,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           )}
         </Box>
 
-        {/* Property Description */}
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{
-            mb: 2,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}>
-          {/* {property.description} */}
-        </Typography>
-
         {/* Property Features */}
         <Box display="flex" gap={2} sx={{ mb: 2, flexWrap: "wrap" }}>
           {property.bedroom !== undefined && (
@@ -219,27 +233,19 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             </Box>
           )}
 
-          {/* {property.bathrooms !== undefined && (
+          {/* Servicing Information */}
+          {property.servicing && (
             <Box display="flex" alignItems="center" gap={0.5}>
               <BathIcon color="action" fontSize="small" />
               <Typography variant="body2" color="text.secondary">
-                {property.bathrooms} {property.bathrooms === 1 ? 'Bath' : 'Baths'}
+                {property.servicing}
               </Typography>
             </Box>
-          )} */}
-          {/*           
-          {property.area !== undefined && (
-            <Box display="flex" alignItems="center" gap={0.5}>
-              <SizeIcon color="action" fontSize="small" />
-              <Typography variant="body2" color="text.secondary">
-                {property.area} sqft
-              </Typography>
-            </Box>
-          )} */}
+          )}
         </Box>
 
         {/* Location */}
-        <Box display="flex" alignItems="center" gap={1} sx={{ mb: 2 }}>
+        <Box display="flex" alignItems="center" gap={1} sx={{ mb: 3 }}>
           <LocationIcon color="action" fontSize="small" />
           <Typography
             variant="body2"
@@ -254,46 +260,110 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </Typography>
         </Box>
 
-        {/* Pricing Information */}
-        <Box sx={{ borderTop: 1, borderColor: "divider", pt: 2 }}>
-          <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1 }}>
-            {/* <PriceIcon color="primary" fontSize="small" /> */}
-            <Typography variant="h6" color="primary.main" fontWeight="bold">
-              ₦
-              {property.markedUpPrice
-                ? property.markedUpPrice.toLocaleString()
-                : property.price.toLocaleString()}
-            </Typography>
+        {/* PRICING INFORMATION - Show for ALL properties */}
+        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 2 }}>
 
-            {/* Original Price with Strikethrough */}
-            {property.markedUpPrice &&
-              property.markedUpPrice !== property.price && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ textDecoration: "line-through" }}>
-                  Amount: ₦{property.price.toLocaleString()}
-                </Typography>
-              )}
+          {/* FINAL PRICE */}
+          <Box sx={{ 
+            textAlign: 'center', 
+            mb: 2, 
+            p: 1, 
+            backgroundColor: hasMarkup ? 'primary.light' : 'grey.300',
+            borderRadius: 1 
+          }}>
+            <Typography variant="caption" color={hasMarkup ? "primary.contrastText" : "text.secondary"} display="block" gutterBottom>
+              FINAL PRICE
+            </Typography>
+            <Typography variant="h5" color={hasMarkup ? "primary.contrastText" : "text.primary"} fontWeight="bold">
+              {formatPrice(totalPrice)}
+            </Typography>
           </Box>
 
-          {/* Agent Commission
-          {variant === "agent" && property.agentPercentage && (
-            <Typography
-              variant="body2"
-              color="success.main"
-              fontWeight="medium">
-              Commission: {property.agentPercentage}%
-            </Typography>
-          )} */}
+          <Divider sx={{ my: 2 }} />
 
-          {/* Profit Display for Agent */}
-          {variant === "agent" && property.markedUpPrice && profit > 0 && (
-            <Typography variant="body2" color="success.main">
-              Profit: ₦{profit.toLocaleString()}
+          {/* BASE PRICE - Always show */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+            <Box display="flex" alignItems="center" gap={1}>
+               ₦ 
+              <Typography variant="body2" color="text.secondary">
+             Property Price:
+              </Typography>
+            </Box>
+            <Typography variant="body2" fontWeight="medium">
+              {formatPrice(basePrice)}
             </Typography>
+          </Box>
+
+          {/* MARKUP AMOUNT - Always show, even if 0 */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+            <Box display="flex" alignItems="center" gap={1}>
+              <TrendingUpIcon color={hasMarkup ? "success" : "action"} fontSize="small" />
+              <Typography variant="body2" color={hasMarkup ? "success.main" : "text.secondary"}>
+                Markup Price:
+              </Typography>
+            </Box>
+            <Typography variant="body2" color={hasMarkup ? "success.main" : "text.secondary"} fontWeight="bold">
+              {hasMarkup ? `+${formatPrice(markupAmount)}` : formatPrice(markupAmount)}
+            </Typography>
+          </Box>
+
+          {/* MARKUP PERCENTAGE - Always show, even if 0
+          <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Markup Percentage:
+            </Typography>
+            <Typography variant="body2" color={hasMarkup ? "success.main" : "text.secondary"} fontWeight="bold">
+              {hasMarkup ? `+${markupPercentage.toFixed(2)}%` : `${markupPercentage.toFixed(2)}%`}
+            </Typography>
+          </Box> */}
+
+          {/* TOTAL PRICE - Always show */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+            <Box display="flex" alignItems="center" gap={1}>
+              ₦
+              <Typography variant="body2" color="info.main">
+                Total Price:
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="info.main" fontWeight="bold">
+              {formatPrice(totalPrice)}
+            </Typography>
+          </Box>
+
+          {/* PRICE UPDATE DATE - Show if available */}
+          {property.priceChangedAt && (
+            <>
+              <Divider sx={{ my: 1.5 }} />
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box display="flex" alignItems="center" gap={1}>
+                  <CalendarIcon color="action" fontSize="small" />
+                  <Typography variant="caption" color="text.secondary">
+                    Price Updated:
+                  </Typography>
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  {formatDate(property.priceChangedAt)}
+                </Typography>
+              </Box>
+            </>
           )}
+
+          
+
+          {/* CREATED DATE */}
+          {property.createdAt && (
+            <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Listed:
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {formatDate(property.createdAt)}
+              </Typography>
+            </Box>
+          )}
+
         </Box>
+
       </CardContent>
 
       {/* Action Buttons - Only show for agent view and when actions are enabled */}

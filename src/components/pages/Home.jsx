@@ -31,7 +31,7 @@ const Home = () => {
   const [current, setCurrent] = useState(0);
 
   // Get banners from store
-  const { banners, fetchBanners } = useBannerStore();
+  const { banners, fetchBanners, isLoading, error } = useBannerStore();
 
   // Fetch banners on component mount
   useEffect(() => {
@@ -72,6 +72,12 @@ const Home = () => {
 
   const hasBanners = banners && banners.length > 0;
 
+  // Add safe image URL function
+  const getImageUrl = (banner) => {
+    // Use image_url from the banner object, fallback to default image
+    return banner.image_url || "/images/bg.svg";
+  };
+
   return (
     <div className="relative">
       <div className="relative h-screen overflow-hidden">
@@ -83,9 +89,12 @@ const Home = () => {
                 <CarouselItem key={banner.id || index} className="h-full">
                   <div className="relative h-full w-full">
                     <img
-                      src={banner.images[0] || "/images/bg.svg"}
+                      src={getImageUrl(banner)}
                       alt={banner.name}
                       className="object-cover w-full h-full"
+                      onError={(e) => {
+                        e.target.src = "/images/bg.svg";
+                      }}
                     />
                     {/* Dark overlay */}
                     <div className="absolute inset-0 bg-black opacity-40"></div>
@@ -193,16 +202,6 @@ const Home = () => {
                     }>
                     Contact Us
                   </NavLink>
-                  {/* <NavLink
-                    to="/manage-booking"
-                    className="flex space-x-4 z-10 py-2 pr-4 text-sm tracking-wider font-normal hover:font-semibold leading-5 hover:bg-gray-50 lg:hover:bg-transparent lg:border-0 lg:hover:text-amber-400 lg:pb-5 transition-all duration-300"
-                    style={({ isActive }) =>
-                      isActive
-                        ? { color: "#FFFFFF", fontWeight: "600" }
-                        : { color: "#FFFFFF" }
-                    }>
-                    Manage Booking
-                  </NavLink> */}
 
                   <div className="relative">
                     <Accordion
@@ -238,18 +237,13 @@ const Home = () => {
         <div className="absolute inset-0 flex items-center justify-center z-20">
           <div className="max-w-screen-xl w-full px-5 lg:px-14 mx-auto">
             <div className="flex flex-col gap-2 text-white">
-              {/* <h4 className="text-white leading-[50px] md:leading-[90px] z-10 text-[50px] md:text-[100px] font-[600] md:font-[700] text-center">
-                Explore <br />
-                your space
-              </h4> */}
-              {/* <p className="text-center text-lg md:text-xl max-w-2xl mx-auto mt-4">
-                Discover amazing places and create unforgettable memories
-              </p> */}
+              {/* Optional: Add your hero text here if needed */}
             </div>
           </div>
         </div>
       </div>
 
+      {/* Rest of your component remains the same */}
       <Drawer
         anchor="left"
         open={drawerOpen}

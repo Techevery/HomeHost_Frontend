@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import useAgentStore from "../../../stores/agentstore";
-import useBannerStore from "../../../stores/bannerStore";
 import usePaymentStore from "../../../stores/paymentstore";
 import useBookingStore from "../../../stores/bookingStore";
 
@@ -92,79 +91,201 @@ const useAgentDataFromSlug = () => {
   return agentData;
 };
 
-// Banner Carousel Component
-const BannerCarousel: React.FC = () => {
-  const { banners } = useBannerStore();
+// Professional Banner Carousel Component
+const BannerCarousel: React.FC<{ agentId?: string }> = ({ agentId }) => {
+  const { personalUrl } = useParams<{ personalUrl: string }>();
+  const { fetchPropertiesBySlug } = useAgentStore();
+  const [banners, setBanners] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const fetchBanners = async () => {
+      if (!personalUrl) return;
+
+      try {
+        setLoading(true);
+        const response = await fetchPropertiesBySlug(personalUrl, 1, 1);
+        
+        if (response && response.banners) {
+          setBanners(response.banners);
+        } else {
+          setBanners([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch banners:", error);
+        toast.error("Failed to load banners");
+        setBanners([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBanners();
+  }, [personalUrl, fetchPropertiesBySlug]);
+
+  // Handle slide change for custom indicators
+  const handleSlideChange = (index: number) => {
+    setCurrentSlide(index);
+  };
+
+  if (loading) {
+    return (
+      <div className="relative w-full bg-gradient-to-r from-blue-900 to-purple-900">
+        <div className="h-80 md:h-96 lg:h-[500px] flex items-center justify-center">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-white border-t-transparent mb-4"></div>
+            <p className="text-white text-lg font-medium">Loading featured properties...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!banners || banners.length === 0) {
     return null;
   }
 
-  const activeBanners = banners
-    .filter((banner) => banner.status === "active")
-    .sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    );
+  const activeBanners = banners.filter((banner) => {
+    if (!banner.hasOwnProperty('status')) return true;
+    return banner.status === "active";
+  });
 
   if (activeBanners.length === 0) {
     return null;
   }
 
   return (
-    <div className="relative w-full bg-gradient-to-r from-blue-600 to-purple-700">
+    <div className="relative w-full overflow-hidden bg-gray-900">
+      {/* Main Carousel */}
       <Carousel
         cols={1}
         rows={1}
         loop
-        autoplay={3000}
-        showDots={activeBanners.length > 1}
-        dotColorActive="#ffffff"
-        dotColorInactive="#ffffff80"
-        mobileBreakpoint={768}>
-        {activeBanners.map((banner) => (
+        autoplay={5000}
+        showDots={false}
+        mobileBreakpoint={768}
+        onChange={handleSlideChange}
+        containerClassName="carousel-container"
+      >
+        {activeBanners.map((banner, index) => (
           <Carousel.Item key={banner.id}>
-            <div className="relative h-64 md:h-80 lg:h-96">
-              <img
-                src={
-                  banner.images && banner.images.length > 0
-                    ? banner.images[0]
-                    : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI0MDAiIHZpZXdCb3g9IjAgMCAxMjAwIDQwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjEyMDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjMUY0QThGIi8+CjxwYXRoIGQ9Ik0yMDAgMjAwTDE1MCAyNTBIMjUwTDIwMCAyMDBaIiBmaWxsPSIjMDA3N0VGIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iMzAiIGZpbGw9IiMwMDc3RUYiLz4KPHN2ZyB4PSI4MDAiIHk9IjE1MCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgOUg4VjRIM1Y5Wk0zIDE0SDhWMTlIM1YxNFpNMTMgNEgxOFY5SDEzVjRaTTEzIDE0SDE4VjE5SDEzVjE0WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cjwvc3ZnPg=="
-                }
-                alt={banner.name}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.src =
-                    "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI0MDAiIHZpZXdCb3g9IjAgMCAxMjAwIDQwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjEyMDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjMUY0QThGIi8+CjxwYXRoIGQ9Ik0yMDAgMjAwTDE1MCAyNTBIMjUwTDIwMCAyMDBaIiBmaWxsPSIjMDA3N0VGIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iMzAiIGZpbGw9IiMwMDc3RUYiLz4KPHN2ZyB4PSI4MDAiIHk9IjE1MCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgOUg4VjRIM3Y1Wk0zIDE0SDh2NUgzdjVabTEwLTlIMTh2NUgxM1Y1Wm0wIDlIMTh2NUgxM3YtNVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo8L3N2Zz4=";
-                }}
-              />
+            <div className="relative h-80 md:h-96 lg:h-[500px] group">
+              {/* Background Image with Overlay */}
+              <div className="absolute inset-0">
+                <img
+                  src={banner.image_url}
+                  alt={banner.name}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  onError={(e) => {
+                    e.currentTarget.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI0MDAiIHZpZXdCb3g9IjAgMCAxMjAwIDQwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjEyMDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjMUY0QThGIi8+CjxwYXRoIGQ9Ik0yMDAgMjAwTDE1MCAyNTBIMjUwTDIwMCAyMDBaIiBmaWxsPSIjMDA3N0VGIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iMzAiIGZpbGw9IiMwMDc3RUYiLz4KPC9zdmc+";
+                  }}
+                />
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30"></div>
+                {/* Subtle Pattern Overlay */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-black/20 to-black/40"></div>
+              </div>
 
-              <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+              {/* Content */}
+              <div className="relative h-full flex items-center">
+                <div className="container mx-auto px-6 lg:px-8">
+                  <div className="max-w-2xl">
+                    {/* Badge */}
+                    <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-6">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
+                      <span className="text-white text-sm font-medium uppercase tracking-wide">
+                        Featured Property
+                      </span>
+                    </div>
 
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white px-4">
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 drop-shadow-lg">
-                  {banner.name}
-                </h1>
-                <p className="text-lg md:text-xl lg:text-2xl mb-6 drop-shadow-md max-w-2xl">
-                  {banner.description}
-                </p>
+                    {/* Title */}
+                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
+                      {banner.name}
+                      <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+                        Collection
+                      </span>
+                    </h1>
+
+                    {/* Description */}
+                    <p className="text-xl md:text-2xl text-gray-200 mb-8 leading-relaxed max-w-lg">
+                      {banner.description || "Discover exceptional properties with premium amenities and unmatched comfort"}
+                    </p>
+
+                    {/* CTA Buttons */}
+                  
+                  </div>
+                </div>
+              </div>
+
+              {/* Slide Number Indicator */}
+              <div className="absolute bottom-8 right-8">
+                <div className="flex items-center space-x-2 text-white">
+                  <span className="text-2xl font-bold">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="text-gray-300">/</span>
+                  <span className="text-gray-400">{String(activeBanners.length).padStart(2, '0')}</span>
+                </div>
               </div>
             </div>
           </Carousel.Item>
         ))}
       </Carousel>
+
+      {/* Custom Navigation Dots */}
+      {activeBanners.length > 1 && (
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3">
+          {activeBanners.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => handleSlideChange(index)}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                index === currentSlide 
+                  ? 'bg-white scale-125' 
+                  : 'bg-white/50 hover:bg-white/70'
+              }`}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Navigation Arrows */}
+      {activeBanners.length > 1 && (
+        <>
+          <button 
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center transition-all duration-300 group hover:scale-110"
+            onClick={() => handleSlideChange((currentSlide - 1 + activeBanners.length) % activeBanners.length)}
+          >
+            <svg className="w-6 h-6 text-white group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          <button 
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center transition-all duration-300 group hover:scale-110"
+            onClick={() => handleSlideChange((currentSlide + 1) % activeBanners.length)}
+          >
+            <svg className="w-6 h-6 text-white group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
+      )}
+
+      {/* Bottom Gradient */}
+      <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-gray-900 to-transparent pointer-events-none"></div>
     </div>
   );
 };
 
-// Property Carousel Component
-const PropertyCarousel: React.FC<{
-  images: string[];
+// Property Image Carousel Component
+const PropertyImageCarousel: React.FC<{ 
+  images: string[]; 
   propertyName: string;
 }> = ({ images, propertyName }) => {
   if (!images || images.length === 0) {
     return (
-      <div className="relative h-48 bg-gray-200 flex items-center justify-center">
+      <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
         <svg
           className="w-12 h-12 text-gray-400"
           fill="none"
@@ -182,23 +303,20 @@ const PropertyCarousel: React.FC<{
   }
 
   return (
-    <div className="relative h-48 bg-gray-200">
-      <Carousel cols={1} rows={1} loop>
-        {images.map((image, index) => (
-          <Carousel.Item key={index}>
-            <img
-              src={image}
-              alt={`${propertyName} - ${index + 1}`}
-              className="w-full h-48 object-cover"
-              onError={(e) => {
-                e.currentTarget.src =
-                  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMDAgMTUwTDE1MCAyMDBIMjUwTDIwMCAxNTBaIiBmaWxsPSIjOEU5MEEwIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjExMCIgcj0iMjAiIGZpbGw9IiM4RTkwQTAiLz4KPC9zdmc+";
-              }}
-            />
-          </Carousel.Item>
-        ))}
-      </Carousel>
-    </div>
+    <Carousel cols={1} rows={1} loop>
+      {images.map((image, index) => (
+        <Carousel.Item key={index}>
+          <img
+            src={image}
+            alt={`${propertyName} - ${index + 1}`}
+            className="w-full h-48 object-cover"
+            onError={(e) => {
+              e.currentTarget.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI0MDAiIHZpZXdCb3g9IjAgMCAxMjAwIDQwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjEyMDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMDAgMjAwTDE1MCAyNTBIMjUwTDIwMCAyMDBaIiBmaWxsPSIjRURFRUVGIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iMzAiIGZpbGw9IiNFRkVFRUYiLz4KPC9zdmc+";
+            }}
+          />
+        </Carousel.Item>
+      ))}
+    </Carousel>
   );
 };
 
@@ -1092,6 +1210,8 @@ Generated on: ${new Date().toLocaleDateString()}
 };
 
 // Booking Modal Component
+// Updated BookingModal Component in PersonalUrlProperties.tsx
+
 const BookingModal: React.FC<{
   property: Property | null;
   isOpen: boolean;
@@ -1120,9 +1240,7 @@ const BookingModal: React.FC<{
 
   const { fetchBookingDates, bookingDates, loading, error } = useBookingStore();
 
-  // In the BookingModal component in PersonalUrlProperties.tsx
-
-  // Replace the entire fetchBookedDates useEffect with this:
+  // Updated fetchBookedDates function to use the new booking store method
   useEffect(() => {
     const fetchBookedDates = async (propertyId: string) => {
       try {
@@ -1132,6 +1250,7 @@ const BookingModal: React.FC<{
         // Clear previous booking dates first
         setBookedDates([]);
 
+        // Use the updated fetchBookingDates method from the store
         await fetchBookingDates(propertyId);
 
         console.log("📅 Raw booking dates from store:", bookingDates);
@@ -1143,10 +1262,8 @@ const BookingModal: React.FC<{
           bookingDates.forEach((bookingDate) => {
             console.log("📋 Processing booking date:", bookingDate);
 
-            if (
-              bookingDate.booking_start_date &&
-              bookingDate.booking_end_date
-            ) {
+            // Use the booking_start_date and booking_end_date from the processed data
+            if (bookingDate.booking_start_date && bookingDate.booking_end_date) {
               const start = new Date(bookingDate.booking_start_date);
               const end = new Date(bookingDate.booking_end_date);
 
@@ -1214,15 +1331,14 @@ const BookingModal: React.FC<{
     }
   }, [property, isOpen, fetchBookingDates, bookingDates]);
 
-  // Add this useEffect to clear booking dates when property changes
+  // Clear booking dates when property changes
   useEffect(() => {
     if (property && isOpen) {
-      // Clear previous booking dates when property changes
       setBookedDates([]);
     }
   }, [property?.id, isOpen]);
 
-  // Also update the isDateBooked function to be more robust:
+  // Improved isDateBooked function
   const isDateBooked = (date: Date) => {
     if (!date || bookedDates.length === 0) return false;
 
@@ -1240,6 +1356,7 @@ const BookingModal: React.FC<{
 
     return isBooked;
   };
+
   const isDateSelected = (date: Date) => {
     const dateToCheck = new Date(date);
     dateToCheck.setHours(0, 0, 0, 0);
@@ -1343,7 +1460,7 @@ const BookingModal: React.FC<{
     });
   };
 
-  // NEW: Convert date clusters to start and end date arrays for backend
+  // Convert date clusters to start and end date arrays for backend
   const convertClustersToDateArrays = (
     clusters: Date[][],
   ): { startDates: string[]; endDates: string[] } => {
@@ -1998,13 +2115,12 @@ const BookingModal: React.FC<{
     </div>
   );
 };
-
 const AgentPropertiesGallery: React.FC = () => {
   const { personalUrl } = useParams<{ personalUrl: string }>();
   const { fetchPropertiesBySlug, isLoading, error, clearError } =
     useAgentStore();
 
-  const { banners, fetchBanners } = useBannerStore();
+ 
 
   // Get agent information ONLY from fetchPropertiesBySlug
   const agentData = useAgentDataFromSlug();
@@ -2168,9 +2284,9 @@ const AgentPropertiesGallery: React.FC = () => {
   }, [personalUrl, currentPage, loadProperties]);
 
   // Fetch banners
-  useEffect(() => {
-    fetchBanners();
-  }, [fetchBanners]);
+  // useEffect(() => {
+  //   fetchAgentBanners();
+  // }, [fetchAgentBanners]);
 
   // Filter and sort properties
   useEffect(() => {
@@ -2379,7 +2495,7 @@ const AgentPropertiesGallery: React.FC = () => {
         theme="light"
       />
 
-      <BannerCarousel />
+      <BannerCarousel agentId={agentData?.id} />
 
       <div className="container mx-auto px-4 py-4">
         <div className="flex justify-end mb-4">
@@ -2606,7 +2722,7 @@ const AgentPropertiesGallery: React.FC = () => {
                   key={property.id}
                   className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => handleViewProperty(property)}>
-                  <PropertyCarousel
+                 <PropertyImageCarousel
                     images={property.images}
                     propertyName={property.name}
                   />

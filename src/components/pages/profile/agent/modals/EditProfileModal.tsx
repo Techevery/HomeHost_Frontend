@@ -30,7 +30,7 @@ interface ProfileFormData {
   gender: string;
   personalUrl: string;
   nextOfKinName: string;
-  nextOfKinEmail: string;
+  nextOfkinEmail: string;
   bankName: string;
   accountNumber: string;
 }
@@ -219,8 +219,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
             <TextField
               fullWidth
               label="Next of Kin Email"
-              value={profileForm.nextOfKinEmail}
-              onChange={(e) => handleInputChange('nextOfKinEmail', e.target.value)}
+              value={profileForm.nextOfkinEmail}
+              onChange={(e) => handleInputChange('nextOfkinEmail', e.target.value)}
             />
           </Grid>
 

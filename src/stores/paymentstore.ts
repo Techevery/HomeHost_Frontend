@@ -149,20 +149,45 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
           try {
             const agentStoreModule = await import("./agentstore");
             const agentStore = agentStoreModule.default;
+            
+            // Add small delay for store initialization
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             const { token, isAuthenticated, agentInfo } = agentStore.getState();
 
-            if (isAuthenticated && token && agentInfo?.id) {
-              finalAgentId = agentInfo.id;
-              authToken = token;
-              console.log("Using authenticated agent ID:", finalAgentId);
+            if (isAuthenticated && token) {
+              if (agentInfo && typeof agentInfo === 'object' && agentInfo.id) {
+                finalAgentId = agentInfo.id;
+                authToken = token;
+                console.log("Using authenticated agent ID:", finalAgentId);
+              } else {
+                console.warn("Agent is authenticated but agentInfo is missing id:", agentInfo);
+              }
             }
           } catch (error) {
-            console.log("Agent store not available or agent not logged in");
+            console.log("Agent store not available or agent not logged in:", error);
           }
 
-          if (!finalAgentId && agentId) {
-            finalAgentId = agentId;
-            console.log("Using provided agent ID:", finalAgentId);
+          // Enhanced fallback logic
+          if (!finalAgentId) {
+            if (agentId) {
+              finalAgentId = agentId;
+              console.log("Using provided agent ID:", finalAgentId);
+            } else {
+              // Last resort: try localStorage
+              try {
+                const storedAgent = localStorage.getItem('agent-storage');
+                if (storedAgent) {
+                  const parsedAgent = JSON.parse(storedAgent);
+                  if (parsedAgent.state?.agentInfo?.id) {
+                    finalAgentId = parsedAgent.state.agentInfo.id;
+                    console.log("Using agent ID from localStorage:", finalAgentId);
+                  }
+                }
+              } catch (storageError) {
+                console.log("Could not retrieve agent ID from localStorage");
+              }
+            }
           }
 
           if (!finalAgentId) {
@@ -304,6 +329,9 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
         try {
           const agentStoreModule = await import("./agentstore");
           const agentStore = agentStoreModule.default;
+
+          // Add small delay for store initialization
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const { token, isAuthenticated } = agentStore.getState();
 

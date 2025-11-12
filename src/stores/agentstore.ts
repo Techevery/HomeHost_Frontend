@@ -84,6 +84,16 @@ interface EnlistedProperty {
   agentId: string;
 }
 
+interface AgentBanner {
+  id: string;
+  name: string;
+  description?: string;
+  image_url: string;
+  agentId: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface AgentState {
   token: string | null;
   agentInfo: AgentInfo | null;
@@ -105,23 +115,34 @@ interface AgentState {
   totalPublicProperties: number;
   hasMorePublicProperties: boolean;
   loading: boolean;
+  agentBanners: AgentBanner[];
+  currentBannerPage: number;
+  totalBanners: number;
+  hasMoreBanners: boolean;
 }
 
 interface AgentActions {
+  // Auth actions
   login: (email: string, password: string, remember: boolean) => Promise<void>;
   registerAgent: (formData: FormData) => Promise<boolean>;
   logout: () => void;
-  fetchAgentProfile: () => Promise<void>;
-  updateAgentProfile: (updatedData: any) => Promise<void>;
   setRememberMe: (remember: boolean) => void;
   clearError: () => void;
+  
+  // Profile actions
+  fetchAgentProfile: () => Promise<void>;
+  updateAgentProfile: (updatedData: any) => Promise<void>;
+  
+  // Password actions
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
+  
+  // Property actions
   enlistApartment: (
     apartmentId: string,
     markedUpPrice?: number,
     agentPercentage?: number,
-  ) => Promise<{ success: boolean; message: string }>;
+  ) => Promise<{ success: boolean; message: string; data?: any }>;
   removeApartment: (apartmentId: string) => Promise<void>;
   fetchEnlistedProperties: (page?: number, limit?: number) => Promise<void>;
   fetchPropertiesBySlug: (
@@ -130,6 +151,9 @@ interface AgentActions {
     limit?: number,
   ) => Promise<any>;
   clearProperties: () => void;
+  fetchPublicProperties: (page?: number, limit?: number) => Promise<void>;
+  
+  // Agent management actions (admin)
   fetchAgents: (page?: number, limit?: number) => Promise<void>;
   updateAgentVerification: (
     agentId: string,
@@ -137,7 +161,14 @@ interface AgentActions {
     status: boolean,
   ) => Promise<void>;
   updateAgentStatus: (agentId: string, status: string) => Promise<void>;
-  fetchPublicProperties: (page?: number, limit?: number) => Promise<void>;
+  
+  // Banner actions
+  createBanner: (name: string, description: string, files: File[]) => Promise<{ success: boolean; message: string; data?: AgentBanner }>;
+  fetchBanner: () => Promise<void>;
+  fetchBannersBySlug: (slug: string, page?: number, limit?: number) => Promise<void>;
+  updateBanner: (bannerId: string, name?: string, description?: string, files?: File[]) => Promise<{ success: boolean; message: string; data?: AgentBanner }>;
+  deleteBanner: (bannerId: string) => Promise<{ success: boolean; message: string }>;
+  clearBanners: () => void;
 }
 
 const initialState: AgentState = {
@@ -161,6 +192,10 @@ const initialState: AgentState = {
   totalPublicProperties: 0,
   hasMorePublicProperties: false,
   loading: false,
+  agentBanners: [],
+  currentBannerPage: 1,
+  totalBanners: 0,
+  hasMoreBanners: false,
 };
 
 const API_BASE_URL =
@@ -245,10 +280,10 @@ const useAgentStore = create<AgentState & AgentActions>()(
     (set, get) => ({
       ...initialState,
 
+      // Auth methods
       login: async (email, password, remember) => {
         set({ isLoading: true, error: null });
         try {
-          // Input validation
           if (!email || !password) {
             throw new Error("Email and password are required.");
           }
@@ -297,7 +332,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
                 data.agent?.next_of_kin_full_name,
               next_of_kin_email:
                 data.next_of_kin_email ||
-                data.nextOfKinEmail ||
+                data.nextOfkinEmail ||
                 data.agent?.next_of_kin_email,
               accountBalance: data.accountBalance || data.agent?.accountBalance,
               id_card: data.id_card || data.agent?.id_card,
@@ -352,10 +387,9 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
           const { data } = response.data;
 
-          // Check if we have a successful response
           if (response.status === 201 && data) {
             set({
-              token: data.token, // Make sure token is included in response
+              token: data.token,
               agentInfo: {
                 id: data.id,
                 name: data.name,
@@ -373,7 +407,9 @@ const useAgentStore = create<AgentState & AgentActions>()(
                 next_of_kin_full_name:
                   data.nextOfKinName || data.next_of_kin_full_name,
                 next_of_kin_email:
-                  data.nextOfKinEmail || data.next_of_kin_email,
+                data.nextOfkinEmail ||
+                data.nextOfKinEmail ||
+                data.next_of_kin_email,
                 accountBalance: data.accountBalance || 0,
                 id_card: data.id_card,
                 createdAt: data.createdAt,
@@ -382,7 +418,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
             });
 
             console.log("Registration successful, returning true");
-            return true; // Return true on success
+            return true;
           } else {
             console.log("Registration response missing expected data");
             return false;
@@ -396,7 +432,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
           set({
             error: errorMessage,
           });
-          return false; // Return false on error
+          return false;
         } finally {
           set({ isLoading: false });
         }
@@ -452,7 +488,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
               personalUrl: data.personalUrl,
               next_of_kin_full_name:
                 data.nextOfKinName || data.next_of_kin_full_name,
-              next_of_kin_email: data.nextOfKinEmail || data.next_of_kin_email,
+              next_of_kin_email: data.nextOfkinEmail || data.next_of_kin_email,
               accountBalance: data.accountBalance,
               id_card: data.id_card,
               createdAt: data.createdAt,
@@ -467,7 +503,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             error: errorMessage,
           });
           if (error.response?.status === 401) {
-            // Auto-logout on unauthorized
             setTimeout(() => get().logout(), 2000);
           }
           throw new Error(errorMessage);
@@ -581,11 +616,9 @@ const useAgentStore = create<AgentState & AgentActions>()(
           set({ isLoading: false });
         }
       },
-      enlistApartment: async (
-        apartmentId: string,
-        markedUpPrice?: number,
-        agentPercentage?: number,
-      ) => {
+
+      // Property methods
+      enlistApartment: async (apartmentId, markedUpPrice, agentPercentage) => {
         set({ isLoading: true, error: null });
 
         try {
@@ -605,7 +638,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             agentPercentage,
           });
 
-          // 1. Verify agent is logged in and token is valid
           const authValidation = validateAuth(token, isAuthenticated);
           if (!authValidation.valid) {
             return {
@@ -614,7 +646,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             };
           }
 
-          // 2. Check if agent is verified - Enhanced check
           if (!agentInfo?.isVerified && agentInfo?.status !== "VERIFIED") {
             return {
               success: false,
@@ -623,7 +654,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             };
           }
 
-          // 3. Validate input parameters
           if (!apartmentId || apartmentId.trim() === "") {
             return {
               success: false,
@@ -631,7 +661,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             };
           }
 
-          // 4. Validate that we have exactly one pricing option
           const hasMarkupPrice =
             markedUpPrice !== undefined && markedUpPrice !== null;
           const hasAgentPercentage =
@@ -671,7 +700,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
           console.log("Making API request to enlist property...");
 
-          // 5. Prepare request data based on selected option
           const requestData: any = {
             apartmentId: apartmentId.trim(),
             agentId: agentInfo?.id,
@@ -685,7 +713,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
           console.log("Request data:", requestData);
 
-          // 6. Make API request with enhanced headers
           const response = await axios.post(
             `${API_BASE_URL}/api/v1/agent/enlist-property`,
             requestData,
@@ -700,16 +727,13 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
           console.log("Enlist property response:", response);
 
-          // 7. Handle successful response and extract pricing information
           let successMessage = "Apartment added to listing successfully";
           let pricingInfo = null;
 
-          // Extract message and data from backend response
           if (response.data?.message) {
             successMessage = response.data.message;
           }
 
-          // Extract pricing information if available in response
           if (response.data?.data) {
             pricingInfo = {
               finalPrice:
@@ -720,18 +744,16 @@ const useAgentStore = create<AgentState & AgentActions>()(
             };
           }
 
-          // 8. Refresh the enlisted properties
           await get().fetchEnlistedProperties(1, 10);
           console.log({ data: pricingInfo });
           return {
             success: true,
             message: successMessage,
-            data: pricingInfo, // Include pricing information in response
+            data: pricingInfo,
           };
         } catch (error: any) {
           console.error("❌ Enlist property error:", error);
 
-          // Enhanced error logging
           if (error.response) {
             console.error("Error response:", {
               status: error.response.status,
@@ -739,7 +761,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
               headers: error.response.headers,
             });
 
-            // Handle specific error status codes from backend
             if (error.response.status === 403) {
               const errorMessage = "Only verified agents can add properties";
               set({ error: errorMessage });
@@ -776,7 +797,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
         }
       },
 
-      removeApartment: async (apartmentId: string) => {
+      removeApartment: async (apartmentId) => {
         set({ isLoading: true, error: null });
         try {
           const { token, isAuthenticated } = get();
@@ -789,7 +810,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             throw new Error("Apartment ID is required.");
           }
 
-          // Make API request to remove apartment
           const response = await axios.delete(
             `${API_BASE_URL}/api/v1/agent/remove-apartment`,
             {
@@ -797,14 +817,13 @@ const useAgentStore = create<AgentState & AgentActions>()(
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               },
-              data: { apartmentId }, // Send apartmentId in request body
+              data: { apartmentId },
               timeout: 15000,
             },
           );
 
           console.log("Remove apartment response:", response);
 
-          // Remove from local state
           const currentProperties = get().enlistedProperties;
           const updatedProperties = currentProperties.filter(
             (property) => property.apartmentId !== apartmentId,
@@ -814,19 +833,15 @@ const useAgentStore = create<AgentState & AgentActions>()(
             enlistedProperties: updatedProperties,
             totalProperties: Math.max(0, get().totalProperties - 1),
           });
-
-          // Success - no return value needed (void)
         } catch (error: any) {
           console.error("❌ Remove apartment error:", error);
 
-          // Enhanced error handling with backend-specific errors
           if (error.response) {
             console.error("Error response:", {
               status: error.response.status,
               data: error.response.data,
             });
 
-            // Handle specific backend error status codes
             if (error.response.status === 403) {
               const errorMessage =
                 "Access denied. You do not have permission for this action.";
@@ -861,6 +876,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
           set({ isLoading: false });
         }
       },
+
       fetchEnlistedProperties: async (page = 1, limit = 10) => {
         set({ isLoading: true, error: null });
         try {
@@ -913,7 +929,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
         }
       },
 
-      fetchPropertiesBySlug: async (slug: string, page = 1, limit = 10) => {
+      fetchPropertiesBySlug: async (slug, page = 1, limit = 10) => {
         set({ isLoading: true, error: null });
         try {
           if (!slug) {
@@ -938,9 +954,9 @@ const useAgentStore = create<AgentState & AgentActions>()(
             throw new Error("Invalid response from server.");
           }
 
-          // Return the complete response structure that the component expects
           return {
             properties: data.properties || [],
+            banners: data.banners || [],
             pagination: data.pagination || {
               total: 0,
               page,
@@ -1017,11 +1033,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
         }
       },
 
-      updateAgentVerification: async (
-        agentId: string,
-        field: "front_id_status" | "back_id_status",
-        status: boolean,
-      ) => {
+      updateAgentVerification: async (agentId, field, status) => {
         set({ isLoading: true, error: null });
         try {
           const { token, isAuthenticated } = get();
@@ -1064,7 +1076,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
         }
       },
 
-      updateAgentStatus: async (agentId: string, status: string) => {
+      updateAgentStatus: async (agentId, status) => {
         set({ isLoading: true, error: null });
         try {
           const { token, isAuthenticated } = get();
@@ -1134,7 +1146,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             throw new Error("Invalid response from server.");
           }
 
-          // Extract properties from the nested structure
           let properties: any[] = [];
 
           if (
@@ -1152,7 +1163,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
           console.log("Extracted properties:", properties);
 
-          // Transform API properties to match our interface
           const validatedProperties: PublicProperty[] = properties.map(
             (prop) => ({
               id: prop.id || "",
@@ -1204,6 +1214,350 @@ const useAgentStore = create<AgentState & AgentActions>()(
         }
       },
 
+      // Banner management methods
+      createBanner: async (name, description, files) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            return {
+              success: false,
+              message: authValidation.message ?? "Authentication failed.",
+            };
+          }
+
+          if (!name || name.trim() === "") {
+            return {
+              success: false,
+              message: "Banner name is required.",
+            };
+          }
+
+          const formData = new FormData();
+          formData.append("name", name.trim());
+          if (description) formData.append("description", description.trim());
+          
+          files.forEach((file, index) => {
+            formData.append("image", file);
+          });
+
+          const response = await axios.post(
+            `${API_BASE_URL}/api/v1/agent/create-banner`,
+            formData,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "multipart/form-data",
+              },
+              timeout: 15000,
+            },
+          );
+
+          const newBanner = response.data.data;
+
+          set({
+            agentBanners: [newBanner, ...get().agentBanners],
+            totalBanners: get().totalBanners + 1,
+          });
+
+          return {
+            success: true,
+            message: "Banner created successfully",
+            data: newBanner,
+          };
+        } catch (error: any) {
+          const errorMessage = handleApiError(
+            error,
+            "Failed to create banner.",
+          );
+          set({
+            error: errorMessage,
+          });
+          return {
+            success: false,
+            message: errorMessage,
+          };
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+
+fetchBanner: async () => {
+  set({ isLoading: true, error: null });
+  try {
+    const { token, isAuthenticated } = get();
+    const authValidation = validateAuth(token, isAuthenticated);
+    if (!authValidation.valid) {
+      throw new Error(authValidation.message);
+    }
+
+    console.log("🔍 Store - Fetching banners for authenticated agent");
+
+    const response = await axios.get(
+      `${API_BASE_URL}/api/v1/agent/banner`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        timeout: 15000,
+      },
+    );
+
+    console.log("🔍 Store - Banners API response:", response.data);
+
+    const { result } = response.data;
+
+    if (!result) {
+      throw new Error("Invalid response from server.");
+    }
+
+   
+    const banners = Array.isArray(result) ? result : [];
+
+    console.log("🔍 Store - Banners for authenticated agent:", banners);
+
+    set({
+      agentBanners: banners,
+      totalBanners: banners.length,
+      hasMoreBanners: false,
+    });
+  } catch (error: any) {
+    console.error("❌ Store - Error fetching agent banners:", error);
+    const errorMessage = handleApiError(
+      error,
+      "Failed to fetch agent banners.",
+    );
+    set({
+      error: errorMessage,
+    });
+    throw new Error(errorMessage);
+  } finally {
+    set({ isLoading: false });
+  }
+},
+
+      fetchBannersBySlug: async (slug, page = 1, limit = 12) => {
+        set({ isLoading: true, error: null });
+        try {
+          if (!slug) {
+            throw new Error("Slug is required.");
+          }
+
+          console.log("🔍 Store - Fetching banners for slug:", slug);
+
+          // First try the dedicated banners endpoint
+          try {
+            const response = await axios.get(
+              `${API_BASE_URL}/api/v1/agent/${slug}/banners`,
+              {
+                params: { page, limit },
+                timeout: 15000,
+              },
+            );
+
+            console.log("🔍 Store - Banners API response:", response.data);
+
+            const { data } = response.data;
+
+            if (!data) {
+              throw new Error("Invalid response from server.");
+            }
+
+            const banners = data.banners || data || [];
+            console.log("🔍 Store - Banners from dedicated endpoint:", banners);
+
+            set({
+              agentBanners: banners,
+              currentBannerPage: page,
+              totalBanners: banners.length,
+              hasMoreBanners: false,
+            });
+
+          } catch (bannerError: any) {
+            // If dedicated banners endpoint fails, fall back to properties endpoint
+            console.log("🔍 Dedicated banners endpoint failed, trying properties endpoint...");
+            
+            const response = await axios.get(
+              `${API_BASE_URL}/api/v1/agent/${slug}/properties`,
+              {
+                params: { page, limit },
+                timeout: 15000,
+              },
+            );
+
+            console.log("🔍 Store - Properties API response:", response.data);
+
+            const { data } = response.data;
+
+            if (!data) {
+              throw new Error("Invalid response from server.");
+            }
+
+            // Extract banners from the properties response
+            const banners = data.banners || [];
+            console.log("🔍 Store - Banners from properties endpoint:", banners);
+
+            set({
+              agentBanners: banners,
+              currentBannerPage: page,
+              totalBanners: banners.length,
+              hasMoreBanners: false,
+            });
+          }
+
+        } catch (error: any) {
+          console.error("❌ Store - Error fetching banners:", error);
+          const errorMessage = handleApiError(
+            error,
+            "Failed to fetch agent banners.",
+          );
+          set({
+            error: errorMessage,
+          });
+          throw new Error(errorMessage);
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      updateBanner: async (bannerId, name, description, files) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            return {
+              success: false,
+              message: authValidation.message ?? "Authentication failed.",
+            };
+          }
+
+          if (!bannerId) {
+            return {
+              success: false,
+              message: "Banner ID is required.",
+            };
+          }
+
+          const formData = new FormData();
+          if (name) formData.append("name", name.trim());
+          if (description !== undefined) formData.append("description", description.trim());
+          
+          if (files && files.length > 0) {
+            files.forEach((file) => {
+              formData.append("image", file);
+            });
+          }
+
+          const response = await axios.patch(
+            `${API_BASE_URL}/api/v1/agent/banner/${bannerId}`,
+            formData,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "multipart/form-data",
+              },
+              timeout: 15000,
+            },
+          );
+
+          const updatedBanner = response.data.data;
+
+          set({
+            agentBanners: get().agentBanners.map(banner =>
+              banner.id === bannerId ? { ...banner, ...updatedBanner } : banner
+            ),
+          });
+
+          return {
+            success: true,
+            message: "Banner updated successfully",
+            data: updatedBanner,
+          };
+        } catch (error: any) {
+          const errorMessage = handleApiError(
+            error,
+            "Failed to update banner.",
+          );
+          set({
+            error: errorMessage,
+          });
+          return {
+            success: false,
+            message: errorMessage,
+          };
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      deleteBanner: async (bannerId) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            return {
+              success: false,
+              message: authValidation.message ?? "Authentication failed.",
+            };
+          }
+
+          if (!bannerId) {
+            return {
+              success: false,
+              message: "Banner ID is required.",
+            };
+          }
+
+          await axios.delete(
+            `${API_BASE_URL}/api/v1/agent/banner/${bannerId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              timeout: 15000,
+            },
+          );
+
+          set({
+            agentBanners: get().agentBanners.filter(banner => banner.id !== bannerId),
+            totalBanners: Math.max(0, get().totalBanners - 1),
+          });
+
+          return {
+            success: true,
+            message: "Banner deleted successfully",
+          };
+        } catch (error: any) {
+          const errorMessage = handleApiError(
+            error,
+            "Failed to delete banner.",
+          );
+          set({
+            error: errorMessage,
+          });
+          return {
+            success: false,
+            message: errorMessage,
+          };
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      clearBanners: () => {
+        set({
+          agentBanners: [],
+          currentBannerPage: 1,
+          totalBanners: 0,
+          hasMoreBanners: false,
+        });
+      },
+
+      // Utility methods
       setRememberMe: (remember) => {
         set({ rememberMe: remember });
       },

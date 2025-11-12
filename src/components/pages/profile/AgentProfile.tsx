@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -19,23 +19,21 @@ import {
   DialogActions,
   Snackbar,
   TextField,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
   IconButton,
+  ImageList,
+  ImageListItem,
+  ImageListItemBar,
 } from "@mui/material";
 import {
   Add as AddIcon,
   Edit as EditIcon,
-  LocationOn as LocationIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
   Business as BusinessIcon,
   Logout as LogoutIcon,
   AccountBalanceWallet as WalletIcon,
-  Lock as LockIcon,
-  Close as CloseIcon,
+  Delete as DeleteIcon,
+  PhotoCamera as CameraIcon,
 } from "@mui/icons-material";
 import useAgentStore from "../../../stores/agentstore";
 import { PropertyCard, Property } from "../../pages/agent/PropertyCard";
@@ -54,9 +52,15 @@ interface ProfileFormData {
   gender: string;
   personalUrl: string;
   nextOfKinName: string;
-  nextOfKinEmail: string;
+  nextOfkinEmail: string;
   bankName: string;
   accountNumber: string;
+}
+
+interface BannerFormData {
+  name: string;
+  description: string;
+  image?: File;
 }
 
 const AgentProfile = () => {
@@ -72,6 +76,12 @@ const AgentProfile = () => {
     removeApartment,
     logout,
     updateAgentProfile,
+    agentBanners,
+    fetchBanner,
+    createBanner,
+    updateBanner,
+    deleteBanner,
+    loading: bannersLoading,
   } = useAgentStore();
 
   const [activeTab, setActiveTab] = useState("profile");
@@ -90,6 +100,14 @@ const AgentProfile = () => {
   const [propertyDetailModalOpen, setPropertyDetailModalOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
 
+  // Banner Modal States
+  const [bannerModalOpen, setBannerModalOpen] = useState(false);
+  const [editBannerModalOpen, setEditBannerModalOpen] = useState(false);
+  const [deleteBannerDialogOpen, setDeleteBannerDialogOpen] = useState(false);
+  const [bannerToDelete, setBannerToDelete] = useState<string | null>(null);
+  const [bannerToEdit, setBannerToEdit] = useState<any>(null);
+  const [bannerImagePreview, setBannerImagePreview] = useState<string>("");
+
   const [profileForm, setProfileForm] = useState<ProfileFormData>({
     name: "",
     avatar: "",
@@ -99,14 +117,24 @@ const AgentProfile = () => {
     gender: "",
     personalUrl: "",
     nextOfKinName: "",
-    nextOfKinEmail: "",
+    nextOfkinEmail: "",
     bankName: "",
     accountNumber: "",
+  });
+
+  const [bannerForm, setBannerForm] = useState<BannerFormData>({
+    name: "",
+    description: "",
   });
 
   const [profileFormErrors, setProfileFormErrors] = useState<
     Partial<Record<keyof ProfileFormData, string>>
   >({});
+  
+  const [bannerFormErrors, setBannerFormErrors] = useState<
+    Partial<Record<keyof BannerFormData, string>>
+  >({});
+
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
 
@@ -126,6 +154,8 @@ const AgentProfile = () => {
   useEffect(() => {
     if (activeTab === "properties" && agentInfo?.id) {
       loadProperties();
+    } else if (activeTab === "banners" && agentInfo?.id) {
+      loadBanners();
     }
   }, [activeTab, agentInfo?.id]);
 
@@ -141,7 +171,7 @@ const AgentProfile = () => {
         gender: agentInfo.gender || "",
         personalUrl: agentInfo.personalUrl || "",
         nextOfKinName: agentInfo.next_of_kin_full_name || "",
-        nextOfKinEmail: agentInfo.next_of_kin_email || "",
+        nextOfkinEmail: agentInfo.next_of_kin_email || "",
         bankName: agentInfo.bank_name || "",
         accountNumber: agentInfo.account_number || "",
       });
@@ -161,6 +191,17 @@ const AgentProfile = () => {
     }
   };
 
+  const loadBanners = async () => {
+    try {
+      console.log("🔄 Loading banners using fetchBanner endpoint...");
+      await fetchBanner();
+      console.log("✅ Banners loaded successfully");
+    } catch (error) {
+      console.error("Error fetching banners:", error);
+      showSnackbar("Failed to load banners", "error");
+    }
+  };
+
   const handleAddPropertyClick = () => {
     setViewPropertiesModalOpen(true);
   };
@@ -174,7 +215,7 @@ const AgentProfile = () => {
     setViewPropertiesModalOpen(false);
     setPropertyDetailModalOpen(false);
     setSelectedProperty(null);
-    loadProperties(); // Refresh the properties list
+    loadProperties();
     showSnackbar("Property added successfully to your listings!", "success");
   };
 
@@ -199,28 +240,128 @@ const AgentProfile = () => {
     }
   };
 
-  const handleViewProperty = (propertyId: string) => {
-    navigate(`/properties/${propertyId}`);
-  };
-
   const handleLogout = () => {
     logout();
     navigate("/");
     showSnackbar("Logged out successfully", "success");
   };
 
-  const handleWalletClick = () => {
-    navigate("/earnings");
-  };
-
-  const handleChangePassword = () => {
-    navigate("/security");
-  };
-
-  // Edit Profile Functions
   const handleEditProfileClick = () => {
     setEditProfileModalOpen(true);
     setProfileFormErrors({});
+  };
+
+  // Banner Functions
+  const handleAddBannerClick = () => {
+    setBannerForm({ name: "", description: "" });
+    setBannerImagePreview("");
+    setBannerFormErrors({});
+    setBannerModalOpen(true);
+  };
+
+  const handleEditBannerClick = (banner: any) => {
+    setBannerToEdit(banner);
+    setBannerForm({
+      name: banner.name || "",
+      description: banner.description || "",
+    });
+    setBannerImagePreview(banner.image_url || "");
+    setBannerFormErrors({});
+    setEditBannerModalOpen(true);
+  };
+
+  const handleDeleteBannerClick = (bannerId: string) => {
+    setBannerToDelete(bannerId);
+    setDeleteBannerDialogOpen(true);
+  };
+
+  const confirmBannerDelete = async () => {
+    if (!bannerToDelete) return;
+
+    try {
+      const result = await deleteBanner(bannerToDelete);
+      if (result.success) {
+        showSnackbar("Banner deleted successfully", "success");
+        await loadBanners();
+      } else {
+        showSnackbar(result.message, "error");
+      }
+    } catch (error) {
+      console.error("Error deleting banner:", error);
+      showSnackbar("Failed to delete banner", "error");
+    } finally {
+      setDeleteBannerDialogOpen(false);
+      setBannerToDelete(null);
+    }
+  };
+
+  const handleBannerImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setBannerForm(prev => ({ ...prev, image: file }));
+      const previewUrl = URL.createObjectURL(file);
+      setBannerImagePreview(previewUrl);
+    }
+  };
+
+  const validateBannerForm = (): boolean => {
+    const errors: Partial<Record<keyof BannerFormData, string>> = {};
+
+    if (!bannerForm.name.trim()) {
+      errors.name = "Banner name is required";
+    }
+    if (!bannerImagePreview && !bannerForm.image) {
+      errors.image = "Banner image is required";
+    }
+
+    setBannerFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleCreateBanner = async () => {
+    if (!validateBannerForm()) return;
+
+    try {
+      const files = bannerForm.image ? [bannerForm.image] : [];
+      const result = await createBanner(bannerForm.name, bannerForm.description, files);
+      
+      if (result.success) {
+        showSnackbar("Banner created successfully", "success");
+        setBannerModalOpen(false);
+        await loadBanners();
+      } else {
+        showSnackbar(result.message, "error");
+      }
+    } catch (error: any) {
+      console.error("Error creating banner:", error);
+      showSnackbar(error.message || "Failed to create banner", "error");
+    }
+  };
+
+  const handleUpdateBanner = async () => {
+    if (!bannerToEdit || !validateBannerForm()) return;
+
+    try {
+      const files = bannerForm.image ? [bannerForm.image] : [];
+      const result = await updateBanner(
+        bannerToEdit.id,
+        bannerForm.name,
+        bannerForm.description,
+        files
+      );
+      
+      if (result.success) {
+        showSnackbar("Banner updated successfully", "success");
+        setEditBannerModalOpen(false);
+        setBannerToEdit(null);
+        await loadBanners();
+      } else {
+        showSnackbar(result.message, "error");
+      }
+    } catch (error: any) {
+      console.error("Error updating banner:", error);
+      showSnackbar(error.message || "Failed to update banner", "error");
+    }
   };
 
   const showSnackbar = (message: string, severity: "success" | "error") => {
@@ -231,9 +372,6 @@ const AgentProfile = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Add these functions to your AgentProfile component, before the transformPropertyData function
-
-  // Handle avatar file selection
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -267,10 +405,7 @@ const AgentProfile = () => {
     if (!validateProfileForm()) return;
 
     try {
-      // Create FormData for file upload
       const formData = new FormData();
-
-      // Append all profile data
       formData.append("name", profileForm.name);
       formData.append("email", profileForm.email);
       formData.append("phoneNumber", profileForm.phoneNumber);
@@ -278,11 +413,10 @@ const AgentProfile = () => {
       formData.append("gender", profileForm.gender);
       formData.append("personalUrl", profileForm.personalUrl);
       formData.append("nextOfKinName", profileForm.nextOfKinName);
-      formData.append("nextOfKinEmail", profileForm.nextOfKinEmail);
+      formData.append("nextOfKinEmail", profileForm.nextOfkinEmail);
       formData.append("bankName", profileForm.bankName);
       formData.append("accountNumber", profileForm.accountNumber);
 
-      // Append avatar file if selected
       if (avatarFile) {
         formData.append("avatar", avatarFile);
       }
@@ -291,47 +425,44 @@ const AgentProfile = () => {
       showSnackbar("Profile updated successfully", "success");
       setEditProfileModalOpen(false);
       setAvatarFile(null);
-      await fetchAgentProfile(); // Refresh agent info
+      await fetchAgentProfile();
     } catch (error: any) {
       console.error("Error updating profile:", error);
       showSnackbar(error.message || "Failed to update profile", "error");
     }
   };
 
-  // Add this function for removing avatar
-  const handleAvatarRemove = () => {
-    setAvatarFile(null);
-    setAvatarPreview(agentInfo?.profile_picture || "");
-    setProfileForm((prev) => ({
-      ...prev,
-      avatar: agentInfo?.profile_picture || "",
-    }));
-  };
-
   const transformPropertyData = (property: any): Property => {
+    console.log("Transforming property data:", property);
+    
+    const agentPricing = property.agentPricing || {};
+    
+    const basePrice = agentPricing.basePrice || property.price || 0;
+    const markedUpPrice = agentPricing.markedUpPrice || 0; 
+    const totalPrice = agentPricing.total || property.price || 0;
+    
     return {
       id: property.id || property._id,
-      apartmentId: property.apartmentId || "",
+      apartmentId: property.apartmentId || property.listingId || "",
       title: property.title || property.name || "Untitled Property",
-      // description: property.description || "No description available",
-      price: property.price || property.basePrice || 0,
-      markedUpPrice:
-        property.markedUpPrice || property.finalPrice || property.price || 0,
-      location:
-        property.location || property.address || "Location not specified",
+      price: basePrice, 
+      markedUpPrice: markedUpPrice, 
+      location: property.location || property.address || "Location not specified",
       images: property.images || property.photos || [property.image] || [],
       status: property.status || "active",
       type: property.type || property.propertyType || "Residential",
-      bedroom: property.bedroom || property.bedroom || 0,
-
-      // bathrooms: property.bathrooms || property.baths || 0,
-      // area: property.area || property.squareFootage || 0,
+      bedroom: property.bedroom || property.bedrooms || 0,
       agentPercentage: property.agentPercentage || property.commission || 0,
       createdAt: property.createdAt || property.createdDate,
+      
+      basePrice: basePrice,
+      totalPrice: totalPrice,
+      priceChangedAt: agentPricing.priceChangedAt, 
+      servicing: property.servicing,
+      amenities: property.amenities || []
     };
   };
 
-  console.log({ transformPropertyData });
   if (isLoading && !agentInfo) {
     return (
       <Box
@@ -430,17 +561,8 @@ const AgentProfile = () => {
               <Button
                 variant="outlined"
                 startIcon={<WalletIcon />}
-                onClick={handleWalletClick}
                 size="small">
                 Wallet
-              </Button>
-
-              <Button
-                variant="outlined"
-                startIcon={<LockIcon />}
-                onClick={handleChangePassword}
-                size="small">
-                Change Password
               </Button>
 
               <Button
@@ -472,6 +594,13 @@ const AgentProfile = () => {
             onClick={() => setActiveTab("properties")}
             sx={{ py: 2, borderRadius: 0 }}>
             My Properties ({enlistedProperties.length})
+          </Button>
+          <Button
+            fullWidth
+            variant={activeTab === "banners" ? "contained" : "text"}
+            onClick={() => setActiveTab("banners")}
+            sx={{ py: 2, borderRadius: 0 }}>
+            My Banners ({agentBanners.length})
           </Button>
         </Box>
       </Paper>
@@ -663,17 +792,8 @@ const AgentProfile = () => {
                   <Button
                     variant="outlined"
                     startIcon={<WalletIcon />}
-                    onClick={handleWalletClick}
                     fullWidth>
                     View Earnings
-                  </Button>
-
-                  <Button
-                    variant="outlined"
-                    startIcon={<LockIcon />}
-                    onClick={handleChangePassword}
-                    fullWidth>
-                    Change Password
                   </Button>
 
                   <Button
@@ -682,6 +802,14 @@ const AgentProfile = () => {
                     onClick={handleAddPropertyClick}
                     fullWidth>
                     Add New Property
+                  </Button>
+
+                  <Button
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    onClick={handleAddBannerClick}
+                    fullWidth>
+                    Add Banner
                   </Button>
 
                   <Button
@@ -713,13 +841,6 @@ const AgentProfile = () => {
 
             <Box display="flex" gap={2}>
               <Button
-                variant="outlined"
-                startIcon={<WalletIcon />}
-                onClick={handleWalletClick}>
-                Wallet
-              </Button>
-
-              <Button
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={handleAddPropertyClick}>
@@ -745,7 +866,6 @@ const AgentProfile = () => {
                   <PropertyCard
                     property={transformPropertyData(property)}
                     onDelete={handleDeleteProperty}
-                    onView={handleViewProperty}
                     variant="agent"
                     showActions={true}
                   />
@@ -770,6 +890,87 @@ const AgentProfile = () => {
                 onClick={handleAddPropertyClick}
                 size="large">
                 Add Your First Property
+              </Button>
+            </Paper>
+          )}
+        </Box>
+      )}
+
+      {/* Banners Tab Content */}
+      {activeTab === "banners" && (
+        <Box>
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            sx={{ mb: 3 }}>
+            <Typography variant="h5" fontWeight="bold">
+              My Banners ({agentBanners.length})
+            </Typography>
+
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleAddBannerClick}>
+              Add New Banner
+            </Button>
+          </Box>
+
+          {bannersLoading ? (
+            <Box display="flex" justifyContent="center" sx={{ py: 8 }}>
+              <CircularProgress />
+            </Box>
+          ) : agentBanners.length > 0 ? (
+            <ImageList cols={3} gap={16}>
+              {agentBanners.map((banner) => (
+                <ImageListItem key={banner.id} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                  <img
+                    src={banner.image_url}
+                    alt={banner.name}
+                    loading="lazy"
+                    style={{ height: 200, objectFit: 'cover' }}
+                  />
+                  <ImageListItemBar
+                    title={banner.name}
+                    subtitle={banner.description}
+                    actionIcon={
+                      <Box>
+                        <IconButton
+                          sx={{ color: 'white' }}
+                          onClick={() => handleEditBannerClick(banner)}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          sx={{ color: 'white' }}
+                          onClick={() => handleDeleteBannerClick(banner.id)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    }
+                  />
+                </ImageListItem>
+              ))}
+            </ImageList>
+          ) : (
+            <Paper sx={{ textAlign: "center", py: 8, borderRadius: 3 }}>
+              <CameraIcon
+                sx={{ fontSize: 64, color: "text.secondary", mb: 2 }}
+              />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No Banners Created
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Create banners to showcase your brand and attract more clients
+                to your profile.
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleAddBannerClick}
+                size="large">
+                Create Your First Banner
               </Button>
             </Paper>
           )}
@@ -813,7 +1014,148 @@ const AgentProfile = () => {
         }}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* Create Banner Modal */}
+      <Dialog
+        open={bannerModalOpen}
+        onClose={() => setBannerModalOpen(false)}
+        maxWidth="sm"
+        fullWidth>
+        <DialogTitle>Create New Banner</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Banner Name"
+              value={bannerForm.name}
+              onChange={(e) => setBannerForm(prev => ({ ...prev, name: e.target.value }))}
+              error={!!bannerFormErrors.name}
+              helperText={bannerFormErrors.name}
+              sx={{ mb: 3 }}
+            />
+            
+            <TextField
+              fullWidth
+              label="Description"
+              multiline
+              rows={3}
+              value={bannerForm.description}
+              onChange={(e) => setBannerForm(prev => ({ ...prev, description: e.target.value }))}
+              sx={{ mb: 3 }}
+            />
+
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Banner Image *
+              </Typography>
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<CameraIcon />}
+                fullWidth
+                sx={{ py: 2 }}>
+                Upload Banner Image
+                <input
+                  type="file"
+                  hidden
+                  accept="image/*"
+                  onChange={handleBannerImageChange}
+                />
+              </Button>
+              {bannerFormErrors.image && (
+                <Typography color="error" variant="caption">
+                  {bannerFormErrors.image}
+                </Typography>
+              )}
+            </Box>
+
+            {bannerImagePreview && (
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <img
+                  src={bannerImagePreview}
+                  alt="Banner preview"
+                  style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
+                />
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBannerModalOpen(false)}>Cancel</Button>
+          <Button onClick={handleCreateBanner} variant="contained">
+            Create Banner
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Banner Modal */}
+      <Dialog
+        open={editBannerModalOpen}
+        onClose={() => setEditBannerModalOpen(false)}
+        maxWidth="sm"
+        fullWidth>
+        <DialogTitle>Edit Banner</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Banner Name"
+              value={bannerForm.name}
+              onChange={(e) => setBannerForm(prev => ({ ...prev, name: e.target.value }))}
+              error={!!bannerFormErrors.name}
+              helperText={bannerFormErrors.name}
+              sx={{ mb: 3 }}
+            />
+            
+            <TextField
+              fullWidth
+              label="Description"
+              multiline
+              rows={3}
+              value={bannerForm.description}
+              onChange={(e) => setBannerForm(prev => ({ ...prev, description: e.target.value }))}
+              sx={{ mb: 3 }}
+            />
+
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Banner Image
+              </Typography>
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<CameraIcon />}
+                fullWidth
+                sx={{ py: 2 }}>
+                Change Banner Image
+                <input
+                  type="file"
+                  hidden
+                  accept="image/*"
+                  onChange={handleBannerImageChange}
+                />
+              </Button>
+            </Box>
+
+            {bannerImagePreview && (
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <img
+                  src={bannerImagePreview}
+                  alt="Banner preview"
+                  style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
+                />
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditBannerModalOpen(false)}>Cancel</Button>
+          <Button onClick={handleUpdateBanner} variant="contained">
+            Update Banner
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialogs */}
       <Dialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
@@ -829,6 +1171,26 @@ const AgentProfile = () => {
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
           <Button onClick={confirmDelete} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={deleteBannerDialogOpen}
+        onClose={() => setDeleteBannerDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth>
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this banner? This action cannot be
+            undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteBannerDialogOpen(false)}>Cancel</Button>
+          <Button onClick={confirmBannerDelete} color="error" variant="contained">
             Delete
           </Button>
         </DialogActions>

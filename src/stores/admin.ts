@@ -22,6 +22,30 @@ interface AdminState {
   error: string | null;
 }
 
+// Apartment data interface
+interface ApartmentData {
+  name: string;
+  address: string;
+  type: string;
+  servicing: string;
+  bedroom: string;
+  price: number;
+  amenities: string;
+  agentPercentage: number;
+}
+
+// Update data interface with optional fields
+interface UpdateApartmentData {
+  name?: string;
+  address?: string;
+  type?: string;
+  servicing?: string;
+  bedroom?: string;
+  price?: number;
+  amenities?: string;
+  agentPercentage?: number;
+}
+
 interface AdminActions {
   login: (email: string, password: string) => Promise<void>;
   registerAdmin: (adminData: {
@@ -41,6 +65,7 @@ interface AdminActions {
     agentId: string,
     status: "VERIFIED" | "UNVERIFIED",
   ) => Promise<any>;
+  suspendAgent: (agentId: string) => Promise<any>;
   listProperties: (page?: number, pageSize?: number) => Promise<any>;
   listAgents: (page?: number, pageSize?: number) => Promise<any>;
   getAgentProfile: (agentId: string) => Promise<any>;
@@ -48,6 +73,16 @@ interface AdminActions {
   getTransactionDetailsByYear: (year: number) => Promise<any>;
   deleteApartment: (apartmentId: string) => Promise<any>;
   searchApartment: (query: string) => Promise<any>;
+  updateApartment: (
+    apartmentId: string,
+    updateData: UpdateApartmentData,
+    files?: File[],
+    deleteExistingImages?: boolean
+  ) => Promise<any>;
+  createApartment: (
+    apartmentData: ApartmentData,
+    files?: File[]
+  ) => Promise<any>;
 }
 
 const initialState: AdminState = {
@@ -58,7 +93,6 @@ const initialState: AdminState = {
   error: null,
 };
 
-// Fixed: Removed trailing space
 const API_BASE_URL =
   process.env.REACT_APP_DEV_BASE_URL || "https://homeyhost.ng/api";
 
@@ -106,7 +140,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
               createdAt: adminData?.createdAt || new Date().toISOString(),
               address: adminData?.address,
               gender: adminData?.gender,
-              phoneNumber: adminData?.phoneNumber || "",
+              phoneNumber: adminData?.phoneNumber || adminData?.phonenumber || "",
             },
             isAuthenticated: true,
             isLoading: false,
@@ -212,7 +246,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
               createdAt: data.createdAt,
               address: data.address,
               gender: data.gender,
-              phoneNumber: data.phoneNumber || "",
+              phoneNumber: data.phoneNumber || data.phonenumber || "",
             },
             isLoading: false,
           });
@@ -278,6 +312,36 @@ const useAdminStore = create<AdminState & AdminActions>()(
           const response = await axios.put(
             `${API_BASE_URL}/api/v1/admin/verify-agent`,
             { agentId, status },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.message,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      suspendAgent: async (agentId) => {
+        set({ isLoading: true });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.patch(
+            `${API_BASE_URL}/api/v1/admin/suspend-agent`,
+            { agentId },
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -493,6 +557,99 @@ const useAdminStore = create<AdminState & AdminActions>()(
               params: { query },
               headers: {
                 Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.message,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      updateApartment: async (apartmentId, updateData, files, deleteExistingImages = false) => {
+        set({ isLoading: true });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const formData = new FormData();
+          
+          // Type-safe way to append form data
+          Object.entries(updateData).forEach(([key, value]) => {
+            if (value !== undefined) {
+              formData.append(key, value.toString());
+            }
+          });
+          
+          // Append files if any
+          if (files) {
+            files.forEach(file => {
+              formData.append('files', file);
+            });
+          }
+          
+          // Append deleteExistingImages flag
+          formData.append('deleteExistingImages', deleteExistingImages.toString());
+
+          const response = await axios.patch(
+            `${API_BASE_URL}/api/v1/admin/update-apartment/${apartmentId}`,
+            formData,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'multipart/form-data',
+              },
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.message,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      createApartment: async (apartmentData, files) => {
+        set({ isLoading: true });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const formData = new FormData();
+          
+          // Type-safe way to append apartment data
+          Object.entries(apartmentData).forEach(([key, value]) => {
+            formData.append(key, value.toString());
+          });
+          
+          // Append files if any
+          if (files) {
+            files.forEach(file => {
+              formData.append('files', file);
+            });
+          }
+
+          const response = await axios.post(
+            `${API_BASE_URL}/api/v1/admin/upload-property`,
+            formData,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'multipart/form-data',
               },
             },
           );

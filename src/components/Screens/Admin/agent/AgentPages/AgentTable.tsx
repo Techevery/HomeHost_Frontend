@@ -139,12 +139,12 @@ const AgentTable: React.FC = () => {
   }, [token, currentPage, itemsPerPage, listAgents]);
 
   const handleViewProfile = (agent: AgentData) => {
-    navigate(`/admin/agents/${agent.id}`, {
-      state: {
-        agent,
-        from: "agent-table",
-      },
-    });
+    // navigate(`/admin/agents/${agent.id}`, {
+    //   state: {
+    //     agent,
+    //     from: "agent-table",
+    //   },
+    // });
   };
 
   // Open agent detail modal

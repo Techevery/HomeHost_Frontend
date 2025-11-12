@@ -423,118 +423,105 @@ const useBookingStore = create<BookingState & BookingActions>()(
         }
       },
 
-      fetchBookingDates: async (apartmentId: string) => {
-        set({ loading: true, error: null });
-        try {
-          const token = localStorage.getItem("token");
+  // Update the fetchBookingDates method in bookingStore.ts
 
-          const headers: any = {
-            "Content-Type": "application/json",
-          };
+fetchBookingDates: async (apartmentId: string) => {
+  set({ loading: true, error: null });
+  try {
+    const token = localStorage.getItem("token");
 
-          if (token) {
-            headers.Authorization = `Bearer ${token}`;
-          }
+    const headers: any = {
+      "Content-Type": "application/json",
+    };
 
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/booking/booking-dates`,
-            {
-              params: {
-                apartmentId: apartmentId,
-              },
-              headers,
-            },
-          );
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
-          console.log("📅 Booking dates API response:", response.data);
-
-          let bookingDatesData = [];
-
-          if (Array.isArray(response.data)) {
-            bookingDatesData = response.data;
-          } else if (response.data.data && Array.isArray(response.data.data)) {
-            bookingDatesData = response.data.data;
-          } else if (response.data && Array.isArray(response.data)) {
-            bookingDatesData = response.data;
-          }
-
-          const processedBookingDates = bookingDatesData
-            .map((bookingDate: any) => {
-              // Try different possible date field names from the backend
-              let startDate = null;
-              let endDate = null;
-
-              // Check for booking_period structure
-              if (bookingDate.booking_period) {
-                startDate = bookingDate.booking_period.start_date
-                  ? new Date(bookingDate.booking_period.start_date)
-                  : null;
-                endDate = bookingDate.booking_period.end_date
-                  ? new Date(bookingDate.booking_period.end_date)
-                  : null;
-              }
-              // Check for direct date fields
-              else if (
-                bookingDate.start_date ||
-                bookingDate.booking_start_date
-              ) {
-                startDate = bookingDate.start_date
-                  ? new Date(bookingDate.start_date)
-                  : bookingDate.booking_start_date
-                  ? new Date(bookingDate.booking_start_date)
-                  : null;
-                endDate = bookingDate.end_date
-                  ? new Date(bookingDate.end_date)
-                  : bookingDate.booking_end_date
-                  ? new Date(bookingDate.booking_end_date)
-                  : null;
-              }
-              // Check for transaction dates
-              else if (bookingDate.transaction) {
-                startDate = bookingDate.transaction.booking_start_date
-                  ? new Date(bookingDate.transaction.booking_start_date)
-                  : null;
-                endDate = bookingDate.transaction.booking_end_date
-                  ? new Date(bookingDate.transaction.booking_end_date)
-                  : null;
-              }
-
-              return {
-                id: bookingDate.id || bookingDate.booking_period_id,
-                booking_start_date: startDate,
-                booking_end_date: endDate,
-                apartment_id: bookingDate.apartment_id,
-                status: bookingDate.status || "booked",
-                // Include raw data for debugging
-                _raw: bookingDate,
-              };
-            })
-            .filter(
-              (bookingDate: any) =>
-                bookingDate.booking_start_date && bookingDate.booking_end_date,
-            );
-
-          console.log("📅 Processed booking dates:", processedBookingDates);
-          console.log(
-            "📅 Processed booking dates count:",
-            processedBookingDates.length,
-          );
-
-          set({ bookingDates: processedBookingDates });
-        } catch (error: any) {
-          console.error("❌ Failed to fetch booking dates:", error);
-          const errorMessage =
-            error.response?.data?.message ||
-            error.response?.data?.error ||
-            "Failed to fetch booking dates";
-          set({
-            error: errorMessage,
-          });
-          toast.error(errorMessage);
-        } finally {
-          set({ loading: false });
-        }
+    // Updated to use params instead of query string in URL
+    const response = await axios.get(
+      `${API_BASE_URL}/api/v1/booking/booking-dates/${apartmentId}`,
+      {
+        headers,
       },
+    );
+
+    console.log("📅 Booking dates API response:", response.data);
+
+    let bookingDatesData = [];
+
+    if (Array.isArray(response.data)) {
+      bookingDatesData = response.data;
+    } else if (response.data.data && Array.isArray(response.data.data)) {
+      bookingDatesData = response.data.data;
+    } else if (response.data && Array.isArray(response.data)) {
+      bookingDatesData = response.data;
+    } else {
+      // Handle single object response
+      bookingDatesData = [response.data];
+    }
+
+    const processedBookingDates = bookingDatesData
+      .map((bookingDate: any) => {
+        // Based on the backend service, the data comes from apartmentLog with booking_period
+        let startDate = null;
+        let endDate = null;
+
+        // Primary: Use booking_period data from apartmentLog
+        if (bookingDate.booking_period) {
+          startDate = bookingDate.booking_period.start_date
+            ? new Date(bookingDate.booking_period.start_date)
+            : null;
+          endDate = bookingDate.booking_period.end_date
+            ? new Date(bookingDate.booking_period.end_date)
+            : null;
+        }
+        // Fallback: Check for direct date fields in apartmentLog
+        else if (bookingDate.start_date || bookingDate.end_date) {
+          startDate = bookingDate.start_date
+            ? new Date(bookingDate.start_date)
+            : null;
+          endDate = bookingDate.end_date
+            ? new Date(bookingDate.end_date)
+            : null;
+        }
+
+        // Only return valid date ranges
+        if (startDate && endDate) {
+          return {
+            id: bookingDate.id || `booking-${Math.random()}`,
+            booking_start_date: startDate,
+            booking_end_date: endDate,
+            apartment_id: bookingDate.apartment_id || apartmentId,
+            status: bookingDate.status || "booked",
+          };
+        }
+        
+        return null;
+      })
+      .filter((bookingDate: any) => bookingDate !== null);
+
+    console.log("📅 Processed booking dates:", processedBookingDates);
+    console.log(
+      "📅 Processed booking dates count:",
+      processedBookingDates.length,
+    );
+
+    set({ bookingDates: processedBookingDates });
+  } catch (error: any) {
+    console.error("❌ Failed to fetch booking dates:", error);
+    const errorMessage =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      "Failed to fetch booking dates";
+    set({
+      error: errorMessage,
+    });
+    toast.error(errorMessage);
+  } finally {
+    set({ loading: false });
+  }
+},
 
       manageBooking: async (email?: string, phoneNumber?: string) => {
         set({ loading: true, error: null });
@@ -665,7 +652,6 @@ const useBookingStore = create<BookingState & BookingActions>()(
         currentBooking: state.currentBooking,
         receipts: state.receipts,
         currentReceipt: state.currentReceipt,
-
         managedBookings: state.managedBookings,
       }),
     },
