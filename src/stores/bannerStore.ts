@@ -40,27 +40,12 @@ const getAuthToken = (): string | null => {
          sessionStorage.getItem('token');
 };
 
-// Helper function to handle authentication errors
-const handleAuthError = () => {
-  // Clear auth tokens
-  localStorage.removeItem('authToken');
-  localStorage.removeItem('token');
-  sessionStorage.removeItem('authToken');
-  sessionStorage.removeItem('token');
-  
-  // Redirect to login page
-  if (window.location.pathname !== '/login') {
-    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
-  }
-};
-
 // Helper function to handle API errors
 const handleApiError = (error: any): string => {
   console.error('API Error:', error);
   
   // Handle authentication errors
   if (error.response?.status === 401) {
-    handleAuthError();
     return "Your session has expired. Please log in again.";
   }
   
@@ -91,7 +76,7 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
 
   handleAuthError: (error: any) => {
     if (error.response?.status === 401 || error.response?.status === 403) {
-      handleAuthError();
+      set({ isAuthenticated: false });
     }
   },
 
@@ -158,7 +143,18 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
   fetchBannerById: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/v1/banner/${id}`);
+      const token = getAuthToken();
+      const headers: any = {};
+      
+      // Only add authorization header if token exists
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await axios.get(`${API_BASE_URL}/api/v1/banner/${id}`, {
+        headers
+      });
+      
       const banner = response.data.data || response.data.result || response.data;
       
       set({ 
@@ -169,7 +165,8 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
       const errorMessage = handleApiError(error);
       set({ 
         error: errorMessage, 
-        isLoading: false 
+        isLoading: false,
+        isAuthenticated: error.response?.status === 401 ? false : get().isAuthenticated
       });
       throw error;
     }
@@ -180,7 +177,7 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
     try {
       const token = getAuthToken();
       if (!token) {
-        handleAuthError();
+        set({ isAuthenticated: false });
         throw new Error("Authentication required. Please log in.");
       }
 
@@ -201,7 +198,8 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
       const errorMessage = handleApiError(error);
       set({ 
         error: errorMessage, 
-        isLoading: false 
+        isLoading: false,
+        isAuthenticated: error.response?.status === 401 ? false : get().isAuthenticated
       });
       throw error;
     }
@@ -212,7 +210,7 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
     try {
       const token = getAuthToken();
       if (!token) {
-        handleAuthError();
+        set({ isAuthenticated: false });
         throw new Error("Authentication required. Please log in.");
       }
 
@@ -233,7 +231,8 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
       const errorMessage = handleApiError(error);
       set({ 
         error: errorMessage, 
-        isLoading: false 
+        isLoading: false,
+        isAuthenticated: error.response?.status === 401 ? false : get().isAuthenticated
       });
       throw error;
     }
@@ -244,7 +243,7 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
     try {
       const token = getAuthToken();
       if (!token) {
-        handleAuthError();
+        set({ isAuthenticated: false });
         throw new Error("Authentication required. Please log in.");
       }
 
@@ -268,7 +267,8 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
       const errorMessage = handleApiError(error);
       set({ 
         error: errorMessage, 
-        isLoading: false 
+        isLoading: false,
+        isAuthenticated: error.response?.status === 401 ? false : get().isAuthenticated
       });
       throw error;
     }

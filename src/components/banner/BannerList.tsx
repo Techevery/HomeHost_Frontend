@@ -36,21 +36,11 @@ const BannerList: React.FC = () => {
   }, [fetchBanners, retryCount, checkAuth]);
 
   const handleEdit = (id: string) => {
-    if (!isAuthenticated) {
-      // Redirect to login or show auth message
-      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
-      return;
-    }
     setEditingBanner(id);
     setIsFormOpen(true);
   };
 
   const handleAddBanner = () => {
-    if (!isAuthenticated) {
-      // Redirect to login or show auth message
-      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
-      return;
-    }
     setIsFormOpen(true);
     setEditingBanner(null);
   };
@@ -87,12 +77,6 @@ const BannerList: React.FC = () => {
             </div>
           </div>
           <div className="flex space-x-3">
-            <button
-              onClick={() => window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname)}
-              className="bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
-            >
-              Log In
-            </button>
             <button
               onClick={clearError}
               className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200"
@@ -159,32 +143,16 @@ const BannerList: React.FC = () => {
           </h1>
           <p className="text-gray-600 mt-2">
             Manage your website banners and promotions
-            {!isAuthenticated && (
-              <span className="text-yellow-600 text-sm ml-2">
-                (Read-only mode - Login to edit)
-              </span>
-            )}
           </p>
         </div>
         
-        {isAuthenticated ? (
-          <button
-            onClick={handleAddBanner}
-            disabled={isLoading}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg flex items-center space-x-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed w-fit">
-            <PlusIcon className="h-5 w-5" />
-            <span>Add New Banner</span>
-          </button>
-        ) : (
-          <button
-            onClick={() => window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname)}
-            className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg flex items-center space-x-2 transition-colors duration-200 w-fit">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-            </svg>
-            <span>Log In to Manage</span>
-          </button>
-        )}
+        <button
+          onClick={handleAddBanner}
+          disabled={isLoading || !isAuthenticated}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg flex items-center space-x-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed w-fit">
+          <PlusIcon className="h-5 w-5" />
+          <span>Add New Banner</span>
+        </button>
       </div>
 
       {/* Error Banner for non-critical errors */}
@@ -209,7 +177,7 @@ const BannerList: React.FC = () => {
         </div>
       )}
 
-      {isFormOpen && isAuthenticated && (
+      {isFormOpen && (
         <BannerForm
           bannerId={editingBanner}
           onClose={handleCloseForm}
@@ -237,18 +205,14 @@ const BannerList: React.FC = () => {
             No banners yet
           </h3>
           <p className="text-gray-500 mb-6 max-w-md mx-auto">
-            {isAuthenticated 
-              ? "Get started by creating your first banner to showcase promotions, announcements, or featured content on your website."
-              : "There are no banners to display. Log in to create and manage banners."
-            }
+            Get started by creating your first banner to showcase promotions, announcements, or featured content on your website.
           </p>
-          {isAuthenticated && (
-            <button
-              onClick={handleAddBanner}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-200">
-              Create Your First Banner
-            </button>
-          )}
+          <button
+            onClick={handleAddBanner}
+            disabled={!isAuthenticated}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+            Create Your First Banner
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

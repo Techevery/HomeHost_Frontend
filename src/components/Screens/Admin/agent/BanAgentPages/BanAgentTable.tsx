@@ -105,7 +105,7 @@ const BanAgentTable = () => {
       cellStyle: { paddingLeft: "2%" },
       render: (rowData: any) => (
         <div className='w-full whitespace-nowrap'>
-          {rowData.slug ? `${process.env.REACT_APP_AGENT_BASE_URL || 'https://homeyhost.ng'}/${rowData.slug}/properties` : 'N/A'}
+          {rowData.slug ? `${process.env.REACT_APP_AGENT_BASE_URL || 'https://homeyhost.ng'}/shortlet/${rowData.slug}` : 'N/A'}
         </div>
       ),
     },

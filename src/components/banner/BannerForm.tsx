@@ -216,11 +216,6 @@ const BannerForm: React.FC<BannerFormProps> = ({
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">
                 Cancel
               </button>
-              <button
-                onClick={() => window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname)}
-                className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-md">
-                Log In
-              </button>
             </div>
           </div>
         </div>

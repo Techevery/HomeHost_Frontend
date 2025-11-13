@@ -1,7 +1,8 @@
 // components/BannerCard.tsx
 import React, { useState } from "react";
-import { PencilIcon, TrashIcon, XMarkIcon, LockClosedIcon } from "@heroicons/react/24/outline";
+import { PencilIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import useBannerStore from "../../stores/bannerStore";
+import EditModal from "./EditModal";
 
 interface BannerCardProps {
   banner: {
@@ -20,10 +21,11 @@ interface BannerCardProps {
 const BannerCard: React.FC<BannerCardProps> = ({ banner, onEdit, isAuthenticated = false }) => {
   const { deleteBanner, isLoading } = useBannerStore();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const handleDeleteClick = () => {
     if (!isAuthenticated) {
-      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      setShowEditModal(true);
       return;
     }
     setShowDeleteModal(true);
@@ -31,10 +33,14 @@ const BannerCard: React.FC<BannerCardProps> = ({ banner, onEdit, isAuthenticated
 
   const handleEditClick = () => {
     if (!isAuthenticated) {
-      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      setShowEditModal(true);
       return;
     }
     onEdit(banner.id);
+  };
+
+  const handleCancelEdit = () => {
+    setShowEditModal(false);
   };
 
   const handleConfirmDelete = async () => {
@@ -93,17 +99,7 @@ const BannerCard: React.FC<BannerCardProps> = ({ banner, onEdit, isAuthenticated
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow duration-300 relative">
-        {/* Auth overlay for non-authenticated users */}
-        {!isAuthenticated && (
-          <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-300 z-10 rounded-lg flex items-center justify-center opacity-0 hover:opacity-100">
-            <div className="bg-black bg-opacity-75 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
-              <LockClosedIcon className="h-4 w-4" />
-              <span className="text-sm">Log in to manage</span>
-            </div>
-          </div>
-        )}
-
+      <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow duration-300">
         <div className="relative">
           {displayImage ? (
             <img
@@ -157,37 +153,37 @@ const BannerCard: React.FC<BannerCardProps> = ({ banner, onEdit, isAuthenticated
             </span>
           </div>
 
-          {isAuthenticated ? (
-            <div className="flex space-x-2">
-              <button
-                onClick={handleEditClick}
-                disabled={isLoading}
-                className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium py-2 px-3 rounded-md text-sm flex items-center justify-center transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
-                <PencilIcon className="h-4 w-4 mr-1" />
-                Edit
-              </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={handleEditClick}
+              disabled={isLoading}
+              className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium py-2 px-3 rounded-md text-sm flex items-center justify-center transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+              <PencilIcon className="h-4 w-4 mr-1" />
+              Edit
+            </button>
 
-              <button
-                onClick={handleDeleteClick}
-                disabled={isLoading}
-                className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-medium py-2 px-3 rounded-md text-sm flex items-center justify-center transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
-                <TrashIcon className="h-4 w-4 mr-1" />
-                Delete
-              </button>
-            </div>
-          ) : (
-            <div className="bg-gray-50 rounded-md p-3 text-center">
-              <p className="text-gray-600 text-sm flex items-center justify-center">
-                <LockClosedIcon className="h-4 w-4 mr-1" />
-                Log in to manage this banner
-              </p>
-            </div>
-          )}
+            <button
+              onClick={handleDeleteClick}
+              disabled={isLoading || !isAuthenticated}
+              className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-medium py-2 px-3 rounded-md text-sm flex items-center justify-center transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+              <TrashIcon className="h-4 w-4 mr-1" />
+              Delete
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* Edit Authentication Modal */}
+      <EditModal
+        isOpen={showEditModal}
+        onClose={handleCancelEdit}
+        title="Authentication Required"
+        message="You need to be logged in to manage banners. Please log in to continue."
+        confirmText="OK"
+      />
+
       {/* Delete Confirmation Modal */}
-      {showDeleteModal && isAuthenticated && (
+      {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-6 border-b">
