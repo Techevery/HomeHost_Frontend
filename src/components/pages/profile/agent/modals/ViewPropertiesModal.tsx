@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import {
   Dialog,
@@ -57,7 +58,13 @@ const ViewPropertiesModal: React.FC<ViewPropertiesModalProps> = ({
   onViewProperty,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const { publicProperties, fetchPublicProperties, isLoading } = useAgentStore();
+  const { 
+    unlistedProperties, 
+    fetchUnlistedProperties, 
+    unlistedPropertiesLoading,
+    unlistedPropertiesCursor,
+    hasMoreUnlistedProperties 
+  } = useAgentStore();
   
   // Sort modal state
   const [sortModalOpen, setSortModalOpen] = useState(false);
@@ -75,19 +82,40 @@ const ViewPropertiesModal: React.FC<ViewPropertiesModalProps> = ({
   const [servicing, setServicing] = useState("");
   const [addedToSite, setAddedToSite] = useState("");
 
-  // Fetch properties when modal opens
+  // Fetch unlisted properties when modal opens
   React.useEffect(() => {
     if (open) {
-      fetchPublicProperties(1, 12);
+      fetchUnlistedProperties(12, "");
     }
-  }, [open, fetchPublicProperties]);
+  }, [open, fetchUnlistedProperties]);
+
+  // Load more properties when needed
+  const handleLoadMore = () => {
+    if (hasMoreUnlistedProperties && unlistedPropertiesCursor) {
+      fetchUnlistedProperties(12, unlistedPropertiesCursor);
+    }
+  };
+
+  // Handle property card click
+  const handlePropertyCardClick = (property: Property) => {
+    if (property.status === 'available') {
+      onViewProperty(property);
+    }
+  };
+
+  // Handle favorite button click (stop propagation to prevent card click)
+  const handleFavoriteClick = (event: React.MouseEvent, property: Property) => {
+    event.stopPropagation();
+    // TODO: Implement favorite functionality
+    console.log('Favorite clicked for property:', property.id);
+  };
 
   const filteredProperties = useMemo(() => {
-    if (!Array.isArray(publicProperties) || publicProperties.length === 0) {
+    if (!Array.isArray(unlistedProperties) || unlistedProperties.length === 0) {
       return [];
     }
     
-    let filtered = publicProperties;
+    let filtered = unlistedProperties;
 
     // Apply search term filter
     if (searchTerm.trim()) {
@@ -148,7 +176,7 @@ const ViewPropertiesModal: React.FC<ViewPropertiesModalProps> = ({
 
     return filtered;
   }, [
-    publicProperties, 
+    unlistedProperties, 
     searchTerm, 
     location, 
     category, 
@@ -267,7 +295,7 @@ const ViewPropertiesModal: React.FC<ViewPropertiesModalProps> = ({
               Available Properties ({filteredProperties.length})
             </Typography>
 
-            {isLoading && (!Array.isArray(publicProperties) || publicProperties.length === 0) ? (
+            {unlistedPropertiesLoading && (!Array.isArray(unlistedProperties) || unlistedProperties.length === 0) ? (
               <Box display="flex" justifyContent="center" alignItems="center" sx={{ py: 8 }}>
                 <CircularProgress />
                 <Typography variant="body1" sx={{ ml: 2 }}>
@@ -275,95 +303,130 @@ const ViewPropertiesModal: React.FC<ViewPropertiesModalProps> = ({
                 </Typography>
               </Box>
             ) : (
-              <Grid container spacing={3}>
-                {filteredProperties.map((property: Property) => (
-                  <Grid item xs={12} sm={6} md={4} key={property.id}>
-                    <Card sx={{ 
-                      borderRadius: 3, 
-                      overflow: 'hidden', 
-                      transition: 'all 0.3s', 
-                      '&:hover': { 
-                        transform: 'translateY(-4px)', 
-                        boxShadow: 6 
-                      } 
-                    }}>
-                      <Box sx={{ position: 'relative', height: 200 }}>
-                        <img
-                          src={getPropertyImage(property)}
-                          alt={property.name}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                        <IconButton sx={{ 
-                          position: 'absolute', 
-                          top: 8, 
-                          right: 8, 
-                          bgcolor: 'white', 
-                          '&:hover': { bgcolor: 'grey.100' } 
-                        }}>
-                          <FavoriteIcon />
-                        </IconButton>
-                        
-                        {/* Availability Badge */}
-                        <Chip
-                          label={property.status === 'available' ? "Available" : "Unavailable"}
-                          color={property.status === 'available' ? "success" : "error"}
-                          size="small"
-                          sx={{ position: 'absolute', top: 8, left: 8 }}
-                        />
-                      </Box>
-
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom noWrap>
-                          {property.name}
-                        </Typography>
-
-                        <Box display="flex" alignItems="center" gap={1} sx={{ mb: 2 }}>
-                          <LocationIcon color="action" fontSize="small" />
-                          <Typography variant="body2" color="text.secondary">
-                            {property.location || property.address}
-                          </Typography>
+              <>
+                <Grid container spacing={3}>
+                  {filteredProperties.map((property: Property) => (
+                    <Grid item xs={12} sm={6} md={4} key={property.id}>
+                      <Card 
+                        sx={{ 
+                          borderRadius: 3, 
+                          overflow: 'hidden', 
+                          transition: 'all 0.3s', 
+                          cursor: property.status === 'available' ? 'pointer' : 'not-allowed',
+                          '&:hover': { 
+                            transform: property.status === 'available' ? 'translateY(-4px)' : 'none', 
+                            boxShadow: property.status === 'available' ? 6 : 1
+                          },
+                          opacity: property.status === 'available' ? 1 : 0.7
+                        }}
+                        onClick={() => handlePropertyCardClick(property)}
+                      >
+                        <Box sx={{ position: 'relative', height: 200 }}>
+                          <img
+                            src={getPropertyImage(property)}
+                            alt={property.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                          <IconButton 
+                            sx={{ 
+                              position: 'absolute', 
+                              top: 8, 
+                              right: 8, 
+                              bgcolor: 'white', 
+                              '&:hover': { bgcolor: 'grey.100' } 
+                            }}
+                            onClick={(e) => handleFavoriteClick(e, property)}
+                          >
+                            <FavoriteIcon />
+                          </IconButton>
+                          
+                          {/* Availability Badge */}
+                          <Chip
+                            label={property.status === 'available' ? "Available" : "Unavailable"}
+                            color={property.status === 'available' ? "success" : "error"}
+                            size="small"
+                            sx={{ position: 'absolute', top: 8, left: 8 }}
+                          />
                         </Box>
 
-                        {/* Display Agent Percentage if available */}
-                        {property.agentPercentage && (
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom noWrap>
+                            {property.name}
+                          </Typography>
+
                           <Box display="flex" alignItems="center" gap={1} sx={{ mb: 2 }}>
-                            <CheckCircleIcon color="primary" fontSize="small" />
-                            <Typography variant="body2" color="primary.main" fontWeight="medium">
-                              Agent Commission: {property.agentPercentage}%
+                            <LocationIcon color="action" fontSize="small" />
+                            <Typography variant="body2" color="text.secondary">
+                              {property.location || property.address}
                             </Typography>
                           </Box>
-                        )}
 
-                        <Box display="flex" justifyContent="space-between" alignItems="center">
-                          <Typography variant="h6" color="primary.main" fontWeight="bold">
-                            NGN {parseFloat(property.price || "0").toLocaleString()}/Night
-                          </Typography>
+                          {/* Display Agent Percentage if available */}
+                          {property.agentPercentage && (
+                            <Box display="flex" alignItems="center" gap={1} sx={{ mb: 2 }}>
+                              <CheckCircleIcon color="primary" fontSize="small" />
+                              <Typography variant="body2" color="primary.main" fontWeight="medium">
+                                Agent Commission: {property.agentPercentage}%
+                              </Typography>
+                            </Box>
+                          )}
 
-                          <Button
-                            onClick={() => onViewProperty(property)}
-                            variant={property.status === 'available' ? "contained" : "outlined"}
-                            disabled={property.status !== 'available'}
-                          >
-                            View Details
-                          </Button>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
+                          <Box display="flex" justifyContent="space-between" alignItems="center">
+                            <Typography variant="h6" color="primary.main" fontWeight="bold">
+                              NGN {parseFloat(property.price || "0").toLocaleString()}/Night
+                            </Typography>
+
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent card click
+                                onViewProperty(property);
+                              }}
+                              variant={property.status === 'available' ? "contained" : "outlined"}
+                              disabled={property.status !== 'available'}
+                              sx={{ textTransform: 'none' }}
+                            >
+                              View Details
+                            </Button>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+
+                {/* Load More Button */}
+                {hasMoreUnlistedProperties && (
+                  <Box display="flex" justifyContent="center" sx={{ mt: 4 }}>
+                    <Button
+                      onClick={handleLoadMore}
+                      variant="outlined"
+                      disabled={unlistedPropertiesLoading}
+                      sx={{ borderRadius: 2, textTransform: 'none' }}
+                    >
+                      {unlistedPropertiesLoading ? (
+                        <>
+                          <CircularProgress size={16} sx={{ mr: 1 }} />
+                          Loading...
+                        </>
+                      ) : (
+                        'Load More Properties'
+                      )}
+                    </Button>
+                  </Box>
+                )}
+              </>
             )}
 
             {/* Empty State */}
-            {!isLoading && filteredProperties.length === 0 && (
+            {!unlistedPropertiesLoading && filteredProperties.length === 0 && (
               <Box textAlign="center" sx={{ py: 8 }}>
                 <Box sx={{ fontSize: 64, mb: 2 }}>🏠</Box>
                 <Typography variant="h6" color="text.secondary" gutterBottom>
                   No properties found
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {Array.isArray(publicProperties) && publicProperties.length === 0 
-                    ? "No properties available at the moment." 
+                  {Array.isArray(unlistedProperties) && unlistedProperties.length === 0 
+                    ? "No unlisted properties available at the moment." 
                     : "Try adjusting your search terms to find what you're looking for."}
                 </Typography>
               </Box>

@@ -1,3 +1,4 @@
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
@@ -94,6 +95,32 @@ interface AgentBanner {
   updatedAt?: string;
 }
 
+interface UnlistedProperty {
+  id: string;
+  name: string;
+  address: string;
+  type: string;
+  servicing: string;
+  bedroom: string;
+  price: string;
+  images: string[];
+  status: "available" | "unavailable";
+  location: string;
+  amenities: string[];
+  agentPercentage?: number;
+}
+
+interface UnlistedPropertiesResponse {
+  success: boolean;
+  data: UnlistedProperty[];
+  pagination: {
+    nextCursor?: string;
+    hasMore: boolean;
+    total: number;
+  };
+  message: string;
+}
+
 interface AgentState {
   token: string | null;
   agentInfo: AgentInfo | null;
@@ -119,6 +146,11 @@ interface AgentState {
   currentBannerPage: number;
   totalBanners: number;
   hasMoreBanners: boolean;
+  unlistedProperties: UnlistedProperty[];
+  unlistedPropertiesLoading: boolean;
+  unlistedPropertiesError: string | null;
+  unlistedPropertiesCursor: string | null;
+  hasMoreUnlistedProperties: boolean;
 }
 
 interface AgentActions {
@@ -152,6 +184,10 @@ interface AgentActions {
   ) => Promise<any>;
   clearProperties: () => void;
   fetchPublicProperties: (page?: number, limit?: number) => Promise<void>;
+  
+  // Unlisted properties actions
+  fetchUnlistedProperties: (limit?: number, cursor?: string) => Promise<UnlistedPropertiesResponse>;
+  clearUnlistedProperties: () => void;
   
   // Agent management actions (admin)
   fetchAgents: (page?: number, limit?: number) => Promise<void>;
@@ -196,6 +232,11 @@ const initialState: AgentState = {
   currentBannerPage: 1,
   totalBanners: 0,
   hasMoreBanners: false,
+  unlistedProperties: [],
+  unlistedPropertiesLoading: false,
+  unlistedPropertiesError: null,
+  unlistedPropertiesCursor: null,
+  hasMoreUnlistedProperties: false,
 };
 
 const API_BASE_URL =
@@ -823,7 +864,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
           });
 
           const response = await axios.delete(
-            `${API_BASE_URL}/api/v1/agent/remove-apartment`,
+            `${API_BASE_URL}/api/v1/agent/remove-apartment${apartmentId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -1001,6 +1042,99 @@ const useAgentStore = create<AgentState & AgentActions>()(
           currentPropertyPage: 1,
           totalProperties: 0,
           hasMoreProperties: false,
+        });
+      },
+
+      // Unlisted properties methods
+      fetchUnlistedProperties: async (limit = 10, cursor = "") => {
+        set({ unlistedPropertiesLoading: true, unlistedPropertiesError: null });
+        try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
+          const params: any = { limit };
+          if (cursor) {
+            params.cursor = cursor;
+          }
+
+          console.log("🔍 Fetching unlisted properties with params:", params);
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/agent/unlisted-apartment`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              params,
+              timeout: 15000,
+            },
+          );
+
+          console.log("🔍 Unlisted properties API response:", response.data);
+
+          const result = response.data;
+
+          if (!result.success) {
+            throw new Error(result.message || "Failed to fetch unlisted properties");
+          }
+
+          const unlistedProperties: UnlistedProperty[] = (result.data || []).map((prop: any) => ({
+            id: prop.id || "",
+            name: prop.name || "Unnamed Property",
+            address: prop.address || "",
+            type: prop.type || "",
+            servicing: prop.servicing || "",
+            bedroom: prop.bedroom?.toString() || "",
+            price: prop.price?.toString() || "0",
+            images: Array.isArray(prop.images)
+              ? prop.images
+              : ["/images/house1.svg"],
+            status: prop.status === "unavailable" ? "unavailable" : "available",
+            location: prop.location || prop.address || "",
+            amenities: getAmenitiesArray(prop.amenities),
+            agentPercentage: prop.agentPercentage || 10,
+          }));
+
+          set({
+            unlistedProperties: cursor ? [...get().unlistedProperties, ...unlistedProperties] : unlistedProperties,
+            unlistedPropertiesCursor: result.pagination?.nextCursor || null,
+            hasMoreUnlistedProperties: result.pagination?.hasMore || false,
+          });
+
+          return {
+            success: true,
+            data: unlistedProperties,
+            pagination: result.pagination || {
+              nextCursor: null,
+              hasMore: false,
+              total: unlistedProperties.length,
+            },
+            message: result.message || "Unlisted properties fetched successfully",
+          };
+        } catch (error: any) {
+          console.error("❌ Error fetching unlisted properties:", error);
+          const errorMessage = handleApiError(
+            error,
+            "Failed to fetch unlisted properties.",
+          );
+          set({
+            unlistedPropertiesError: errorMessage,
+          });
+          throw new Error(errorMessage);
+        } finally {
+          set({ unlistedPropertiesLoading: false });
+        }
+      },
+
+      clearUnlistedProperties: () => {
+        set({
+          unlistedProperties: [],
+          unlistedPropertiesCursor: null,
+          hasMoreUnlistedProperties: false,
+          unlistedPropertiesError: null,
         });
       },
 
