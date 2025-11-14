@@ -46,6 +46,15 @@ interface UpdateApartmentData {
   agentPercentage?: number;
 }
 
+// Offline booking interface
+interface OfflineBookingData {
+  apartmentId: string;
+  startDate: string[];
+  endDate: string[];
+  name: string;
+  email: string;
+}
+
 interface AdminActions {
   login: (email: string, password: string) => Promise<void>;
   registerAdmin: (adminData: {
@@ -83,6 +92,8 @@ interface AdminActions {
     apartmentData: ApartmentData,
     files?: File[]
   ) => Promise<any>;
+  // New offline booking method
+  offlineBooking: (bookingData: OfflineBookingData) => Promise<any>;
 }
 
 const initialState: AdminState = {
@@ -659,6 +670,42 @@ const useAdminStore = create<AdminState & AdminActions>()(
         } catch (error: any) {
           set({
             error: error.response?.data?.message,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      // New offline booking method
+      offlineBooking: async (bookingData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.post(
+            `${API_BASE_URL}/api/v1/admin/book`,
+            bookingData,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Offline booking failed";
+
+          set({
+            error: errorMessage,
             isLoading: false,
           });
           throw error;

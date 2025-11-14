@@ -278,5 +278,4 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
     set({ error: null });
   },
 }));
-
 export default useBannerStore;
