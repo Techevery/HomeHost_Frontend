@@ -99,14 +99,7 @@ const BookingDetails = () => {
       cellStyle: { paddingLeft: "20px" },
       render: (rowData: any) => (
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center mr-3">
-            <span className="text-primary-600 font-medium text-sm">
-              {rowData.customer
-                ?.split(" ")
-                .map((n: string) => n[0])
-                .join("") || "N/A"}
-            </span>
-          </div>
+          
           <span className="font-medium text-gray-900">
             {rowData.customer || "N/A"}
           </span>
