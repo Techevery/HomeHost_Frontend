@@ -1177,17 +1177,16 @@ const AgentProfile = () => {
         onClose={() => setDeleteDialogOpen(false)}
         maxWidth="sm"
         fullWidth>
-        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogTitle>Confirm Remove</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete this property? This action cannot be
-            undone.
+            Are you sure you want to Remove this property? 
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
           <Button onClick={confirmDelete} color="error" variant="contained">
-            Delete
+            Remove
           </Button>
         </DialogActions>
       </Dialog>

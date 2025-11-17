@@ -864,7 +864,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
           });
 
           const response = await axios.delete(
-            `${API_BASE_URL}/api/v1/agent/remove-apartment${apartmentId}`,
+            `${API_BASE_URL}/api/v1/agent/remove-apartment/${apartmentId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
