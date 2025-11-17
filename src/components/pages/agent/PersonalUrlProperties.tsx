@@ -202,13 +202,11 @@ const BannerCarousel: React.FC<{ agentId?: string }> = ({ agentId }) => {
                     {/* Title */}
                     <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
                       {banner.name}
-                      <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
-                        Collection
-                      </span>
+            
                     </h1>
 
                     {/* Description */}
-                    <p className="text-xl md:text-2xl text-gray-200 mb-8 leading-relaxed max-w-lg">
+                    <p className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 lg:text-5xl md:text-4xl text-2xl">
                       {banner.description || "Discover exceptional properties with premium amenities and unmatched comfort"}
                     </p>
 

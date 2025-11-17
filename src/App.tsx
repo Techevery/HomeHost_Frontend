@@ -3,6 +3,7 @@ import logo from "./logo.svg";
 import "./App.css";
 import { Navigate, Route, Routes } from "react-router-dom";
 import Home from "./components/pages/Home";
+import PaymentSuccessPage from '../src/components/pages/PaymentSuccessPage';
 import About from "./components/pages/About";
 import ViewProperties from "./components/pages/viewProperties/ViewProperties";
 import BookNow from "./components/pages/bookNow/BookNow";
@@ -64,6 +65,7 @@ function App() {
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/forgotten-password" element={<Forgottenpassword />} />
         <Route path="/contact-us" element={<ContactUs />} />
+        <Route path="/payment-success" element={<PaymentSuccessPage />} />
         <Route
           path="/edit-profile"
           element={<EditProfileModal open={true} onClose={handleCancel} />}

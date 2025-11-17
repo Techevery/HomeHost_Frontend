@@ -91,15 +91,47 @@ const AdminBooking = () => {
     }
   };
 
+  // Helper function to get customer name from metadata or guest_name
+  const getCustomerName = (booking: any) => {
+    return booking?.transaction?.metadata?.fullName || booking.guest_name || "N/A";
+  };
+
+  // Helper function to get phone number from metadata or transaction
+  const getPhoneNumber = (booking: any) => {
+    return booking?.transaction?.phone_number || booking.guest_phone || booking.phone_number || "N/A";
+  };
+
+  // Helper function to get next of kin details from metadata
+  const getNextOfKin = (booking: any) => {
+    const metadata = booking?.transaction?.metadata;
+    if (!metadata) return { name: "N/A", number: "N/A" };
+    
+    return {
+      name: metadata.nextofKinName || "N/A",
+      number: metadata.nextofKinNumber || "N/A"
+    };
+  };
+
+  // Helper function to get booking details from metadata
+  const getBookingDetails = (booking: any) => {
+    const metadata = booking?.transaction?.metadata;
+    return {
+      dailyPrice: metadata?.dailyPrice ? formatCurrency(metadata.dailyPrice) : "N/A",
+      originalAmount: metadata?.originalAmount ? formatCurrency(metadata.originalAmount) : "N/A",
+      isMarkedUp: metadata?.isMarkedUp || false,
+      totalBookingPeriods: metadata?.totalBookingPeriods || 0
+    };
+  };
+
   const tableData = bookings.map((booking) => ({
     id: booking.id,
-    customer: booking.guest_name || "N/A",
+    customer: getCustomerName(booking),
     apartment_booked: booking.apartment?.name || "N/A",
     date: formatDate(booking.created_at || ""),
-    phone_number: booking.guest_phone || booking.phone_number || "N/A",
-    check_in: formatDate(booking.booking_start_date || ""),
-    check_out: formatDate(booking.booking_end_date || ""),
-    apartment_agent: booking.apartment?.agent || "N/A",
+    phone_number: getPhoneNumber(booking),
+    check_in: formatDate(booking.booking_start_date || booking.booking_period?.start_date || ""),
+    check_out: formatDate(booking.booking_end_date || booking.booking_period?.end_date || ""),
+    apartment_agent: booking.apartment?.agent || booking.transaction?.agent?.name || "N/A",
     status: booking.status || "Unknown",
     transaction_status: booking.transaction?.status || "N/A",
     amount: booking.amount || booking.transaction?.amount || "N/A",
@@ -373,15 +405,23 @@ const AdminBooking = () => {
                     <div className="space-y-3">
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
                         <span className="text-gray-600 font-medium">Guest Name</span>
-                        <span className="font-semibold text-gray-800">{selectedBooking.guest_name || "N/A"}</span>
+                        <span className="font-semibold text-gray-800">{getCustomerName(selectedBooking)}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
                         <span className="text-gray-600 font-medium">Phone Number</span>
-                        <span className="font-semibold text-gray-800">{selectedBooking.guest_phone || selectedBooking.phone_number || "N/A"}</span>
+                        <span className="font-semibold text-gray-800">{getPhoneNumber(selectedBooking)}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
                         <span className="text-gray-600 font-medium">Email</span>
                         <span className="font-semibold text-gray-800 text-sm">{selectedBooking.transaction?.email || "N/A"}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium">Next of Kin Name</span>
+                        <span className="font-semibold text-gray-800">{getNextOfKin(selectedBooking).name}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600 font-medium">Next of Kin Phone</span>
+                        <span className="font-semibold text-gray-800">{getNextOfKin(selectedBooking).number}</span>
                       </div>
                     </div>
                   </div>
@@ -399,11 +439,11 @@ const AdminBooking = () => {
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
                         <span className="text-gray-600 font-medium">Check-in</span>
-                        <span className="font-semibold text-gray-800 text-sm">{formatDate(selectedBooking.booking_start_date || "")}</span>
+                        <span className="font-semibold text-gray-800 text-sm">{formatDate(selectedBooking.booking_start_date || selectedBooking.booking_period?.start_date || "")}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
                         <span className="text-gray-600 font-medium">Check-out</span>
-                        <span className="font-semibold text-gray-800 text-sm">{formatDate(selectedBooking.booking_end_date || "")}</span>
+                        <span className="font-semibold text-gray-800 text-sm">{formatDate(selectedBooking.booking_end_date || selectedBooking.booking_period?.end_date || "")}</span>
                       </div>
                       <div className="flex justify-between items-center py-2">
                         <span className="text-gray-600 font-medium">Duration</span>
@@ -440,11 +480,11 @@ const AdminBooking = () => {
                     </div>
                   </div>
 
-                  {/* Transaction Information */}
+                  {/* Transaction & Pricing Information */}
                   <div className="bg-gray-50 rounded-lg p-4">
                     <Typography variant="h6" className="font-semibold text-gray-800 mb-3 flex items-center">
                       <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                      Transaction Information
+                      Transaction & Pricing Information
                     </Typography>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
@@ -452,9 +492,27 @@ const AdminBooking = () => {
                         <span className="font-semibold text-gray-800 font-mono text-sm">{selectedBooking.transaction?.reference || "N/A"}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Amount</span>
+                        <span className="text-gray-600 font-medium">Daily Price</span>
+                        <span className="font-semibold text-gray-600">
+                          {getBookingDetails(selectedBooking).dailyPrice}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium">Total Amount</span>
                         <span className="font-semibold text-green-600">
                           {formatCurrency(selectedBooking.amount || selectedBooking.transaction?.amount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium">Original Amount</span>
+                        <span className="font-semibold text-gray-600">
+                          {getBookingDetails(selectedBooking).originalAmount}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium">Price Markup</span>
+                        <span className="font-semibold text-gray-800">
+                          {getBookingDetails(selectedBooking).isMarkedUp ? "Yes" : "No"}
                         </span>
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
@@ -480,7 +538,6 @@ const AdminBooking = () => {
                 >
                   Close
                 </button>
-                
               </div>
             </div>
           )}

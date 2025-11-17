@@ -4,6 +4,10 @@ import { persist } from "zustand/middleware";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 
+
+interface Agent {
+  name: string;
+}
 interface Transaction {
   id: string;
   reference: string;
@@ -23,6 +27,8 @@ interface Transaction {
   payment_month?: number;
   payment_year?: number;
   metadata?: any;
+  agent?:Agent;
+  name:string
 }
 interface Apartment {
   id: string;
@@ -189,6 +195,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
                   payment_month: booking.transaction.payment_month,
                   payment_year: booking.transaction.payment_year,
                   metadata: booking.transaction.metadata,
+                  agent: booking.transaction.agent,
                 }
               : undefined,
             apartment: booking.apartment
@@ -216,6 +223,9 @@ const useBookingStore = create<BookingState & BookingActions>()(
               booking.booking_end_date || booking.booking_period?.end_date,
             duration_days:
               booking.duration_days || booking.booking_period?.duration_days,
+                  guest_name: booking.transaction?.metadata?.fullName || booking.guest_name,
+            guest_phone: booking.transaction?.phone_number || booking.guest_phone,
+            guest_email: booking.transaction?.email || booking.guest_email,
           }));
 
           set({ bookings: processedBookings });
@@ -292,9 +302,9 @@ const useBookingStore = create<BookingState & BookingActions>()(
             created_at: booking.created_at || new Date().toISOString(),
             transaction_id: booking.transaction_id || "",
             booking_period_id: booking.booking_period_id || "",
-            guest_name: booking.guest_name || "",
-            guest_phone: booking.guest_phone || "",
-            guest_email: booking.guest_email || "",
+              guest_name: booking.transaction?.metadata?.fullName || booking.guest_name || "",
+            guest_phone: booking.transaction?.phone_number || booking.guest_phone || "",
+            guest_email: booking.transaction?.email || booking.guest_email || "",
             duration_days: booking.duration_days || 0,
             booking_start_date: booking.booking_start_date || "",
             booking_end_date: booking.booking_end_date || "",
@@ -311,6 +321,8 @@ const useBookingStore = create<BookingState & BookingActions>()(
                     booking.transaction.booking_start_date || "",
                   booking_end_date: booking.transaction.booking_end_date || "",
                   duration_days: booking.transaction.duration_days || 0,
+                  metadata: booking.transaction.metadata || {},
+                  agent: booking.transaction.agent || { name: "" }
                 }
               : undefined,
             apartment: booking.apartment
@@ -573,6 +585,9 @@ fetchBookingDates: async (apartmentId: string) => {
               booking_end_date: bookingEndDate,
               duration_days: durationDays,
               amount: booking.transaction?.amount?.toString(),
+               guest_name: booking.transaction?.metadata?.fullName || booking.guest_name,
+              guest_phone: booking.transaction?.phone_number || booking.guest_phone,
+              guest_email: booking.transaction?.email || booking.guest_email,
 
               apartment: booking.apartment
                 ? {
@@ -580,6 +595,7 @@ fetchBookingDates: async (apartmentId: string) => {
                     name: booking.apartment.name,
                     address: booking.apartment.address,
                     price: booking.apartment.price,
+                      agent: booking.apartment.agent,
                   }
                 : undefined,
               transaction: booking.transaction
@@ -593,6 +609,8 @@ fetchBookingDates: async (apartmentId: string) => {
                     booking_end_date: booking.transaction.booking_end_date,
                     duration_days: booking.transaction.duration_days,
                     reference: booking.transaction.reference,
+                        metadata: booking.transaction.metadata,
+                    agent: booking.transaction.agent,
                   }
                 : undefined,
             };

@@ -413,6 +413,9 @@ const BookingModal: React.FC<{
 const AvailableProperty = () => {
   const { publicProperties, fetchPublicProperties, loading, error } =
     useAgentStore();
+    
+    console.log({publicProperties})
+    console.log({fetchPublicProperties})
 
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
     null,
