@@ -234,13 +234,13 @@ const AdminBooking = () => {
   }
 
   return (
-    <div className="bg-[#E5E5E5] min-h-screen p-6">
-      <h4 className="text-[20px] font-bold mb-6">Booking Details</h4>
+    <div className="bg-[#E5E5E5] min-h-screen p-4 sm:p-6">
+      <h4 className="text-[18px] sm:text-[20px] font-bold mb-6">Booking Details</h4>
       
       {/* Stats Cards */}
-      <div className="bg-white rounded-[20px] p-5 mb-6">
-        <div className="flex gap-12">
-          <div className="bg-[#4EC368] rounded-[12px] text-white px-8 py-3">
+      <div className="bg-white rounded-[20px] p-4 sm:p-5 mb-6">
+        <div className="flex flex-wrap gap-4 sm:gap-12">
+          <div className="bg-[#4EC368] rounded-[12px] text-white px-4 sm:px-8 py-3 text-sm sm:text-base">
             Successful (
             {
               tableData.filter(
@@ -250,7 +250,7 @@ const AdminBooking = () => {
             }
             )
           </div>
-          <div className="bg-[#D84A4A] rounded-[12px] text-white px-14 py-3">
+          <div className="bg-[#D84A4A] rounded-[12px] text-white px-8 sm:px-14 py-3 text-sm sm:text-base">
             Failed (
             {
               tableData.filter(
@@ -271,7 +271,7 @@ const AdminBooking = () => {
               href="https://fonts.googleapis.com/icon?family=Material+Icons"
             />
 
-            <div className="w-full overflow-scroll">
+            <div className="w-full overflow-auto">
               <MaterialTable
                 components={{
                   Container: (props) => <Paper {...props} elevation={0} />,
@@ -291,14 +291,14 @@ const AdminBooking = () => {
                     color: "#474E70",
                     backgroundColor: "transparent",
                     fontWeight: 400,
-                    fontSize: "16px",
+                    fontSize: "14px",
                     padding: "5px",
                     cursor: "pointer",
                   },
                   headerStyle: {
                     color: "#000",
                     fontWeight: 600,
-                    fontSize: "16px",
+                    fontSize: "14px",
                     backgroundColor: "transparent",
                     border: 0,
                     borderBottom: "1px solid #E8E9ED",
@@ -308,7 +308,8 @@ const AdminBooking = () => {
                     border: "0px",
                     borderRadius: "0px",
                     borderBottom: "1px solid #E8E9ED",
-                    width: "192px",
+                    width: "100%",
+                    maxWidth: "192px",
                     height: "36px",
                     backgroundColor: "transparent",
                   },
@@ -343,19 +344,19 @@ const AdminBooking = () => {
         <Box 
           sx={{
             position: 'relative',
-            width: '90%',
-            maxWidth: '900px',
-            maxHeight: '85vh',
-            overflow: 'auto',
+            width: '95%',
+            maxWidth: '1200px',
+            maxHeight: '95vh',
             bgcolor: 'background.paper',
             borderRadius: '16px',
             boxShadow: 24,
             p: 0,
+            overflow: 'hidden',
           }}
         >
           {/* Modal Header */}
-          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 rounded-t-16 px-6 py-4 flex justify-between items-center">
-            <Typography variant="h5" className="font-bold text-gray-800">
+          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 rounded-t-16 px-4 sm:px-6 py-4 flex justify-between items-center">
+            <Typography variant="h5" className="font-bold text-gray-800 text-lg sm:text-xl">
               Booking Details
             </Typography>
             <IconButton 
@@ -368,86 +369,86 @@ const AdminBooking = () => {
           </div>
 
           {selectedBooking && (
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6 overflow-y-auto max-h-[calc(95vh-80px)]">
               {/* Header Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
-                  <Typography variant="body2" color="textSecondary" className="mb-1">
+                  <Typography variant="body2" color="textSecondary" className="mb-1 text-sm sm:text-base">
                     BOOKING ID
                   </Typography>
-                  <Typography variant="body1" className="font-mono text-gray-700">
+                  <Typography variant="body1" className="font-mono text-gray-700 text-sm sm:text-base">
                     {selectedBooking.id}
                   </Typography>
                 </div>
-                <div className="flex justify-end">
+                <div className="flex justify-start md:justify-end">
                   <Chip 
                     label={getStatusText(selectedBooking.status)} 
                     style={{ 
                       backgroundColor: getStatusColor(selectedBooking.status),
                       color: 'white',
                       fontWeight: 'bold',
-                      fontSize: '14px',
-                      padding: '8px 16px',
-                      height: '32px'
+                      fontSize: '12px',
+                      padding: '6px 12px',
+                      height: '28px'
                     }}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {/* Customer Information */}
                 <div className="space-y-4">
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <Typography variant="h6" className="font-semibold text-gray-800 mb-3 flex items-center">
+                    <Typography variant="h6" className="font-semibold text-gray-800 mb-3 flex items-center text-base sm:text-lg">
                       <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
                       Customer Information
                     </Typography>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Guest Name</span>
-                        <span className="font-semibold text-gray-800">{getCustomerName(selectedBooking)}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Guest Name</span>
+                        <span className="font-semibold text-gray-800 text-sm sm:text-base mt-1 sm:mt-0">{getCustomerName(selectedBooking)}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Phone Number</span>
-                        <span className="font-semibold text-gray-800">{getPhoneNumber(selectedBooking)}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Phone Number</span>
+                        <span className="font-semibold text-gray-800 text-sm sm:text-base mt-1 sm:mt-0">{getPhoneNumber(selectedBooking)}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Email</span>
-                        <span className="font-semibold text-gray-800 text-sm">{selectedBooking.transaction?.email || "N/A"}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Email</span>
+                        <span className="font-semibold text-gray-800 text-xs sm:text-sm mt-1 sm:mt-0">{selectedBooking.transaction?.email || "N/A"}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Next of Kin Name</span>
-                        <span className="font-semibold text-gray-800">{getNextOfKin(selectedBooking).name}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Next of Kin Name</span>
+                        <span className="font-semibold text-gray-800 text-sm sm:text-base mt-1 sm:mt-0">{getNextOfKin(selectedBooking).name}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-600 font-medium">Next of Kin Phone</span>
-                        <span className="font-semibold text-gray-800">{getNextOfKin(selectedBooking).number}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Next of Kin Phone</span>
+                        <span className="font-semibold text-gray-800 text-sm sm:text-base mt-1 sm:mt-0">{getNextOfKin(selectedBooking).number}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Booking Information */}
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <Typography variant="h6" className="font-semibold text-gray-800 mb-3 flex items-center">
+                    <Typography variant="h6" className="font-semibold text-gray-800 mb-3 flex items-center text-base sm:text-lg">
                       <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                       Booking Information
                     </Typography>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Booking Date</span>
-                        <span className="font-semibold text-gray-800 text-sm">{formatDate(selectedBooking.created_at || "")}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Booking Date</span>
+                        <span className="font-semibold text-gray-800 text-xs sm:text-sm mt-1 sm:mt-0">{formatDate(selectedBooking.created_at || "")}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Check-in</span>
-                        <span className="font-semibold text-gray-800 text-sm">{formatDate(selectedBooking.booking_start_date || selectedBooking.booking_period?.start_date || "")}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Check-in</span>
+                        <span className="font-semibold text-gray-800 text-xs sm:text-sm mt-1 sm:mt-0">{formatDate(selectedBooking.booking_start_date || selectedBooking.booking_period?.start_date || "")}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Check-out</span>
-                        <span className="font-semibold text-gray-800 text-sm">{formatDate(selectedBooking.booking_end_date || selectedBooking.booking_period?.end_date || "")}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Check-out</span>
+                        <span className="font-semibold text-gray-800 text-xs sm:text-sm mt-1 sm:mt-0">{formatDate(selectedBooking.booking_end_date || selectedBooking.booking_period?.end_date || "")}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-600 font-medium">Duration</span>
-                        <span className="font-semibold text-gray-800">{selectedBooking.duration_days || selectedBooking.booking_period?.duration_days || 0} day(s)</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Duration</span>
+                        <span className="font-semibold text-gray-800 text-sm sm:text-base mt-1 sm:mt-0">{selectedBooking.duration_days || selectedBooking.booking_period?.duration_days || 0} day(s)</span>
                       </div>
                     </div>
                   </div>
@@ -456,72 +457,72 @@ const AdminBooking = () => {
                 <div className="space-y-4">
                   {/* Apartment Information */}
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <Typography variant="h6" className="font-semibold text-gray-800 mb-3 flex items-center">
+                    <Typography variant="h6" className="font-semibold text-gray-800 mb-3 flex items-center text-base sm:text-lg">
                       <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
                       Apartment Information
                     </Typography>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Apartment Name</span>
-                        <span className="font-semibold text-gray-800">{selectedBooking.apartment?.name || "N/A"}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Apartment Name</span>
+                        <span className="font-semibold text-gray-800 text-sm sm:text-base mt-1 sm:mt-0">{selectedBooking.apartment?.name || "N/A"}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Type</span>
-                        <span className="font-semibold text-gray-800">{selectedBooking.apartment?.type || "N/A"}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Type</span>
+                        <span className="font-semibold text-gray-800 text-sm sm:text-base mt-1 sm:mt-0">{selectedBooking.apartment?.type || "N/A"}</span>
                       </div>
                       <div className="py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium block mb-1">Address</span>
-                        <span className="font-semibold text-gray-800 text-sm">{selectedBooking.apartment?.address || "N/A"}</span>
+                        <span className="text-gray-600 font-medium text-sm sm:text-base block mb-1">Address</span>
+                        <span className="font-semibold text-gray-800 text-xs sm:text-sm">{selectedBooking.apartment?.address || "N/A"}</span>
                       </div>
                       <div className="py-2">
-                        <span className="text-gray-600 font-medium block mb-1">Amenities</span>
-                        <span className="font-semibold text-gray-800 text-sm">{selectedBooking.apartment?.servicing || "N/A"}</span>
+                        <span className="text-gray-600 font-medium text-sm sm:text-base block mb-1">Amenities</span>
+                        <span className="font-semibold text-gray-800 text-xs sm:text-sm">{selectedBooking.apartment?.servicing || "N/A"}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Transaction & Pricing Information */}
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <Typography variant="h6" className="font-semibold text-gray-800 mb-3 flex items-center">
+                    <Typography variant="h6" className="font-semibold text-gray-800 mb-3 flex items-center text-base sm:text-lg">
                       <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
                       Transaction & Pricing Information
                     </Typography>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Reference</span>
-                        <span className="font-semibold text-gray-800 font-mono text-sm">{selectedBooking.transaction?.reference || "N/A"}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Reference</span>
+                        <span className="font-semibold text-gray-800 font-mono text-xs sm:text-sm mt-1 sm:mt-0">{selectedBooking.transaction?.reference || "N/A"}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Daily Price</span>
-                        <span className="font-semibold text-gray-600">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Daily Price</span>
+                        <span className="font-semibold text-gray-600 text-sm sm:text-base mt-1 sm:mt-0">
                           {getBookingDetails(selectedBooking).dailyPrice}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Total Amount</span>
-                        <span className="font-semibold text-green-600">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Total Amount</span>
+                        <span className="font-semibold text-green-600 text-sm sm:text-base mt-1 sm:mt-0">
                           {formatCurrency(selectedBooking.amount || selectedBooking.transaction?.amount)}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Original Amount</span>
-                        <span className="font-semibold text-gray-600">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Original Amount</span>
+                        <span className="font-semibold text-gray-600 text-sm sm:text-base mt-1 sm:mt-0">
                           {getBookingDetails(selectedBooking).originalAmount}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Price Markup</span>
-                        <span className="font-semibold text-gray-800">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Price Markup</span>
+                        <span className="font-semibold text-gray-800 text-sm sm:text-base mt-1 sm:mt-0">
                           {getBookingDetails(selectedBooking).isMarkedUp ? "Yes" : "No"}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Transaction Status</span>
-                        <span className="font-semibold text-gray-800">{selectedBooking.transaction?.status || "N/A"}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Transaction Status</span>
+                        <span className="font-semibold text-gray-800 text-sm sm:text-base mt-1 sm:mt-0">{selectedBooking.transaction?.status || "N/A"}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-600 font-medium">Payment Date</span>
-                        <span className="font-semibold text-gray-800 text-sm">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2">
+                        <span className="text-gray-600 font-medium text-sm sm:text-base">Payment Date</span>
+                        <span className="font-semibold text-gray-800 text-xs sm:text-sm mt-1 sm:mt-0">
                           {selectedBooking.transaction?.date_paid ? formatDate(selectedBooking.transaction.date_paid) : "N/A"}
                         </span>
                       </div>
@@ -534,7 +535,7 @@ const AdminBooking = () => {
               <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
                 <button
                   onClick={handleCloseModal}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors duration-200"
+                  className="px-4 sm:px-6 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors duration-200 text-sm sm:text-base"
                 >
                   Close
                 </button>

@@ -8,16 +8,22 @@ import { toast } from "react-toastify";
 const BanAgentTable = () => {
   const { listAgents, suspendAgent, isLoading } = useAdminStore();
   const [agents, setAgents] = useState<any[]>([]);
+  const [verifiedAgents, setVerifiedAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchAgents();
   }, []);
 
+  useEffect(() => {
+    const verified = agents.filter(agent => agent.status === 'VERIFIED');
+    setVerifiedAgents(verified);
+  }, [agents]);
+
   const fetchAgents = async () => {
     try {
       setLoading(true);
-      const response = await listAgents(1, 100); // Get all agents
+      const response = await listAgents(1, 100); 
       if (response?.data?.agents) {
         setAgents(response.data.agents);
       }
@@ -35,7 +41,6 @@ const BanAgentTable = () => {
       if (response?.message) {
         toast.success(response.message);
         
-        // Update local state to reflect the change
         setAgents(prevAgents => 
           prevAgents.map(agent => 
             agent.id === agentId 
@@ -51,12 +56,10 @@ const BanAgentTable = () => {
   };
 
   const handleCustomerComplaintToggle = async (agentId: string, hasComplaint: boolean) => {
-    // This would typically call an endpoint to update customer complaint status
-    // For now, we'll just show a toast
     const action = hasComplaint ? "removed from" : "added to";
     toast.info(`Agent ${action} customer complaints list`);
     
-    // Update local state
+    
     setAgents(prevAgents => 
       prevAgents.map(agent => 
         agent.id === agentId 
@@ -67,12 +70,10 @@ const BanAgentTable = () => {
   };
 
   const handleAvailabilityToggle = async (agentId: string, isAvailable: boolean) => {
-    // This would typically call an endpoint to update availability status
-    // For now, we'll just show a toast
+
     const status = isAvailable ? "marked as unavailable" : "marked as available";
     toast.info(`Agent ${status}`);
     
-    // Update local state
     setAgents(prevAgents => 
       prevAgents.map(agent => 
         agent.id === agentId 
@@ -83,12 +84,11 @@ const BanAgentTable = () => {
   };
 
   const handleStrikeToggle = async (agentId: string, hasStrike: boolean) => {
-    // This would typically call an endpoint to update strike status
-    // For now, we'll just show a toast
+  
     const action = hasStrike ? "removed from" : "added to";
     toast.info(`Agent ${action} strike list`);
     
-    // Update local state
+
     setAgents(prevAgents => 
       prevAgents.map(agent => 
         agent.id === agentId 
@@ -221,7 +221,9 @@ const BanAgentTable = () => {
   return (
     <div className="overflow-hidden">
       <div className="py-[10px]">
-        <h4 className="text-[20px] text-[#958F8F]">Agent Management</h4>
+        <p className="text-sm text-gray-500 mt-1">
+          Showing {verifiedAgents.length} verified agent(s)
+        </p>
       </div>
       
       <ThemeProvider theme={defaultMaterialTheme}>
@@ -236,9 +238,9 @@ const BanAgentTable = () => {
               Container: (props) => <Paper {...props} elevation={0} />,
             }}
             columns={COLUMNS}
-            data={agents}
+            data={verifiedAgents} 
             isLoading={loading || isLoading}
-            title="Agent Management"
+            title="Verified Agent Management"
             options={{
               search: true,
               showTitle: true,
