@@ -1,4 +1,4 @@
-// components/BannerForm.tsx
+
 import React, { useState, useEffect } from "react";
 import { XMarkIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import useBannerStore from "../../stores/bannerStore";
@@ -36,7 +36,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check authentication when form opens
+   
     const authValid = checkAuth();
     if (!authValid) {
       setFormError("Your session has expired. Please log in again.");
@@ -55,12 +55,12 @@ const BannerForm: React.FC<BannerFormProps> = ({
         description: currentBanner.description || "",
       });
 
-      // Set existing image as preview
+    
       if (currentBanner.image_url) {
         setImagePreviews([currentBanner.image_url]);
       }
     } else {
-      // Reset form for new banner
+     
       setFormData({
         name: "",
         description: "",
@@ -84,7 +84,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
       ...prev,
       [name]: value,
     }));
-    // Clear errors when user starts typing
+    
     if (formError) {
       setFormError(null);
       clearError();
@@ -98,17 +98,16 @@ const BannerForm: React.FC<BannerFormProps> = ({
     const newImages: File[] = [];
     const newPreviews: string[] = [];
 
-    // Process only the first image (backend expects single image)
+  
     if (files[0]) {
       const file = files[0];
       
-      // Validate file type
+  
       if (!file.type.startsWith('image/')) {
         setFormError("Please select a valid image file");
         return;
       }
 
-      // Validate file size (5MB limit)
       if (file.size > 5 * 1024 * 1024) {
         setFormError("Image size should be less than 5MB");
         return;
@@ -138,13 +137,13 @@ const BannerForm: React.FC<BannerFormProps> = ({
     setFormError(null);
     clearError();
 
-    // Check authentication
+   
     if (!isAuthenticated) {
       setFormError("Your session has expired. Please log in again.");
       return;
     }
 
-    // Validate form
+
     if (!formData.name.trim()) {
       setFormError("Name is required");
       return;
@@ -159,7 +158,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
     data.append("name", formData.name.trim());
     data.append("description", formData.description.trim());
 
-    // Append image (single image as per backend)
+   
     if (images.length > 0) {
       data.append("image", images[0]);
     }
@@ -172,8 +171,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
       }
       onSuccess();
     } catch (error) {
-      // Error handling is done in the store
-      console.error('Form submission error:', error);
+     
     }
   };
 
@@ -183,7 +181,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
     onClose();
   };
 
-  // Show auth error message
+
   if (!isAuthenticated) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

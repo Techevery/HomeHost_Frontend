@@ -7,7 +7,7 @@ import Button from "../../UI/Button";
 const ManageBooking = () => {
   const navigate = useNavigate();
 
-  // Initial form data
+
   const initialData = {
     email:
       localStorage.getItem("remember") === "true"
@@ -33,7 +33,7 @@ const ManageBooking = () => {
       <div className="flex pl-[50px] gap-4 items-center">
         <Link
           to="/"
-          // className="text-primary text-lg  font-bold  hover:underline"
+        
         >
           <img
             src="/images/Frame 67.svg"

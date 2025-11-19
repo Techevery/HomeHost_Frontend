@@ -41,7 +41,7 @@ const BookNow = () => {
           <div className="pl-[50px] pt-[40px] pr-[20px] flex flex-col">
           <Link
                     to="/view-properties"
-                    // className="text-primary text-lg  font-bold  hover:underline"
+                    
                   >
             <img
               src="/images/Frame 67.svg"

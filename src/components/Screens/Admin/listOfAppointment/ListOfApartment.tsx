@@ -32,8 +32,6 @@ import {
   Hotel,
   Bathtub,
   Search as SearchIcon,
-  FilterList as FilterIcon,
-  Star,
   Favorite,
   FavoriteBorder,
   Visibility,
@@ -72,10 +70,7 @@ const ApartmentsList: React.FC = () => {
     listProperties,
     deleteApartment,
     clearError,
-    searchApartment,
   } = useAdminStore();
-
-  const { createProperty, updateProperty } = usePropertyStore();
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
@@ -97,7 +92,6 @@ const ApartmentsList: React.FC = () => {
   const [updateLoading, setUpdateLoading] = useState(false);
 
   const theme = useTheme();
-  const navigate = useNavigate();
 
   // Enhanced utility functions
   const safeString = (
@@ -124,7 +118,6 @@ const ApartmentsList: React.FC = () => {
     return [];
   };
 
-  // Fetch properties on component mount using adminStore
   useEffect(() => {
     const fetchProperties = async () => {
       try {
@@ -147,17 +140,14 @@ const ApartmentsList: React.FC = () => {
           propertiesData = [];
         }
 
-        // Add mock ratings and ensure amenities are arrays
         const propertiesWithRatings = propertiesData.map((property) => ({
           ...property,
-          rating: Math.random() * 2 + 3, // Random rating between 3-5
+          rating: Math.random() * 2 + 3, 
           reviews: Math.floor(Math.random() * 100) + 1,
           description:
             property.description ||
             "A beautiful property with modern amenities and great location.",
-          // Ensure amenities is always an array
           amenities: safeArray(property.amenities),
-          // Ensure other array fields are safe
           images: safeArray(property.images),
         }));
 
@@ -183,30 +173,24 @@ const ApartmentsList: React.FC = () => {
     }
   }, [token, listProperties]);
 
-  // Filter properties based on search and filters
+  // Client-side filtering based on search query and filters
   useEffect(() => {
     let filtered = properties;
 
-    // Apply search filter
-    if (searchQuery) {
+    // Search filter - search in name, address, type, and location
+    if (searchQuery.trim() !== "") {
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (property) =>
-          safeString(property.name)
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          safeString(property.address)
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          safeString(property.type)
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          safeString(property.location)
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()),
+          safeString(property.name).toLowerCase().includes(query) ||
+          safeString(property.address).toLowerCase().includes(query) ||
+          safeString(property.type).toLowerCase().includes(query) ||
+          safeString(property.location).toLowerCase().includes(query) ||
+          safeString(property.description).toLowerCase().includes(query)
       );
     }
 
-    // Apply status filter
+    // Status filter
     if (statusFilter !== "all") {
       filtered = filtered.filter(
         (property) =>
@@ -215,7 +199,7 @@ const ApartmentsList: React.FC = () => {
       );
     }
 
-    // Apply type filter
+    // Type filter
     if (typeFilter !== "all") {
       filtered = filtered.filter(
         (property) =>
@@ -226,47 +210,10 @@ const ApartmentsList: React.FC = () => {
     setFilteredProperties(filtered);
   }, [properties, searchQuery, statusFilter, typeFilter]);
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = (query: string) => {
     setSearchQuery(query);
-    if (query.trim() === "") {
-      // Reset to all properties when search is cleared
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const result = await searchApartment(query);
-      let propertiesData: Property[] = [];
-
-      if (result?.data?.apartments) {
-        propertiesData = result.data.apartments;
-      } else if (result?.data) {
-        propertiesData = result.data;
-      } else if (Array.isArray(result)) {
-        propertiesData = result;
-      }
-
-      // Add mock ratings and ensure arrays for search results
-      const propertiesWithRatings = propertiesData.map((property) => ({
-        ...property,
-        reviews: Math.floor(Math.random() * 100) + 1,
-        description:
-          property.description ||
-          "A beautiful property with modern amenities and great location.",
-        amenities: safeArray(property.amenities),
-        images: safeArray(property.images),
-      }));
-
-      setProperties(propertiesWithRatings);
-    } catch (error) {
-      console.error("Search error:", error);
-      // If search fails, maintain current properties
-    } finally {
-      setLoading(false);
-    }
   };
 
-  // Enhanced modal handlers with safe data
   const handleEditClick = (property: Property) => {
     setSelectedProperty({
       ...property,
@@ -382,7 +329,7 @@ const ApartmentsList: React.FC = () => {
   };
 
   const toggleFavorite = (propertyId: string, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent card click
+    event.stopPropagation(); 
     setFavorites((prev) => {
       const newFavorites = new Set(prev);
       if (newFavorites.has(propertyId)) {
@@ -403,10 +350,7 @@ const ApartmentsList: React.FC = () => {
     return "default";
   };
 
-  const getStatusText = (status: string | undefined) => {
-    if (!status) return "UNKNOWN";
-    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-  };
+
 
   const formatPrice = (price: string | undefined) => {
     if (!price) return "₦0";
@@ -504,7 +448,7 @@ const ApartmentsList: React.FC = () => {
           />
 
           <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel sx={{ color: "white" }}>Status</InputLabel>
+            {/* <InputLabel sx={{ color: "white" }}>Status</InputLabel> */}
             <Select
               value={statusFilter}
               label="Status"
@@ -524,7 +468,7 @@ const ApartmentsList: React.FC = () => {
           </FormControl>
 
           <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel sx={{ color: "white" }}>Type</InputLabel>
+            {/* <InputLabel sx={{ color: "white" }}>Type</InputLabel> */}
             <Select
               value={typeFilter}
               label="Type"
@@ -585,27 +529,32 @@ const ApartmentsList: React.FC = () => {
                   boxShadow: "0 12px 40px rgba(0,0,0,0.15)",
                 },
               }}>
-              {/* Image Section with Overlay */}
+              {/* Image Section with Professional Layout */}
               <Box
-                sx={{ position: "relative", height: 200 }}
+                sx={{ 
+                  position: "relative", 
+                  height: 240,
+                  overflow: "hidden"
+                }}
                 onClick={() => handleViewClick(property)}>
                 <CardMedia
                   component="img"
-                  height="200"
                   image={
                     safeArray(property.images)[0] || "/default-property.jpg"
                   }
                   alt={safeString(property.name, "Property")}
                   sx={{
+                    width: "100%",
+                    height: "100%",
                     objectFit: "cover",
-                    transition: "transform 0.3s ease",
+                    transition: "transform 0.5s ease",
                     "&:hover": {
                       transform: "scale(1.05)",
                     },
                   }}
                 />
 
-                {/* Top Overlay */}
+                {/* Top Overlay with Status and Favorite */}
                 <Box
                   sx={{
                     position: "absolute",
@@ -613,59 +562,38 @@ const ApartmentsList: React.FC = () => {
                     left: 0,
                     right: 0,
                     p: 2,
-                    background:
-                      "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)",
+                    background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
                   }}>
-                  <Box
+                  
+                  <IconButton
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(property.id, e);
+                    }}
                     sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
+                      color: favorites.has(property.id)
+                        ? theme.palette.error.main
+                        : "white",
+                      backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                      backdropFilter: "blur(10px)",
+                      "&:hover": {
+                        backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                        transform: "scale(1.1)",
+                      },
+                      transition: "all 0.2s ease",
                     }}>
-                    {/* <Chip
-                      label={getStatusText(property.status)}
-                      color={getStatusColor(property.status)}
-                      size="small"
-                      sx={{
-                        fontWeight: "bold",
-                        backdropFilter: "blur(10px)",
-                        backgroundColor: alpha(
-                          theme.palette.background.paper,
-                          0.8,
-                        ),
-                      }}
-                    /> */}
-                    <IconButton
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent card click
-                        toggleFavorite(property.id, e);
-                      }}
-                      sx={{
-                        color: favorites.has(property.id)
-                          ? theme.palette.error.main
-                          : "white",
-                        backgroundColor: alpha(
-                          theme.palette.background.paper,
-                          0.8,
-                        ),
-                        backdropFilter: "blur(10px)",
-                        "&:hover": {
-                          backgroundColor: alpha(
-                            theme.palette.background.paper,
-                            0.9,
-                          ),
-                        },
-                      }}>
-                      {favorites.has(property.id) ? (
-                        <Favorite />
-                      ) : (
-                        <FavoriteBorder />
-                      )}
-                    </IconButton>
-                  </Box>
+                    {favorites.has(property.id) ? (
+                      <Favorite />
+                    ) : (
+                      <FavoriteBorder />
+                    )}
+                  </IconButton>
                 </Box>
 
-                {/* Bottom Overlay */}
+                {/* Bottom Overlay with Price */}
                 <Box
                   sx={{
                     position: "absolute",
@@ -673,21 +601,35 @@ const ApartmentsList: React.FC = () => {
                     left: 0,
                     right: 0,
                     p: 2,
-                    background:
-                      "linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)",
+                    background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)",
                   }}>
                   <Typography
-                    variant="h6"
+                    variant="h5"
                     fontWeight="bold"
                     color="white"
-                    noWrap>
-                    {safeString(property.name, "Unnamed Property")}
+                    noWrap
+                    sx={{
+                      textShadow: "1px 1px 3px rgba(0,0,0,0.8)",
+                      fontSize: { xs: '1.1rem', sm: '1.25rem' }
+                    }}>
+                    {formatPrice(property.price)}
+                    <Typography
+                      component="span"
+                      variant="body2"
+                      color="rgba(255,255,255,0.8)"
+                      sx={{ ml: 0.5 }}>
+                      /month
+                    </Typography>
                   </Typography>
                   <Typography
                     variant="body2"
-                    color="rgba(255,255,255,0.8)"
-                    noWrap>
-                    {safeString(property.type, "Property")}
+                    color="rgba(255,255,255,0.9)"
+                    noWrap
+                    sx={{ 
+                      textShadow: "1px 1px 2px rgba(0,0,0,0.8)",
+                      fontWeight: 500 
+                    }}>
+                    {safeString(property.name, "Unnamed Property")}
                   </Typography>
                 </Box>
 
@@ -696,16 +638,18 @@ const ApartmentsList: React.FC = () => {
                   <Box
                     sx={{
                       position: "absolute",
-                      bottom: 8,
-                      right: 8,
+                      bottom: 12,
+                      right: 12,
                     }}>
                     <Chip
                       label={`+${safeArray(property.images).length - 1}`}
                       size="small"
                       sx={{
-                        backgroundColor: alpha(theme.palette.primary.main, 0.9),
+                        backgroundColor: alpha(theme.palette.primary.main, 0.95),
                         color: "white",
                         fontWeight: "bold",
+                        fontSize: "0.75rem",
+                        height: 24,
                       }}
                     />
                   </Box>
@@ -719,42 +663,45 @@ const ApartmentsList: React.FC = () => {
                   p: 3,
                   display: "flex",
                   flexDirection: "column",
+                  '&:last-child': {
+                    pb: 3
+                  }
                 }}>
-                {/* Price and Rating */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    mb: 2,
-                  }}>
-                  <Typography variant="h5" color="primary" fontWeight="bold">
-                    {formatPrice(property.price)}
+                {/* Property Type and Location */}
+                <Box sx={{ mb: 2 }}>
+                  <Typography 
+                    variant="caption" 
+                    color="primary" 
+                    fontWeight="bold"
+                    sx={{ 
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5
+                    }}>
+                    {safeString(property.type, "Property")}
+                  </Typography>
+                  <Box sx={{ display: "flex", alignItems: "flex-start", mt: 1 }}>
+                    <LocationOn
+                      sx={{
+                        fontSize: 18,
+                        color: "text.secondary",
+                        mr: 1,
+                        mt: 0.25,
+                        flexShrink: 0
+                      }}
+                    />
                     <Typography
-                      component="span"
                       variant="body2"
-                      color="text.secondary">
-                      /month
+                      color="text.secondary"
+                      sx={{ 
+                        lineHeight: 1.4,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}>
+                      {safeString(property.address, "Address not specified")}
                     </Typography>
-                  </Typography>
-                </Box>
-
-                {/* Location */}
-                <Box sx={{ display: "flex", alignItems: "flex-start", mb: 2 }}>
-                  <LocationOn
-                    sx={{
-                      fontSize: 18,
-                      color: "text.secondary",
-                      mr: 1,
-                      mt: 0.25,
-                    }}
-                  />
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ lineHeight: 1.4 }}>
-                    {safeString(property.address, "Address not specified")}
-                  </Typography>
+                  </Box>
                 </Box>
 
                 {/* Property Features */}
@@ -762,10 +709,11 @@ const ApartmentsList: React.FC = () => {
                   sx={{
                     display: "flex",
                     gap: 2,
-                    mb: 2,
+                    mb: 3,
                     p: 2,
-                    backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                    backgroundColor: alpha(theme.palette.primary.main, 0.04),
                     borderRadius: 2,
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
                   }}>
                   <Box sx={{ display: "flex", alignItems: "center", flex: 1 }}>
                     <Hotel
@@ -776,7 +724,7 @@ const ApartmentsList: React.FC = () => {
                         {safeString(property.bedroom, "0")}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Beds
+                        Bedrooms
                       </Typography>
                     </Box>
                   </Box>
@@ -802,12 +750,13 @@ const ApartmentsList: React.FC = () => {
                       variant="caption"
                       color="text.secondary"
                       fontWeight="medium"
-                      gutterBottom>
-                      KEY AMENITIES
+                      gutterBottom
+                      sx={{ textTransform: "uppercase" }}>
+                      Amenities
                     </Typography>
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                       {safeArray(property.amenities)
-                        .slice(0, 2)
+                        .slice(0, 3)
                         .map((amenity, index) => (
                           <Chip
                             key={index}
@@ -817,15 +766,23 @@ const ApartmentsList: React.FC = () => {
                             sx={{
                               fontSize: "0.65rem",
                               borderRadius: 1,
+                              height: 24,
+                              borderColor: alpha(theme.palette.primary.main, 0.3),
+                              color: "text.primary",
                             }}
                           />
                         ))}
-                      {safeArray(property.amenities).length > 2 && (
+                      {safeArray(property.amenities).length > 3 && (
                         <Chip
-                          label={`+${safeArray(property.amenities).length - 2}`}
+                          label={`+${safeArray(property.amenities).length - 3}`}
                           size="small"
                           variant="outlined"
-                          sx={{ fontSize: "0.65rem", borderRadius: 1 }}
+                          sx={{ 
+                            fontSize: "0.65rem", 
+                            borderRadius: 1,
+                            height: 24,
+                            borderColor: alpha(theme.palette.primary.main, 0.3),
+                          }}
                         />
                       )}
                     </Box>
@@ -837,7 +794,7 @@ const ApartmentsList: React.FC = () => {
                   <Tooltip title="Edit Property">
                     <IconButton
                       onClick={(e) => {
-                        e.stopPropagation(); // Prevent card click
+                        e.stopPropagation();
                         handleEditClick(property);
                       }}
                       sx={{
@@ -845,20 +802,20 @@ const ApartmentsList: React.FC = () => {
                         backgroundColor: alpha(theme.palette.primary.main, 0.1),
                         color: "primary.main",
                         borderRadius: 2,
+                        py: 1,
                         "&:hover": {
-                          backgroundColor: alpha(
-                            theme.palette.primary.main,
-                            0.2,
-                          ),
+                          backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                          transform: "translateY(-1px)",
                         },
+                        transition: "all 0.2s ease",
                       }}>
-                      <EditIcon />
+                      <EditIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="View Details">
                     <IconButton
                       onClick={(e) => {
-                        e.stopPropagation(); // Prevent card click
+                        e.stopPropagation();
                         handleViewClick(property);
                       }}
                       sx={{
@@ -866,17 +823,20 @@ const ApartmentsList: React.FC = () => {
                         backgroundColor: alpha(theme.palette.info.main, 0.1),
                         color: "info.main",
                         borderRadius: 2,
+                        py: 1,
                         "&:hover": {
                           backgroundColor: alpha(theme.palette.info.main, 0.2),
+                          transform: "translateY(-1px)",
                         },
+                        transition: "all 0.2s ease",
                       }}>
-                      <Visibility />
+                      <Visibility fontSize="small" />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Delete Property">
                     <IconButton
                       onClick={(e) => {
-                        e.stopPropagation(); // Prevent card click
+                        e.stopPropagation();
                         handleDeleteClick(property);
                       }}
                       sx={{
@@ -884,11 +844,14 @@ const ApartmentsList: React.FC = () => {
                         backgroundColor: alpha(theme.palette.error.main, 0.1),
                         color: "error.main",
                         borderRadius: 2,
+                        py: 1,
                         "&:hover": {
                           backgroundColor: alpha(theme.palette.error.main, 0.2),
+                          transform: "translateY(-1px)",
                         },
+                        transition: "all 0.2s ease",
                       }}>
-                      <DeleteIcon />
+                      <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                 </Box>

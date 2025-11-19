@@ -75,6 +75,7 @@ interface AdminActions {
     status: "VERIFIED" | "UNVERIFIED",
   ) => Promise<any>;
   suspendAgent: (agentId: string) => Promise<any>;
+  rejectAgent: (agentId: string, reason: string) => Promise<any>;
   listProperties: (page?: number, pageSize?: number) => Promise<any>;
   listAgents: (page?: number, pageSize?: number) => Promise<any>;
   getAgentProfile: (agentId: string) => Promise<any>;
@@ -92,7 +93,6 @@ interface AdminActions {
     apartmentData: ApartmentData,
     files?: File[]
   ) => Promise<any>;
-  // New offline booking method
   offlineBooking: (bookingData: OfflineBookingData) => Promise<any>;
 }
 
@@ -372,11 +372,46 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
+      rejectAgent: async (agentId, reason) => {
+        set({ isLoading: true });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.delete(
+            `${API_BASE_URL}/api/v1/admin/reject/${agentId}`,
+            {
+              data: { reason },
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to reject agent";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
       listProperties: async (page = 1, pageSize = 10) => {
         set({ isLoading: true });
         try {
           const token = get().token || localStorage.getItem("token");
-          console.log("🔑 Token for listProperties:", token);
+         
 
           if (!token) {
             throw new Error(

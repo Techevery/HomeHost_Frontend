@@ -71,7 +71,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
     (set, get) => ({
       ...initialState,
 
-      // Fetch all properties with pagination
+    
       fetchProperties: async (page = 1, limit = 50) => {
         set({ loading: true, error: null });
         try {
@@ -95,7 +95,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
 
           let propertiesData: Property[] = [];
 
-          // Handle different response structures
+        
           if (response?.data?.data?.apartments) {
             propertiesData = response.data.data.apartments;
           } else if (response?.data?.data) {
@@ -260,7 +260,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         }
       },
 
-      // Update existing property
+    
       updateProperty: async (
         id: string,
         propertyData: FormData | Partial<Property>,
@@ -275,7 +275,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
           let response;
 
           if (propertyData instanceof FormData) {
-            // Handle FormData (with files) - use the correct endpoint from backend
+            
             response = await axios.patch(
               `${API_BASE_URL}/api/v1/admin/update-apartment/${id}`,
               propertyData,
@@ -287,7 +287,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
               },
             );
           } else {
-            // Handle regular JSON data
+          
             const dataToSend = { ...propertyData };
             let sendData = { ...dataToSend };
             if (Array.isArray(dataToSend.amenities)) {

@@ -21,7 +21,7 @@ const ForgotPassword = () => {
       await forgotPassword(email);
       setStep(2);
     } catch (error) {
-      console.error('Error sending reset email:', error);
+     
     }
   };
 
@@ -36,7 +36,7 @@ const ForgotPassword = () => {
       setToken('');
       setPassword('');
     } catch (error) {
-      console.error('Error resetting password:', error);
+      
     }
   };
 

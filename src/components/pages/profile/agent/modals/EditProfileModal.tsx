@@ -66,7 +66,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
       [field]: value
     });
 
-    // Clear error when user starts typing
+   
     if (profileFormErrors[field]) {
       onProfileFormErrorsChange({
         ...profileFormErrors,

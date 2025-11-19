@@ -1287,7 +1287,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
             },
           );
 
-          console.log("API Response:", response.data);
+       
 
           const result = response.data;
 
@@ -1310,7 +1310,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
             properties = result;
           }
 
-          console.log("Extracted properties:", properties);
+         
 
           const validatedProperties: PublicProperty[] = properties.map(
             (prop) => ({

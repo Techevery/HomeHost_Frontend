@@ -1,7 +1,7 @@
 import React from "react";
 import Navbar from "../Navbar";
-import { Link, NavLink } from "react-router-dom";
-import { MdOutlineFavoriteBorder } from "react-icons/md";
+import { Link } from "react-router-dom";
+// import { MdOutlineFavoriteBorder } from "react-icons/md";
 import { FaPlus } from "react-icons/fa6";
 
 const AddProperty = () => {

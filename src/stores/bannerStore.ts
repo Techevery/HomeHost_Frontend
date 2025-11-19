@@ -31,20 +31,20 @@ interface BannerActions {
   handleAuthError: (error: any) => void;
 }
 
-// Helper function to get authentication token
+
 const getAuthToken = (): string | null => {
-  // Check multiple possible storage locations
+  
   return localStorage.getItem('authToken') || 
          localStorage.getItem('token') ||
          sessionStorage.getItem('authToken') ||
          sessionStorage.getItem('token');
 };
 
-// Helper function to handle API errors
+
 const handleApiError = (error: any): string => {
   console.error('API Error:', error);
   
-  // Handle authentication errors
+
   if (error.response?.status === 401) {
     return "Your session has expired. Please log in again.";
   }
@@ -85,7 +85,7 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
     try {
       const response = await axios.get(`${API_BASE_URL}/api/v1/banner`);
       
-      console.log('API Response:', response);
+     
       
       let banners = [];
       if (response.data && response.data.data) {
@@ -115,7 +115,7 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
     try {
       const response = await axios.get(`${API_BASE_URL}/api/v1/banner`);
       
-      console.log('Fetch Banner API Response:', response);
+     
       
       let banners = [];
       if (response.data && response.data.data) {
@@ -145,8 +145,7 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
     try {
       const token = getAuthToken();
       const headers: any = {};
-      
-      // Only add authorization header if token exists
+   
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
@@ -188,7 +187,7 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
         },
       });
 
-      // Refresh banners list after creation
+    
       const { fetchBanners } = get();
       await fetchBanners();
 
@@ -253,7 +252,7 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
         },
       });
       
-      // Update local state immediately
+   
       const { banners } = get();
       const updatedBanners = banners.filter(banner => banner.id !== id);
       

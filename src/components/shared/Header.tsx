@@ -26,12 +26,11 @@ const Header: React.FC = () => {
     setIsProfileOpen(false);
   };
 
-  // Get the first letter of the admin's name for avatar
   const getInitial = () => {
     return adminInfo?.name ? adminInfo.name.charAt(0).toUpperCase() : "A";
   };
 
-  // Format role for display
+
   const formatRole = (role: string) => {
     return role.split('_').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
@@ -44,12 +43,12 @@ const Header: React.FC = () => {
        
         
 
-        {/* Profile Section */}
+      
         <div className="relative">
           <div className="flex items-center space-x-4">
          
 
-            {/* Admin Profile */}
+          
             <div className="flex items-center space-x-3">
               <div className="text-right hidden md:block">
                 <p className="font-medium text-gray-900 text-sm">
@@ -76,18 +75,18 @@ const Header: React.FC = () => {
                   )}
                 </button>
 
-                {/* Profile Dropdown */}
+               
                 {isProfileOpen && (
                   <>
-                    {/* Backdrop */}
+                
                     <div 
                       className="fixed inset-0 z-40" 
                       onClick={() => setIsProfileOpen(false)}
                     />
                     
-                    {/* Dropdown Menu */}
+          
                     <div className="absolute right-0 top-12 z-50 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2">
-                      {/* Profile Summary */}
+                    
                       <div className="px-4 py-3 border-b border-gray-100">
                         <p className="font-semibold text-gray-900 text-sm">
                           {adminInfo?.name || "Administrator"}
@@ -100,7 +99,7 @@ const Header: React.FC = () => {
                         </p>
                       </div>
 
-                      {/* Menu Items */}
+                  
                       <div className="py-2">
                         <button
                           onClick={handleEditProfile}

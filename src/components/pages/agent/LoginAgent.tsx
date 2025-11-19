@@ -55,7 +55,7 @@ const LoginAgent = () => {
   };
 
   const handleForgotPasswordSubmit = async () => {
-    console.log(`Sending password reset email to ${forgotPasswordEmail}`);
+   
     setIsForgotPasswordOpen(false);
   };
 

@@ -1,7 +1,7 @@
 import React from 'react'
-import { NavLink } from 'react-router-dom'
-import { FaQuestionCircle } from "react-icons/fa";
-import AdminSidebar from '../../Sidebar/AdminSidebar';
+// import { NavLink } from 'react-router-dom'
+// import { FaQuestionCircle } from "react-icons/fa";
+// import AdminSidebar from '../../Sidebar/AdminSidebar';
 import TotalNumbers from './DashBoardComponents/TotalNumbers';
 import AvailableProperty from './DashBoardComponents/AvailableProperty';
 import BookingDetails from './DashBoardComponents/BookingDetails';
@@ -9,7 +9,7 @@ import BookingDetails from './DashBoardComponents/BookingDetails';
 const AdminDashboard = () => {
 
 
-  const [collapseShow, setCollapseShow] = React.useState("hidden");
+  // const [collapseShow, setCollapseShow] = React.useState("hidden");
 
   return (
     <div className=''>

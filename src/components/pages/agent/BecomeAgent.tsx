@@ -1,4 +1,4 @@
-import { ErrorMessage, Field, Form, Formik } from "formik";
+import {  Field, Form, Formik } from "formik";
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import * as Yup from "yup";
@@ -36,7 +36,7 @@ interface Props {
 }
 
 const BecomeAgent = () => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const [display, setDisplay] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);

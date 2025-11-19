@@ -5,10 +5,10 @@ import {
   CardContent,
   Box,
   Chip,
-  IconButton,
+  
   CardActions,
   Button,
-  Badge,
+
   Tooltip,
   Divider,
 } from "@mui/material";
@@ -37,7 +37,7 @@ export interface Property {
   services?: string[];
   amenities?: string[];
   price: number;
-  markedUpPrice?: number; // This is the markup AMOUNT (2000), not the final price
+  markedUpPrice?: number; 
   location: string;
   images: string[];
   status: "active" | "inactive" | "pending" | "sold";
@@ -46,7 +46,7 @@ export interface Property {
   agentPercentage?: number;
   createdAt?: string;
   
-  // Enhanced pricing fields
+  
   basePrice?: number;
   totalPrice?: number;
   priceChangedAt?: string;
@@ -132,22 +132,14 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
     });
   };
 
-  // Use data directly from backend
+
   const basePrice = property.basePrice || property.price || 0;
   const totalPrice = property.totalPrice || property.price || 0;
   const markupAmount = property.markedUpPrice || 0;
   const hasMarkup = markupAmount > 0;
   const markupPercentage = basePrice > 0 ? (markupAmount / basePrice) * 100 : 0;
 
-  console.log('Property Card Data (All Properties):', {
-    basePrice,
-    totalPrice,
-    markupAmount,
-    hasMarkup,
-    markupPercentage,
-    priceChangedAt: property.priceChangedAt,
-    agentPercentage: property.agentPercentage
-  });
+
 
   return (
     <Card
@@ -165,7 +157,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       }}
       onClick={handleView}>
       
-      {/* Property Image with Badges */}
+   
       <Box sx={{ position: "relative" }}>
         <CardMedia
           component="img"
@@ -175,7 +167,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           sx={{ objectFit: "cover" }}
         />
 
-        {/* Status Badge */}
+      
         <Box sx={{ position: "absolute", top: 12, left: 12 }}>
           <Chip
             label={getStatusLabel(property.status)}
@@ -185,7 +177,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           />
         </Box>
 
-        {/* Markup Badge for Agent View - Show for ALL properties */}
         {variant === "agent" && (
           <Box sx={{ position: "absolute", bottom: 12, right: 12 }}>
             <Tooltip title={hasMarkup ? 
@@ -206,7 +197,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       </Box>
 
       <CardContent sx={{ flexGrow: 1, p: 3 }}>
-        {/* Property Title and Type */}
+       
         <Box sx={{ mb: 2 }}>
           <Typography
             variant="h6"
@@ -222,7 +213,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           )}
         </Box>
 
-        {/* Property Features */}
+       
         <Box display="flex" gap={2} sx={{ mb: 2, flexWrap: "wrap" }}>
           {property.bedroom !== undefined && (
             <Box display="flex" alignItems="center" gap={0.5}>
@@ -233,7 +224,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             </Box>
           )}
 
-          {/* Servicing Information */}
+        
           {property.servicing && (
             <Box display="flex" alignItems="center" gap={0.5}>
               <BathIcon color="action" fontSize="small" />
@@ -244,7 +235,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           )}
         </Box>
 
-        {/* Location */}
+       
         <Box display="flex" alignItems="center" gap={1} sx={{ mb: 3 }}>
           <LocationIcon color="action" fontSize="small" />
           <Typography
@@ -260,10 +251,10 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </Typography>
         </Box>
 
-        {/* PRICING INFORMATION - Show for ALL properties */}
+      
         <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 2 }}>
 
-          {/* FINAL PRICE */}
+        
           <Box sx={{ 
             textAlign: 'center', 
             mb: 2, 
@@ -281,7 +272,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
           <Divider sx={{ my: 2 }} />
 
-          {/* BASE PRICE - Always show */}
+       
           <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
             <Box display="flex" alignItems="center" gap={1}>
                ₦ 
@@ -294,7 +285,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             </Typography>
           </Box>
 
-          {/* MARKUP AMOUNT - Always show, even if 0 */}
+        
           <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
             <Box display="flex" alignItems="center" gap={1}>
               <TrendingUpIcon color={hasMarkup ? "success" : "action"} fontSize="small" />
@@ -307,17 +298,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             </Typography>
           </Box>
 
-          {/* MARKUP PERCENTAGE - Always show, even if 0
-          <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Markup Percentage:
-            </Typography>
-            <Typography variant="body2" color={hasMarkup ? "success.main" : "text.secondary"} fontWeight="bold">
-              {hasMarkup ? `+${markupPercentage.toFixed(2)}%` : `${markupPercentage.toFixed(2)}%`}
-            </Typography>
-          </Box> */}
 
-          {/* TOTAL PRICE - Always show */}
+
           <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
             <Box display="flex" alignItems="center" gap={1}>
               ₦
@@ -330,7 +312,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             </Typography>
           </Box>
 
-          {/* PRICE UPDATE DATE - Show if available */}
+       
           {property.priceChangedAt && (
             <>
               <Divider sx={{ my: 1.5 }} />
@@ -350,7 +332,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
           
 
-          {/* CREATED DATE */}
+        
           {property.createdAt && (
             <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
               <Typography variant="caption" color="text.secondary">
@@ -366,7 +348,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
       </CardContent>
 
-      {/* Action Buttons - Only show for agent view and when actions are enabled */}
+    
       {showActions && variant === "agent" && (
         <CardActions sx={{ p: 3, pt: 0 }}>
           <Button
@@ -380,7 +362,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         </CardActions>
       )}
 
-      {/* View Details Button for Public View */}
+   
       {variant === "public" && onView && (
         <CardActions sx={{ p: 3, pt: 0 }}>
           <Button

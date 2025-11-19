@@ -61,14 +61,14 @@ const BookingModal: React.FC<{
         
         await fetchBookingDates(propertyId);
 
-        console.log("📅 Raw booking dates from store:", bookingDates);
+       
 
         const dates: Date[] = [];
 
       
         if (bookingDates && bookingDates.length > 0) {
           bookingDates.forEach((bookingDate) => {
-            console.log("📋 Processing booking date:", bookingDate);
+           
 
           
             if (bookingDate.booking_start_date && bookingDate.booking_end_date) {
@@ -77,7 +77,7 @@ const BookingModal: React.FC<{
 
               
               if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-                console.warn("Invalid date found:", bookingDate);
+              
                 return;
               }
 
@@ -107,11 +107,6 @@ const BookingModal: React.FC<{
 
         uniqueDates.sort((a, b) => a.getTime() - b.getTime());
 
-        console.log(
-          "✅ Final booked dates:",
-          uniqueDates.map((d) => d.toDateString()),
-        );
-        
 
         setBookedDates(uniqueDates);
       } catch (error) {
@@ -848,9 +843,7 @@ const AvailableProperty = () => {
   const { publicProperties, fetchPublicProperties, loading, error } =
     useAgentStore();
     
-    console.log({publicProperties})
-    console.log({fetchPublicProperties})
-
+   
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
     null,
   );

@@ -25,7 +25,7 @@ import {
   CloudUpload as UploadIcon,
   Delete as DeleteImageIcon,
 } from "@mui/icons-material";
-import usePropertyStore from "../../../../stores/propertyStore";
+import useAdminStore from "../../../../stores/admin"; 
 
 interface EditPropertyModalProps {
   open: boolean;
@@ -35,6 +35,9 @@ interface EditPropertyModalProps {
   loading?: boolean;
 }
 
+// Define all possible property types to match backend
+const PROPERTY_TYPES = ['Flat', 'House', 'Apartment', 'Penthouse', 'Studio', 'Villa'] as const;
+
 const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
   open,
   onClose,
@@ -42,11 +45,10 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
   onSave,
   loading = false,
 }) => {
-  const { updateProperty } = usePropertyStore();
+  const { updateApartment } = useAdminStore();
   const [formData, setFormData] = useState({
     name: "",
     address: "",
-
     type: "",
     servicing: "",
     bedroom: "",
@@ -60,18 +62,24 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Safe data loading with validation
   useEffect(() => {
     if (property) {
+      // Validate and set property type safely
+      const safeType = PROPERTY_TYPES.includes(property.type as any) 
+        ? property.type 
+        : 'Apartment'; // Fallback to default
+
       setFormData({
         name: property.name || "",
         address: property.address || "",
-
-        type: property.type || "",
+        type: safeType,
         servicing: property.servicing || "",
         bedroom: property.bedroom || "",
-        price: property.price || "",
-        agentPercentage: property.agentPercentage || "",
+        price: property.price ? property.price.toString() : "",
+        agentPercentage: property.agentPercentage ? property.agentPercentage.toString() : "",
         amenities: Array.isArray(property.amenities)
           ? property.amenities.join(", ")
           : property.amenities || "",
@@ -99,6 +107,9 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       ...prev,
       [field]: event.target.value,
     }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
   };
 
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -185,39 +196,51 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     if (!validateForm()) return;
 
     try {
+      setIsSubmitting(true);
       setSubmitError("");
-      const submitFormData = new FormData();
 
-      // Append form data
-      Object.entries(formData).forEach(([key, value]) => {
-        if (key === "amenities") {
-          // Convert comma-separated amenities to array
-          const amenitiesArray = (value as string)
-            .split(",")
-            .map((a) => a.trim())
-            .filter((a) => a);
-          submitFormData.append(key, JSON.stringify(amenitiesArray));
-        } else {
-          submitFormData.append(key, value as string);
-        }
-      });
+      // Prepare update data
+      const updateData: any = {
+        name: formData.name,
+        address: formData.address,
+        type: formData.type,
+        servicing: formData.servicing,
+        bedroom: formData.bedroom,
+        price: parseFloat(formData.price),
+        agentPercentage: parseFloat(formData.agentPercentage),
+      };
 
-      // Append new images
-      images.forEach((image) => {
-        submitFormData.append("images", image);
-      });
-
-      // Add deleteExistingImages flag if there are images to delete
-      if (imagesToDelete.length > 0) {
-        submitFormData.append("deleteExistingImages", "true");
+      // Handle amenities - convert from string to array
+      if (formData.amenities) {
+        const amenitiesArray = formData.amenities
+          .split(",")
+          .map((a) => a.trim())
+          .filter((a) => a);
+        updateData.amenities = amenitiesArray.join(","); // Send as comma-separated string
       }
 
+      // Call the updateApartment method from admin store
       if (property?.id) {
-        await updateProperty(property.id, submitFormData);
-        await onSave({ ...formData, id: property.id });
+        await updateApartment(
+          property.id,
+          updateData,
+          images.length > 0 ? images : undefined,
+          imagesToDelete.length > 0
+        );
+
+        // Call the onSave callback with updated data
+        await onSave({ 
+          ...formData, 
+          id: property.id,
+          images: [...existingImages] // Use only existing images (new ones will be processed by backend)
+        });
       }
+
+      handleClose(); // Close modal on success
     } catch (error: any) {
       setSubmitError(error.message || "Failed to update property");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -225,7 +248,6 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     setFormData({
       name: "",
       address: "",
-
       type: "",
       servicing: "",
       bedroom: "",
@@ -243,6 +265,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
   };
 
   const allImages = [...existingImages, ...imagePreviews];
+  const isLoading = loading || isSubmitting;
 
   return (
     <Dialog
@@ -324,9 +347,11 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                 value={formData.type}
                 label="Property Type *"
                 onChange={handleSelectChange("type")}>
-                <MenuItem value="Flat">Flat</MenuItem>
-                <MenuItem value="House">House</MenuItem>
-                <MenuItem value="Apartment">Apartment</MenuItem>
+                {PROPERTY_TYPES.map((type) => (
+                  <MenuItem key={type} value={type}>
+                    {type}
+                  </MenuItem>
+                ))}
               </Select>
               {errors.type && (
                 <Typography
@@ -347,6 +372,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               onChange={handleInputChange("servicing")}
               error={!!errors.servicing}
               helperText={errors.servicing}
+              placeholder="e.g., Full Service, Cleaning, Maintenance"
             />
           </Grid>
 
@@ -521,15 +547,15 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
 
       <DialogActions
         sx={{ p: 3, borderTop: "1px solid", borderColor: "divider" }}>
-        <Button onClick={handleClose} disabled={loading}>
+        <Button onClick={handleClose} disabled={isLoading}>
           Cancel
         </Button>
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={16} /> : null}>
-          {loading ? "Updating Property..." : "Update Property"}
+          disabled={isLoading}
+          startIcon={isLoading ? <CircularProgress size={16} /> : null}>
+          {isLoading ? "Updating Property..." : "Update Property"}
         </Button>
       </DialogActions>
     </Dialog>

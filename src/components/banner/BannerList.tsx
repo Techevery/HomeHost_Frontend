@@ -1,4 +1,4 @@
-// components/BannerList.tsx
+
 import React, { useEffect, useState } from "react";
 import useBannerStore from "../../stores/bannerStore";
 import BannerCard from "./BannerCard";
@@ -21,14 +21,14 @@ const BannerList: React.FC = () => {
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    // Check authentication on component mount
+   
     checkAuth();
     
     const loadBanners = async () => {
       try {
         await fetchBanners();
       } catch (error) {
-        console.error('Failed to fetch banners:', error);
+        
       }
     };
 
@@ -53,7 +53,7 @@ const BannerList: React.FC = () => {
 
   const handleFormSuccess = () => {
     handleCloseForm();
-    // Refresh the banners list to show updated data
+   
     fetchBanners();
   };
 
@@ -62,7 +62,7 @@ const BannerList: React.FC = () => {
     clearError();
   };
 
-  // Show authentication required message
+
   if (!isAuthenticated && error?.includes('Authentication required')) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -155,7 +155,7 @@ const BannerList: React.FC = () => {
         </button>
       </div>
 
-      {/* Error Banner for non-critical errors */}
+    
       {error && banners.length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
           <div className="flex justify-between items-center">
@@ -227,7 +227,7 @@ const BannerList: React.FC = () => {
         </div>
       )}
 
-      {/* Loading overlay for background operations */}
+    
       {isLoading && banners.length > 0 && (
         <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-40">
           <div className="bg-white rounded-lg shadow-lg p-6 flex items-center space-x-3">

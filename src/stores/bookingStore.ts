@@ -1,4 +1,4 @@
-// stores/bookingStore.ts
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
@@ -216,7 +216,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
                   duration_days: booking.booking_period.duration_days,
                 }
               : undefined,
-            // Backward compatibility fields
+           
             booking_start_date:
               booking.booking_start_date || booking.booking_period?.start_date,
             booking_end_date:
@@ -230,7 +230,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
 
           set({ bookings: processedBookings });
         } catch (error: any) {
-          console.error("❌ Failed to fetch bookings:", error);
+          
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||
@@ -261,12 +261,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
             },
           );
 
-          console.log("🔍 RAW API RESPONSE:", response);
-          console.log("🔍 Response data:", response.data);
-          console.log("🔍 Response data type:", typeof response.data);
-          console.log("🔍 Is array?", Array.isArray(response.data));
-
-          // Handle different response structures safely
+        
           let bookingsData = [];
 
           if (Array.isArray(response.data)) {
@@ -280,19 +275,17 @@ const useBookingStore = create<BookingState & BookingActions>()(
             response.data.data &&
             typeof response.data.data === "object"
           ) {
-            // Handle case where data is a single object
+           
             bookingsData = [response.data.data];
           } else if (response.data && typeof response.data === "object") {
-            // If it's a single booking object, wrap it in array
+           
             bookingsData = [response.data];
           } else {
-            console.warn(
-              "⚠️ Unexpected API response structure, using empty array",
-            );
+          
             bookingsData = [];
           }
 
-          console.log("📊 Final bookingsData to process:", bookingsData);
+        
 
           const processedBookings = bookingsData.map((booking: any) => ({
             id: booking.id || `temp-${Math.random()}`,
@@ -351,10 +344,10 @@ const useBookingStore = create<BookingState & BookingActions>()(
               : undefined,
           }));
 
-          console.log("✅ Final processed bookings:", processedBookings);
+       
           set({ bookings: processedBookings });
         } catch (error: any) {
-          console.error("❌ Failed to fetch admin bookings:", error);
+        
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||
@@ -386,11 +379,11 @@ const useBookingStore = create<BookingState & BookingActions>()(
             },
           );
 
-          console.log("📖 Fetch booking by ID response:", response.data);
+        
 
           const bookingData = response.data.data || response.data;
 
-          // Process the booking data according to backend structure
+         
           const processedBooking = {
             ...bookingData,
             transaction: bookingData.transaction
@@ -421,7 +414,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
             currentBooking: processedBooking,
           });
         } catch (error: any) {
-          console.error("❌ Failed to fetch booking details:", error);
+         
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||
@@ -435,7 +428,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
         }
       },
 
-  // Update the fetchBookingDates method in bookingStore.ts
+
 
 fetchBookingDates: async (apartmentId: string) => {
   set({ loading: true, error: null });
@@ -458,7 +451,7 @@ fetchBookingDates: async (apartmentId: string) => {
       },
     );
 
-    console.log("📅 Booking dates API response:", response.data);
+   
 
     let bookingDatesData = [];
 
@@ -469,17 +462,16 @@ fetchBookingDates: async (apartmentId: string) => {
     } else if (response.data && Array.isArray(response.data)) {
       bookingDatesData = response.data;
     } else {
-      // Handle single object response
+    
       bookingDatesData = [response.data];
     }
 
     const processedBookingDates = bookingDatesData
       .map((bookingDate: any) => {
-        // Based on the backend service, the data comes from apartmentLog with booking_period
+      
         let startDate = null;
         let endDate = null;
 
-        // Primary: Use booking_period data from apartmentLog
         if (bookingDate.booking_period) {
           startDate = bookingDate.booking_period.start_date
             ? new Date(bookingDate.booking_period.start_date)
@@ -488,7 +480,7 @@ fetchBookingDates: async (apartmentId: string) => {
             ? new Date(bookingDate.booking_period.end_date)
             : null;
         }
-        // Fallback: Check for direct date fields in apartmentLog
+     
         else if (bookingDate.start_date || bookingDate.end_date) {
           startDate = bookingDate.start_date
             ? new Date(bookingDate.start_date)
@@ -498,7 +490,7 @@ fetchBookingDates: async (apartmentId: string) => {
             : null;
         }
 
-        // Only return valid date ranges
+      
         if (startDate && endDate) {
           return {
             id: bookingDate.id || `booking-${Math.random()}`,
@@ -513,15 +505,11 @@ fetchBookingDates: async (apartmentId: string) => {
       })
       .filter((bookingDate: any) => bookingDate !== null);
 
-    console.log("📅 Processed booking dates:", processedBookingDates);
-    console.log(
-      "📅 Processed booking dates count:",
-      processedBookingDates.length,
-    );
+   
 
     set({ bookingDates: processedBookingDates });
   } catch (error: any) {
-    console.error("❌ Failed to fetch booking dates:", error);
+  
     const errorMessage =
       error.response?.data?.error ||
       error.response?.data?.message ||
@@ -560,7 +548,7 @@ fetchBookingDates: async (apartmentId: string) => {
             },
           );
 
-          console.log("🔍 Manage booking API response:", response.data);
+       
 
           const managedBookingsData = response.data.data || response.data || [];
 
@@ -616,7 +604,7 @@ fetchBookingDates: async (apartmentId: string) => {
             };
           });
 
-          console.log("✅ Processed bookings:", processedBookings);
+         
           set({ managedBookings: processedBookings });
 
           if (processedBookings.length > 0) {
@@ -625,7 +613,7 @@ fetchBookingDates: async (apartmentId: string) => {
             toast.error("No bookings found with the provided criteria");
           }
         } catch (error: any) {
-          console.error("❌ Failed to manage booking:", error);
+        
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||

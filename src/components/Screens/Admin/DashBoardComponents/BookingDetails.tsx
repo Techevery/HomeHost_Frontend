@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Paper, ThemeProvider, createTheme } from "@mui/material";
 import MaterialTable from "material-table";
-import { Link, useLocation } from "react-router-dom";
-import useBookingStore from "../../../../stores/bookingStore"; // Adjust the import path as needed
+import { useLocation } from "react-router-dom";
+import useBookingStore from "../../../../stores/bookingStore"; 
 
 const BookingDetails = () => {
   const url = useLocation();
@@ -11,30 +11,30 @@ const BookingDetails = () => {
 
   const [selectedStatus, setSelectedStatus] = useState("all");
 
-  // Use the booking store
+  
   const { bookings, loading, error, fetchBookings } = useBookingStore();
 
-  // Fetch bookings on component mount
+  
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
 
-  // Transform store data to match table format based on actual API response
+ 
   const transformBookingData = () => {
     return bookings.map((booking) => ({
       id: booking.id,
-      customer: booking.guest_name || "Customer", // Fallback if guest_name not in response
+      customer: booking.guest_name || "Customer", 
       apartment_booked: booking.apartment?.name || "Apartment",
       date: formatDate(booking.created_at),
       phone_number: booking.guest_phone || "+234 000 000 0000",
       check_in: formatDate(booking.booking_start_date),
       check_out: formatDate(booking.booking_end_date),
-      apartment_agent: "Agent", // You might want to add agent info to your API
+      apartment_agent: "Agent", 
       status: mapStatus(booking.status),
     }));
   };
 
-  // Map backend status to frontend status
+  
   const mapStatus = (status: string) => {
     const statusMap: { [key: string]: string } = {
       booked: "Successful",

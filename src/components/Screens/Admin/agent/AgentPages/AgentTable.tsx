@@ -112,14 +112,11 @@ const AgentTable: React.FC = () => {
         setLoading(true);
         const result = await listAgents(currentPage, itemsPerPage);
 
-        console.log("API Response:", result); // Debug log
-
-        // Handle the actual API response structure
+       
         const agentsData = result?.data?.agents || [];
         const pagination = result?.data?.pagination || {};
 
-        console.log("Agents data:", agentsData); // Debug log
-        console.log("Pagination data:", pagination); // Debug log
+       
 
         setData(Array.isArray(agentsData) ? agentsData : []);
         setTotalAgents(pagination.totalAgents || 0);
@@ -128,7 +125,7 @@ const AgentTable: React.FC = () => {
         setItemsPerPage(pagination.itemsPerPage || itemsPerPage);
         setError(null);
       } catch (error: any) {
-        console.error("Error fetching data:", error);
+       
         setError(error.message || "Failed to fetch agents data");
       } finally {
         setLoading(false);

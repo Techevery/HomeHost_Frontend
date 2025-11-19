@@ -1,4 +1,4 @@
-// paymentstore.ts
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
@@ -77,7 +77,7 @@ const API_BASE_URL =
 
 // Enhanced error handler utility
 const handleApiError = (error: any, defaultMessage: string): string => {
-  console.error("Payment API Error:", error);
+ 
 
   if (error.response) {
     const status = error.response.status;
@@ -149,8 +149,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
           try {
             const agentStoreModule = await import("./agentstore");
             const agentStore = agentStoreModule.default;
-            
-            // Add small delay for store initialization
+           
             await new Promise(resolve => setTimeout(resolve, 100));
             
             const { token, isAuthenticated, agentInfo } = agentStore.getState();
@@ -165,27 +164,27 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
               }
             }
           } catch (error) {
-            console.log("Agent store not available or agent not logged in:", error);
+           
           }
 
-          // Enhanced fallback logic
+       
           if (!finalAgentId) {
             if (agentId) {
               finalAgentId = agentId;
-              console.log("Using provided agent ID:", finalAgentId);
+           
             } else {
-              // Last resort: try localStorage
+              
               try {
                 const storedAgent = localStorage.getItem('agent-storage');
                 if (storedAgent) {
                   const parsedAgent = JSON.parse(storedAgent);
                   if (parsedAgent.state?.agentInfo?.id) {
                     finalAgentId = parsedAgent.state.agentInfo.id;
-                    console.log("Using agent ID from localStorage:", finalAgentId);
+                  
                   }
                 }
               } catch (storageError) {
-                console.log("Could not retrieve agent ID from localStorage");
+              
               }
             }
           }
@@ -242,7 +241,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             fullName: fullName || "",
           };
 
-          console.log("Initiating payment with data:", paymentData);
+         
 
           const headers: any = {
             "Content-Type": "application/json",
@@ -261,7 +260,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             },
           );
 
-          console.log("Payment initiation response:", response);
+      
 
           const result = response.data.data;
 
@@ -304,7 +303,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             message: "Payment initialized successfully",
           };
         } catch (error: any) {
-          console.error("Payment initiation error:", error);
+       
 
           const errorMessage = handleApiError(
             error,
@@ -349,7 +348,6 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             };
           }
 
-          console.log("Verifying payment with reference:", reference);
 
           const response = await axios.post(
             `${API_BASE_URL}/api/v1/payment/verify`,
@@ -363,7 +361,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             },
           );
 
-          console.log("Payment verification response:", response);
+      
 
           const result = response.data.data;
 
@@ -398,7 +396,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             message: "Payment verified successfully",
           };
         } catch (error: any) {
-          console.error("Payment verification error:", error);
+        
 
           const errorMessage = handleApiError(
             error,

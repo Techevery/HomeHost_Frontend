@@ -1,4 +1,4 @@
-// components/BannerCard.tsx
+
 import React, { useState } from "react";
 import { PencilIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import useBannerStore from "../../stores/bannerStore";
@@ -48,7 +48,7 @@ const BannerCard: React.FC<BannerCardProps> = ({ banner, onEdit, isAuthenticated
       await deleteBanner(banner.id);
       setShowDeleteModal(false);
     } catch (error) {
-      // Error handling is done in the store
+  
     }
   };
 
@@ -60,7 +60,7 @@ const BannerCard: React.FC<BannerCardProps> = ({ banner, onEdit, isAuthenticated
     return banner.image_url || null;
   };
 
-  // Handle image loading errors
+
   const handleImageError = (
     e: React.SyntheticEvent<HTMLImageElement, Event>,
   ) => {
@@ -69,24 +69,23 @@ const BannerCard: React.FC<BannerCardProps> = ({ banner, onEdit, isAuthenticated
       "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDMwMCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMTUwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgNzVMMzUgMTQwSDE2NUwxMDAgNzVaIiBmaWxsPSIjRURFRUVGIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjUwIiByPSIyMCIgZmlsbD0iI0VERUVFRiIvPgo8dGV4dCB4PSI1MCIgeT0iOTAiIGZpbGw9IiM5QTlBOUEiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+RXJyb3IgTG9hZGluZzwvdGV4dD4KPC9zdmc+Cg==";
   };
 
-  // Handle image load success
+ 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    // Image loaded successfully
-    console.log('Image loaded successfully');
+  
   };
 
-  // Get status with default value
+
   const getStatus = (): "active" | "inactive" => {
     return banner.status || "active";
   };
 
-  // Get status display text
+  
   const getStatusText = (): string => {
     const status = getStatus();
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
-  // Get status styling
+
   const getStatusStyles = (): string => {
     const status = getStatus();
     return status === "active"
@@ -94,7 +93,7 @@ const BannerCard: React.FC<BannerCardProps> = ({ banner, onEdit, isAuthenticated
       : "bg-gray-100 text-gray-800 border border-gray-200";
   };
 
-  // Get the display image
+ 
   const displayImage = getDisplayImage();
 
   return (
@@ -173,7 +172,7 @@ const BannerCard: React.FC<BannerCardProps> = ({ banner, onEdit, isAuthenticated
         </div>
       </div>
 
-      {/* Edit Authentication Modal */}
+  
       <EditModal
         isOpen={showEditModal}
         onClose={handleCancelEdit}
@@ -182,7 +181,6 @@ const BannerCard: React.FC<BannerCardProps> = ({ banner, onEdit, isAuthenticated
         confirmText="OK"
       />
 
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">

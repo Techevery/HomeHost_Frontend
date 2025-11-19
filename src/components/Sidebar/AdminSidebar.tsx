@@ -11,11 +11,12 @@ import {
   AiOutlineDollar,
   AiOutlinePicture,
   AiOutlineHome,
-  AiOutlineSetting,
+ 
 } from "react-icons/ai";
-import { MdOutlineAdminPanelSettings } from "react-icons/md";
+
 import useAdminStore from "../../stores/admin";
 import RegisterAdminModal from "../Screens/Admin/DashBoardComponents/RegisterAdminModal/RegisterAdminModal";
+// import toast from "react-hot-toast";
 
 type Props = {
   toggle: () => void;
@@ -33,7 +34,7 @@ const AdminSidebar = (props: Props) => {
   const { adminInfo, logout, fetchAdminProfile, isAuthenticated } =
     useAdminStore();
 
-  // Automatically fetch admin profile when component mounts if authenticated
+
   useEffect(() => {
     const loadAdminProfile = async () => {
       if (isAuthenticated && adminInfo) {
@@ -57,8 +58,7 @@ const AdminSidebar = (props: Props) => {
   };
 
   const handleRegisterSuccess = () => {
-    // Optional: Add any success actions here
-    console.log("Admin registered successfully");
+  // toast.success("Registration success")
   };
 
   const menuItems = [
@@ -118,7 +118,7 @@ const AdminSidebar = (props: Props) => {
         className={`${
           props.DrawerOpen ? "" : "rounded-[20px]"
         } relative w-[280px] z-[100] bg-white border-r border-[#ECEDEF] h-full flex flex-col shadow-sm`}>
-        {/* Header with Admin Info */}
+     
         <div className="flex border-b border-gray-100 items-center justify-between px-6 py-4 bg-gradient-to-r from-gray-50 to-white">
           <button
             onClick={props.toggle}
@@ -131,7 +131,7 @@ const AdminSidebar = (props: Props) => {
           </button>
         </div>
 
-        {/* Logo Section */}
+        
         <div className="flex justify-center py-5 border-b border-gray-100 bg-white">
           <NavLink to="/" className="flex items-center space-x-2">
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -146,7 +146,7 @@ const AdminSidebar = (props: Props) => {
           </NavLink>
         </div>
 
-        {/* Quick Actions - Register Admin Only */}
+      
         {adminInfo?.isSuperAdmin || (
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 mx-4 mt-4 rounded-xl p-4 shadow-lg">
             <div className="text-center">
@@ -170,7 +170,7 @@ const AdminSidebar = (props: Props) => {
           </div>
         )}
 
-        {/* Main Navigation */}
+  
         <div className="flex-1 overflow-y-auto py-4">
           <h1 className="text-xs uppercase tracking-wider text-gray-400 font-semibold px-6 mb-3">
             Navigation
@@ -202,7 +202,7 @@ const AdminSidebar = (props: Props) => {
             ))}
           </nav>
 
-          {/* Admin Management Section */}
+       
           {adminInfo?.isSuperAdmin && (
             <>
               <h1 className="text-xs uppercase tracking-wider text-gray-400 font-semibold px-6 mb-3 mt-6">
@@ -231,7 +231,7 @@ const AdminSidebar = (props: Props) => {
           )}
         </div>
 
-        {/* User Profile & Logout Section */}
+     
         <div className="border-t border-gray-100 p-4 bg-gray-50">
           <div className="flex items-center space-x-3 mb-3 px-2">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-sm">
@@ -276,7 +276,7 @@ const AdminSidebar = (props: Props) => {
         </div>
       </aside>
 
-      {/* Register Admin Modal */}
+    
       <RegisterAdminModal
         isOpen={showRegisterModal}
         onClose={() => setShowRegisterModal(false)}

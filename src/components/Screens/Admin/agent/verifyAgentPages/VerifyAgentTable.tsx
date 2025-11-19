@@ -15,6 +15,11 @@ import {
   CircularProgress,
   Card,
   CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import { Check, Close, Person } from '@mui/icons-material';
 import useAdminStore from "../../../../../stores/admin";
@@ -41,6 +46,7 @@ const VerifyAgentTable: React.FC = () => {
     token, 
     isLoading: storeLoading, 
     verifyAgent, 
+    rejectAgent,
     listAgents,
     clearError 
   } = useAdminStore();
@@ -49,6 +55,9 @@ const VerifyAgentTable: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const fetchPendingAgents = React.useCallback(async () => {
     try {
@@ -96,6 +105,38 @@ const VerifyAgentTable: React.FC = () => {
       setError(err?.message || 'Failed to update agent status');
       setSuccess(null);
     }
+  };
+
+  const handleRejectClick = (agent: Agent) => {
+    setSelectedAgent(agent);
+    setRejectionReason('');
+    setRejectDialogOpen(true);
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!selectedAgent || !rejectionReason.trim()) {
+      setError('Please provide a rejection reason');
+      return;
+    }
+
+    try {
+      await rejectAgent(selectedAgent.id, rejectionReason.trim());
+      setSuccess(`Agent ${selectedAgent.name} rejected successfully`);
+      setError(null);
+      setRejectDialogOpen(false);
+      setSelectedAgent(null);
+      setRejectionReason('');
+      fetchPendingAgents();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to reject agent');
+      setSuccess(null);
+    }
+  };
+
+  const handleRejectCancel = () => {
+    setRejectDialogOpen(false);
+    setSelectedAgent(null);
+    setRejectionReason('');
   };
 
   const getStatusColor = (status: string) => {
@@ -233,7 +274,7 @@ const VerifyAgentTable: React.FC = () => {
                         color="error"
                         size="small"
                         startIcon={<Close />}
-                        onClick={() => handleVerification(agent.id, 'REJECTED')}
+                        onClick={() => handleRejectClick(agent)}
                         fullWidth
                       >
                         Reject
@@ -246,6 +287,48 @@ const VerifyAgentTable: React.FC = () => {
           </Table>
         </TableContainer>
       )}
+
+      {/* Rejection Dialog */}
+      <Dialog 
+        open={rejectDialogOpen} 
+        onClose={handleRejectCancel}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Reject Agent Application
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            You are about to reject {selectedAgent?.name}'s application. 
+            Please provide a reason for rejection:
+          </Typography>
+          <TextField
+            autoFocus
+            label="Rejection Reason"
+            multiline
+            rows={4}
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            fullWidth
+            variant="outlined"
+            placeholder="Enter the reason for rejecting this agent's application..."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleRejectCancel}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleRejectConfirm} 
+            color="error"
+            variant="contained"
+            disabled={!rejectionReason.trim()}
+          >
+            Confirm Rejection
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

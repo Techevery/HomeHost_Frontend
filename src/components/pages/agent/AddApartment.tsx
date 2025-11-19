@@ -9,7 +9,7 @@ import { CircularProgress, Modal, Box, Typography } from "@mui/material";
 import { toast } from "react-hot-toast";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import ImageIcon from '@mui/icons-material/Image';
+// import ImageIcon from '@mui/icons-material/Image';
 import usePropertyStore from "../../../stores/propertyStore";
 
 interface FormData {

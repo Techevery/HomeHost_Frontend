@@ -15,17 +15,17 @@ const BookNowModal = (props: any) => {
   const [endDate, setEndDate] = useState<any>(null);
 
   const handleDateChange = (date:any) => {
-    // Toggle the date selection
+    
     const dateIndex = selectedDates.findIndex(
       (selectedDate:any) => selectedDate.toDateString() === date.toDateString()
     );
 
     if (dateIndex >= 0) {
-      // If the date is already selected, remove it (deselect)
+      
       const newDates = selectedDates.filter((_, index) => index !== dateIndex);
       setSelectedDates(newDates);
 
-      // Reset start and end dates if needed
+  
       if (date.getTime() === startDate?.getTime()) {
         setStartDate(null);
         setEndDate(null);
@@ -34,21 +34,20 @@ const BookNowModal = (props: any) => {
         setEndDate(null);
       }
     } else {
-      // If the date is not selected, add it to the selectedDates array
+      
       const newDates:any = [...selectedDates, date].sort((a, b) => a - b);
       setSelectedDates(newDates);
 
-      // Determine start and end dates
+      
       if (newDates.length === 1) {
-        // For a single date, set startDate to the picked date and endDate to the following day
+        
         setStartDate(date);
-        setEndDate(new Date(date.getTime() + 86400000)); // Adding one day
+        setEndDate(new Date(date.getTime() + 86400000)); 
       } else {
-        // For consecutive dates, adjust startDate and endDate
         const firstDate = newDates[0];
         const lastDate = newDates[newDates.length - 1];
         setStartDate(firstDate);
-        setEndDate(new Date(lastDate.getTime() + 86400000)); // Adding one day after the last date
+        setEndDate(new Date(lastDate.getTime() + 86400000)); 
       }
     }
   };
@@ -61,21 +60,21 @@ const BookNowModal = (props: any) => {
       const currentDate:any = selectedDates[i];
       let consecutiveDates:any = [currentDate];
 
-      // Check for consecutive dates
+      
       while (i < selectedDates.length - 1 && (selectedDates[i + 1] - selectedDates[i]) === 86400000) {
         consecutiveDates.push(selectedDates[i + 1]);
         i++;
       }
 
       if (consecutiveDates.length > 1) {
-        // If there are consecutive dates, format with a hyphen
+        
         formattedDates.push(
           <li key={i}>
             {`${consecutiveDates[0].toDateString()} - ${consecutiveDates[consecutiveDates.length - 1].toDateString()}`}
           </li>
         );
       } else {
-        // If there's only one date, display it as a single bullet point
+        
         formattedDates.push(<li key={i}>{currentDate.toDateString()}</li>);
       }
 
@@ -85,7 +84,6 @@ const BookNowModal = (props: any) => {
     return formattedDates;
   };
 
-// Helper function to get the ordinal suffix
 const getOrdinalSuffix = (n: number) => {
   const s = ["th", "st", "nd", "rd"],
         v = n % 100;
@@ -101,7 +99,7 @@ const formatSelected = () => {
     const currentDate = selectedDates[i];
     let consecutiveDates = [currentDate];
 
-    // Check for consecutive dates
+  
     while (
       i < selectedDates.length - 1 &&
       selectedDates[i + 1] - selectedDates[i] === 86400000
@@ -114,8 +112,7 @@ const formatSelected = () => {
     const prefixLabel2 = `${getOrdinalSuffix(prefixCount)} Check-out:`;
 
     if (consecutiveDates.length > 1) {
-      // If there are consecutive dates, set start date as the first date
-      // and end date as the day after the last consecutive date
+     
       const startDate: any = consecutiveDates[0];
       const endDate = new Date(consecutiveDates[consecutiveDates.length - 1]);
       endDate.setDate(endDate.getDate() + 1);
@@ -126,8 +123,7 @@ const formatSelected = () => {
         </li>
       );
     } else {
-      // If there's only one date, set start date as the picked date
-      // and end date as the day after the picked date
+     
       const startDate: any = currentDate;
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
@@ -149,7 +145,6 @@ const formatSelected = () => {
   
   
 
-  // Initial form data
   const initialData = {
     email:
       localStorage.getItem("remember") === "true"
@@ -182,12 +177,7 @@ const formatSelected = () => {
             </h3>
             <div className="mb-5">
               <div className=" mb-3 relative">
-                {/* <label
-                      className=" text-[#958F8F] text-[15px] font-[600] "
-                      htmlFor="email"
-                    >
-                     Email
-                    </label> */}
+               
                 <Field
                   className=" block w-full h-10 border  pl-3 rounded-[15px] focus:outline-none border-[#8A8787] "
                   name="name"
@@ -254,12 +244,7 @@ const formatSelected = () => {
               </div>
 
               <div className=" mb-6 relative">
-                {/* <label
-                      className=" text-[#958F8F] text-[15px] font-[600] "
-                      htmlFor="email"
-                    >
-                     Email
-                    </label> */}
+              
                 <Field
                   className=" block w-full h-10 border  pl-3 rounded-[15px] focus:outline-none border-[#8A8787] "
                   name="discount"
@@ -279,7 +264,7 @@ const formatSelected = () => {
         onChange={handleDateChange}
         inline
         className="w-full"
-        minDate={new Date()} // Prevent selection of past dates
+        minDate={new Date()}
         highlightDates={[
           {
             'react-datepicker__day--highlighted-custom': selectedDates,
@@ -297,48 +282,20 @@ const formatSelected = () => {
         <p className="my-2">
           Night: {selectedDates.length}
         </p>
-        {/* <div className="mt-4">
-          <h3 className="text-md">Start Date: {startDate?.toDateString() || 'None'}</h3>
-          <h3 className="text-md">End Date: {endDate?.toDateString() || 'None'}</h3>
-        </div> */}
+     
           <ul className="list-disc pl-6 space-y-1">
         {formatSelected()}
         </ul>
       </div>
-                {/* <div className=" relative">
                
-                    <Field
-                      className=" block w-full h-10 border  pl-3 rounded-[15px] focus:outline-none border-[#8A8787] "
-                      name="check_out_date"
-                      type="date"
-                      id="check_out_date"
-                      placeholder="Check out Date"
-                    />
-                    <p className="text-red-700 text-xs mt-1 ">
-                      <ErrorMessage name="check_out_date" />
-                    </p>
-                  </div> */}
               </div>
             </div>
             <Button
               text={"Send"}
-              // disabled={loading}
-              //   action={onSubmit}
+             
               type="submit"
             />
-            {/* <p onClick={onSubmit} className="flex items-center justify-center gap-x-1 text-sm">
-                  Don't have an account yet?{"  "}
-                 
-                </p> */}
-            {/* <p className="flex items-center justify-center gap-x-1 text-sm">
-                  Don't have an account yet?{"  "}
-                  <Link
-                    to="/signup"
-                    className="text-primary text-lg  font-bold  hover:underline"
-                  >
-                    Sign up
-                  </Link>
-                </p> */}
+          
           </Form>
         )}
       </Formik>

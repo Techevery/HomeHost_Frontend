@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import useAgentStore from "../../../stores/agentstore";
 import usePaymentStore from "../../../stores/paymentstore";
 import useBookingStore from "../../../stores/bookingStore";
-
 import Carousel from "react-grid-carousel";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -113,7 +112,7 @@ const BannerCarousel: React.FC<{ agentId?: string }> = ({ agentId }) => {
           setBanners([]);
         }
       } catch (error) {
-        console.error("Failed to fetch banners:", error);
+       
         toast.error("Failed to load banners");
         setBanners([]);
       } finally {
@@ -124,7 +123,7 @@ const BannerCarousel: React.FC<{ agentId?: string }> = ({ agentId }) => {
     fetchBanners();
   }, [personalUrl, fetchPropertiesBySlug]);
 
-  // Handle slide change for custom indicators
+  
   const handleSlideChange = (index: number) => {
     setCurrentSlide(index);
   };
@@ -157,7 +156,7 @@ const BannerCarousel: React.FC<{ agentId?: string }> = ({ agentId }) => {
 
   return (
     <div className="relative w-full overflow-hidden bg-gray-900">
-      {/* Main Carousel */}
+    
       <Carousel
         cols={1}
         rows={1}
@@ -171,7 +170,7 @@ const BannerCarousel: React.FC<{ agentId?: string }> = ({ agentId }) => {
         {activeBanners.map((banner, index) => (
           <Carousel.Item key={banner.id}>
             <div className="relative h-80 md:h-96 lg:h-[500px] group">
-              {/* Background Image with Overlay */}
+              
               <div className="absolute inset-0">
                 <img
                   src={banner.image_url}
@@ -181,17 +180,17 @@ const BannerCarousel: React.FC<{ agentId?: string }> = ({ agentId }) => {
                     e.currentTarget.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI0MDAiIHZpZXdCb3g9IjAgMCAxMjAwIDQwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjEyMDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjMUY0QThGIi8+CjxwYXRoIGQ9Ik0yMDAgMjAwTDE1MCAyNTBIMjUwTDIwMCAyMDBaIiBmaWxsPSIjMDA3N0VGIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iMzAiIGZpbGw9IiMwMDc3RUYiLz4KPC9zdmc+";
                   }}
                 />
-                {/* Gradient Overlay */}
+                
                 <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30"></div>
-                {/* Subtle Pattern Overlay */}
+                
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-black/20 to-black/40"></div>
               </div>
 
-              {/* Content */}
+          
               <div className="relative h-full flex items-center">
                 <div className="container mx-auto px-6 lg:px-8">
                   <div className="max-w-2xl">
-                    {/* Badge */}
+                  
                     <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-6">
                       <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
                       <span className="text-white text-sm font-medium uppercase tracking-wide">
@@ -199,24 +198,24 @@ const BannerCarousel: React.FC<{ agentId?: string }> = ({ agentId }) => {
                       </span>
                     </div>
 
-                    {/* Title */}
+                    
                     <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
                       {banner.name}
             
                     </h1>
 
-                    {/* Description */}
+                    
                     <p className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 lg:text-5xl md:text-4xl text-2xl">
                       {banner.description || "Discover exceptional properties with premium amenities and unmatched comfort"}
                     </p>
 
-                    {/* CTA Buttons */}
+                  
                   
                   </div>
                 </div>
               </div>
 
-              {/* Slide Number Indicator */}
+          
               <div className="absolute bottom-8 right-8">
                 <div className="flex items-center space-x-2 text-white">
                   <span className="text-2xl font-bold">{String(index + 1).padStart(2, '0')}</span>
@@ -229,7 +228,7 @@ const BannerCarousel: React.FC<{ agentId?: string }> = ({ agentId }) => {
         ))}
       </Carousel>
 
-      {/* Custom Navigation Dots */}
+  
       {activeBanners.length > 1 && (
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3">
           {activeBanners.map((_, index) => (
@@ -247,7 +246,7 @@ const BannerCarousel: React.FC<{ agentId?: string }> = ({ agentId }) => {
         </div>
       )}
 
-      {/* Navigation Arrows */}
+      
       {activeBanners.length > 1 && (
         <>
           <button 
@@ -270,13 +269,13 @@ const BannerCarousel: React.FC<{ agentId?: string }> = ({ agentId }) => {
         </>
       )}
 
-      {/* Bottom Gradient */}
+      
       <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-gray-900 to-transparent pointer-events-none"></div>
     </div>
   );
 };
 
-// Property Image Carousel Component
+
 const PropertyImageCarousel: React.FC<{ 
   images: string[]; 
   propertyName: string;
@@ -318,7 +317,7 @@ const PropertyImageCarousel: React.FC<{
   );
 };
 
-// Property Detail View Component
+
 const PropertyDetailView: React.FC<{
   property: Property | null;
   isOpen: boolean;
@@ -328,7 +327,7 @@ const PropertyDetailView: React.FC<{
 }> = ({ property, isOpen, onClose, onBookNow, agentData }) => {
   if (!isOpen || !property) return null;
 
-  // Use agent info from props (fetched from fetchPropertiesBySlug)
+
   const displayAgent = agentData;
 
   const getRegistrationTime = (createdAt: string) => {
@@ -359,7 +358,7 @@ const PropertyDetailView: React.FC<{
     return text;
   };
 
-  // Safe amenities handling function
+
   const getAmenitiesArray = (amenities: any): string[] => {
     if (Array.isArray(amenities)) {
       return amenities
@@ -376,14 +375,14 @@ const PropertyDetailView: React.FC<{
     return [];
   };
 
-  // Get safe amenities array
+
   const safeAmenities = getAmenitiesArray(property.amenities);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
         <div className="grid md:grid-cols-12 gap-6">
-          {/* Left Column - Property Info */}
+        
           <div className="md:col-span-5 p-6">
             <div className="flex flex-col h-full">
               <button
@@ -401,7 +400,7 @@ const PropertyDetailView: React.FC<{
               </h4>
 
               <div className="flex flex-col gap-4 flex-1">
-                {/* Agent Information Section */}
+          
 
                 {displayAgent && (
                   <>
@@ -423,7 +422,7 @@ const PropertyDetailView: React.FC<{
                       </h6>
                     </div>
 
-                    {/* Agent Phone Number */}
+                
                     <div className="flex gap-4 items-center">
                       <span className="font-semibold">Agent Phone Number:</span>
                       <h6 className="text-lg text-gray-700">
@@ -431,7 +430,7 @@ const PropertyDetailView: React.FC<{
                       </h6>
                     </div>
 
-                    {/* Contact Agent */}
+                    
                     <div className="flex gap-4 items-center">
                       <span className="font-semibold">Agent Email:</span>
                       <h6 className="text-lg text-gray-700">
@@ -439,7 +438,7 @@ const PropertyDetailView: React.FC<{
                       </h6>
                     </div>
 
-                    {/* Registration Date */}
+                    
                     <div className="flex gap-4 items-center">
                       <span className="font-semibold">Registered:</span>
                       <h6 className="text-lg text-gray-700">
@@ -449,7 +448,7 @@ const PropertyDetailView: React.FC<{
                   </>
                 )}
 
-                {/* Property Specific Details */}
+                
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
@@ -482,7 +481,7 @@ const PropertyDetailView: React.FC<{
                       </span>
                     </div>
 
-                    {/* Safe amenities display */}
+                  
                     {safeAmenities.length > 0 && (
                       <div className="col-span-2">
                         <span className="font-semibold">Amenities:</span>
@@ -514,7 +513,7 @@ const PropertyDetailView: React.FC<{
             </div>
           </div>
 
-          {/* Right Column - Property Images */}
+          
           <div className="md:col-span-7">
             <Carousel cols={1} rows={1} loop>
               {property.images && property.images.length > 0 ? (
@@ -553,8 +552,7 @@ const PropertyDetailView: React.FC<{
   );
 };
 
-// Manage Booking Modal Component
-// Manage Booking Modal Component
+
 const ManageBookingModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -563,11 +561,11 @@ const ManageBookingModal: React.FC<{
   const { manageBooking, managedBookings, loading, error } = useBookingStore();
   const [searchPerformed, setSearchPerformed] = useState(false);
 
-  // NEW: State for booking details modal
+  
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
-  // Initial form data
+
   const initialData = {
     email:
       localStorage.getItem("remember") === "true"
@@ -604,11 +602,11 @@ const ManageBookingModal: React.FC<{
     try {
       setSearchPerformed(false);
 
-      // Use the manageBooking function from the booking store
+
       await manageBooking(values.email, values.phone);
       setSearchPerformed(true);
     } catch (error) {
-      console.error("Failed to search bookings:", error);
+    
       toast.error("Failed to search bookings. Please try again.", {
         position: "top-right",
         autoClose: 5000,
@@ -652,13 +650,13 @@ const ManageBookingModal: React.FC<{
     );
   };
 
-  // NEW: Handle view booking details in modal
+
   const handleViewBookingDetails = (booking: any) => {
     setSelectedBooking(booking);
     setIsDetailsModalOpen(true);
   };
 
-  // NEW: Handle download booking details
+  
   const handleDownloadBooking = (booking: any) => {
     const content = generateDownloadContent(booking);
     const blob = new Blob([content], { type: "text/plain" });
@@ -677,9 +675,9 @@ const ManageBookingModal: React.FC<{
     });
   };
 
-  // NEW: Generate downloadable content
+  
   const generateDownloadContent = (booking: any) => {
-    // Use transaction dates if booking dates are not available
+    
     const checkInDate =
       booking.booking_start_date || booking.transaction?.booking_start_date;
     const checkOutDate =
@@ -721,7 +719,7 @@ Generated on: ${new Date().toLocaleDateString()}
     return content;
   };
 
-  // NEW: Close details modal
+  
   const handleCloseDetailsModal = () => {
     setIsDetailsModalOpen(false);
     setSelectedBooking(null);
@@ -743,7 +741,7 @@ Generated on: ${new Date().toLocaleDateString()}
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
-            {/* Header */}
+        
             <div className="flex items-center gap-4 mb-6">
               <button
                 onClick={onClose}
@@ -824,7 +822,7 @@ Generated on: ${new Date().toLocaleDateString()}
                 </div>
               </div>
 
-              {/* Right Column - Results */}
+            
               <div className="md:col-span-7">
                 {!searchPerformed ? (
                   <div className="flex flex-col items-center justify-center h-64 text-center">
@@ -868,7 +866,7 @@ Generated on: ${new Date().toLocaleDateString()}
                     </h3>
                     <div className="space-y-4">
                       {managedBookings.map((booking) => {
-                        // Use transaction dates if booking dates are not available
+                      
                         const checkInDate =
                           booking.booking_start_date ||
                           booking.transaction?.booking_start_date;
@@ -946,7 +944,7 @@ Generated on: ${new Date().toLocaleDateString()}
               </div>
             </div>
 
-            {/* Action Buttons */}
+            
             <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
               <button
                 onClick={onClose}
@@ -958,12 +956,12 @@ Generated on: ${new Date().toLocaleDateString()}
         </div>
       </div>
 
-      {/* NEW: Booking Details Modal */}
+      
       {selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              {/* Header */}
+              
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">
                   Booking Details
@@ -1005,9 +1003,9 @@ Generated on: ${new Date().toLocaleDateString()}
                 </div>
               </div>
 
-              {/* Booking Information */}
+              
               <div className="space-y-6">
-                {/* Property Information */}
+                
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Property Information
@@ -1042,7 +1040,7 @@ Generated on: ${new Date().toLocaleDateString()}
                   </div>
                 </div>
 
-                {/* Booking Details */}
+                
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Booking Details
@@ -1116,7 +1114,7 @@ Generated on: ${new Date().toLocaleDateString()}
                   </div>
                 </div>
 
-                {/* Payment Information */}
+                
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Payment Information
@@ -1165,7 +1163,7 @@ Generated on: ${new Date().toLocaleDateString()}
                   </div>
                 </div>
 
-                {/* Guest Information */}
+                
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Guest Information
@@ -1191,7 +1189,7 @@ Generated on: ${new Date().toLocaleDateString()}
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              
               <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
                 <button
                   onClick={handleCloseDetailsModal}
@@ -1207,8 +1205,6 @@ Generated on: ${new Date().toLocaleDateString()}
   );
 };
 
-// Booking Modal Component
-// Updated BookingModal Component in PersonalUrlProperties.tsx
 
 const BookingModal: React.FC<{
   property: Property | null;
@@ -1238,79 +1234,72 @@ const BookingModal: React.FC<{
 
   const { fetchBookingDates, bookingDates, loading, error } = useBookingStore();
 
-  // Updated fetchBookedDates function to use the new booking store method
+  
   useEffect(() => {
     const fetchBookedDates = async (propertyId: string) => {
       try {
         setLoadingBookedDates(true);
         console.log("🔄 Fetching booked dates for property:", propertyId);
 
-        // Clear previous booking dates first
+        
         setBookedDates([]);
 
-        // Use the updated fetchBookingDates method from the store
+        
         await fetchBookingDates(propertyId);
 
-        console.log("📅 Raw booking dates from store:", bookingDates);
+      
 
         const dates: Date[] = [];
 
-        // Process booking dates from the store
+    
         if (bookingDates && bookingDates.length > 0) {
           bookingDates.forEach((bookingDate) => {
             console.log("📋 Processing booking date:", bookingDate);
 
-            // Use the booking_start_date and booking_end_date from the processed data
+            
             if (bookingDate.booking_start_date && bookingDate.booking_end_date) {
               const start = new Date(bookingDate.booking_start_date);
               const end = new Date(bookingDate.booking_end_date);
 
-              // Validate dates
+              
               if (isNaN(start.getTime()) || isNaN(end.getTime())) {
                 console.warn("Invalid date found:", bookingDate);
                 return;
               }
 
-              // Reset time to avoid timezone issues
+        
               start.setHours(0, 0, 0, 0);
               end.setHours(0, 0, 0, 0);
 
-              console.log(
-                `📅 Date range: ${start.toDateString()} to ${end.toDateString()}`,
-              );
+              
 
-              // Add all dates in the range to booked dates
+            
               const currentDate = new Date(start);
               while (currentDate <= end) {
                 const dateToAdd = new Date(currentDate);
                 dates.push(dateToAdd);
-                console.log(
-                  `🔴 Marking as booked: ${dateToAdd.toDateString()}`,
-                );
+               
                 currentDate.setDate(currentDate.getDate() + 1);
               }
             }
           });
         } else {
-          console.log("📅 No booked dates found for this property");
+         
         }
 
-        // Remove duplicates and sort
+       
         const uniqueDates = Array.from(
           new Set(dates.map((date) => date.getTime())),
         ).map((timestamp) => new Date(timestamp));
 
         uniqueDates.sort((a, b) => a.getTime() - b.getTime());
 
-        console.log(
-          "✅ Final booked dates:",
-          uniqueDates.map((d) => d.toDateString()),
-        );
-        console.log("✅ Total booked dates:", uniqueDates.length);
+        
+    
 
         setBookedDates(uniqueDates);
       } catch (error) {
-        console.error("❌ Failed to fetch booked dates:", error);
+      
         toast.warning(
           "Unable to load booked dates. Some dates may be unavailable.",
           {
@@ -1329,7 +1318,7 @@ const BookingModal: React.FC<{
     }
   }, [property, isOpen, fetchBookingDates, bookingDates]);
 
-  // Clear booking dates when property changes
+
   useEffect(() => {
     if (property && isOpen) {
       setBookedDates([]);
@@ -1415,7 +1404,7 @@ const BookingModal: React.FC<{
     }
   };
 
-  // Group selected dates into clusters (consecutive dates)
+
   const getDateClusters = (dates: Date[]): Date[][] => {
     if (dates.length === 0) return [];
 
@@ -1427,7 +1416,6 @@ const BookingModal: React.FC<{
       const currentDate = sortedDates[i];
       const previousDate = sortedDates[i - 1];
 
-      // Check if dates are consecutive
       const timeDiff = currentDate.getTime() - previousDate.getTime();
       const isConsecutive = timeDiff === 86400000; // 24 hours in milliseconds
 
@@ -1443,12 +1431,12 @@ const BookingModal: React.FC<{
     return clusters;
   };
 
-  // Calculate total nights across all clusters
+ 
   const calculateTotalNights = (clusters: Date[][]): number => {
     return clusters.reduce((total, cluster) => total + cluster.length, 0);
   };
 
-  // Format date for display
+
   const formatDisplayDate = (date: Date): string => {
     return date.toLocaleDateString("en-US", {
       weekday: "short",
@@ -1458,7 +1446,7 @@ const BookingModal: React.FC<{
     });
   };
 
-  // Convert date clusters to start and end date arrays for backend
+
   const convertClustersToDateArrays = (
     clusters: Date[][],
   ): { startDates: string[]; endDates: string[] } => {
@@ -1467,12 +1455,12 @@ const BookingModal: React.FC<{
 
     clusters.forEach((cluster) => {
       if (cluster.length > 0) {
-        // Start date is the first date in the cluster
+      
         startDates.push(cluster[0].toISOString().split("T")[0]);
 
-        // End date is the last date in the cluster (check-out is day after last night)
+       
         const endDate = new Date(cluster[cluster.length - 1]);
-        endDate.setDate(endDate.getDate() + 1); // Add one day for check-out
+        endDate.setDate(endDate.getDate() + 1);
         endDates.push(endDate.toISOString().split("T")[0]);
       }
     });
@@ -1489,7 +1477,7 @@ const BookingModal: React.FC<{
     const isToday =
       new Date().setHours(0, 0, 0, 0) === normalizedDate.getTime();
 
-    // Fixed: Create a new date for today and compare properly
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const isPast = normalizedDate < today;
@@ -1608,7 +1596,7 @@ const BookingModal: React.FC<{
       return;
     }
 
-    // Use agentData from props (fetched from fetchPropertiesBySlug)
+ 
     const finalAgentId = agentData?.id || property.agentId;
 
     if (!finalAgentId) {
@@ -1652,17 +1640,10 @@ const BookingModal: React.FC<{
         ),
       );
 
-      // Convert clusters to start and end date arrays for backend
+    
       const { startDates, endDates } =
         convertClustersToDateArrays(dateClusters);
 
-      console.log("📅 Date clusters for backend:", {
-        startDates,
-        endDates,
-        clusters: dateClusters.map((cluster) =>
-          cluster.map((d) => d.toISOString().split("T")[0]),
-        ),
-      });
 
       const paymentData = {
         email: bookingData.email,
@@ -1670,29 +1651,29 @@ const BookingModal: React.FC<{
         currency: "NGN",
         agentId: finalAgentId,
         apartmentId: property.id,
-        startDates: startDates, // CHANGED: Now an array
-        endDates: endDates, // CHANGED: Now an array
+        startDates: startDates, 
+        endDates: endDates, 
         phoneNumber: bookingData.phone,
         nextofKinName: bookingData.name_of_nxt_of_kin,
         nextofKinNumber: bookingData.number_of_nxt_of_kin,
         fullName: bookingData.name,
       };
 
-      console.log("🚀 Payment data being sent:", paymentData);
+    
 
       const toastId = toast.loading("Initializing payment...", {
         position: "top-right",
         autoClose: 3000,
       });
 
-      // UPDATED: Call initiatePayment with arrays for startDates and endDates
+      
       const paymentResult = await initiatePayment(
         paymentData.email,
         paymentData.channels,
         paymentData.currency,
         paymentData.apartmentId,
-        paymentData.startDates, // Now an array
-        paymentData.endDates, // Now an array
+        paymentData.startDates, 
+        paymentData.endDates, 
         paymentData.phoneNumber,
         paymentData.nextofKinName,
         paymentData.nextofKinNumber,
@@ -1723,7 +1704,7 @@ const BookingModal: React.FC<{
             paymentResult.data.authorizationUrl,
         };
 
-        console.log("💾 Stored booking info:", bookingInfo);
+       
         sessionStorage.setItem("pendingBooking", JSON.stringify(bookingInfo));
         onSubmit(bookingInfo);
 
@@ -1741,7 +1722,7 @@ const BookingModal: React.FC<{
         throw new Error(paymentResult.message || "Payment initiation failed");
       }
     } catch (error: any) {
-      console.error("❌ Payment initiation failed:", error);
+      
       toast.error(`Payment failed: ${error.message || "Please try again"}`, {
         position: "top-right",
         autoClose: 5000,
@@ -1793,7 +1774,7 @@ const BookingModal: React.FC<{
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Personal Information Section */}
+          
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 Personal Information
@@ -1840,7 +1821,7 @@ const BookingModal: React.FC<{
               </div>
             </div>
 
-            {/* Next of Kin Section */}
+          
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 Next of Kin Information
@@ -1880,7 +1861,7 @@ const BookingModal: React.FC<{
               </div>
             </div>
 
-            {/* Date Selection Section */}
+         
             <div className="border rounded-lg p-4 relative">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Select Dates
@@ -1975,7 +1956,7 @@ const BookingModal: React.FC<{
                     </span>
                   </div>
 
-                  {/* Individual Booking Clusters */}
+                 
                   <div className="space-y-4 mb-4">
                     {dateClusters.map((cluster, clusterIndex) => (
                       <div
@@ -2029,7 +2010,7 @@ const BookingModal: React.FC<{
                     ))}
                   </div>
 
-                  {/* Total Amount */}
+                  
                   {property.price && (
                     <div className="pt-4 border-t border-gray-200">
                       <div className="flex justify-between items-center mb-2">
@@ -2043,7 +2024,7 @@ const BookingModal: React.FC<{
                         </span>
                       </div>
 
-                      {/* Show individual booking totals when multiple clusters */}
+                    
                       {dateClusters.length > 1 && (
                         <div className="flex justify-between items-center mb-2 text-sm">
                           <span className="text-gray-600">
@@ -2080,7 +2061,7 @@ const BookingModal: React.FC<{
               )}
             </div>
 
-            {/* Action Buttons */}
+      
             <div className="flex space-x-3 pt-4">
               <button
                 type="button"
@@ -2119,8 +2100,6 @@ const AgentPropertiesGallery: React.FC = () => {
     useAgentStore();
 
  
-
-  // Get agent information ONLY from fetchPropertiesBySlug
   const agentData = useAgentDataFromSlug();
 
   const [properties, setProperties] = useState<Property[]>([]);
@@ -2143,7 +2122,7 @@ const AgentPropertiesGallery: React.FC = () => {
   const [isManageBookingModalOpen, setIsManageBookingModalOpen] =
     useState(false);
 
-  // Enhanced helper function to ensure bedroom is displayed as string
+ 
   const getBedroomText = (bedroom: string | number): string => {
     if (bedroom === null || bedroom === undefined) return "0";
     const text = typeof bedroom === "number" ? bedroom.toString() : bedroom;
@@ -2153,7 +2132,7 @@ const AgentPropertiesGallery: React.FC = () => {
     return text;
   };
 
-  // Helper function to get display names for sort options
+
   const getSortOptionDisplayName = (option: SortOption): string => {
     const displayNames: Record<SortOption, string> = {
       newest: "Newest First",
@@ -2169,10 +2148,10 @@ const AgentPropertiesGallery: React.FC = () => {
     return displayNames[option] || option;
   };
 
-  // Property transformation - ONLY use data from fetchPropertiesBySlug
+
   const transformProperties = useCallback((properties: any[]): Property[] => {
     return properties.map((prop) => {
-      // Safe amenities handling
+     
       const getAmenitiesArray = (amenities: any): string[] => {
         if (Array.isArray(amenities)) {
           return amenities
@@ -2204,12 +2183,12 @@ const AgentPropertiesGallery: React.FC = () => {
         location: prop.location,
         amenities: getAmenitiesArray(prop.amenities),
         agentId: prop.agentId,
-        // Note: We're NOT including agent object here since we get it separately
+       
       };
     });
   }, []);
 
-  // Show error toast when fetching properties fails
+
   useEffect(() => {
     if (error) {
       toast.error(`Failed to load properties: ${error}`, {
@@ -2219,7 +2198,7 @@ const AgentPropertiesGallery: React.FC = () => {
     }
   }, [error]);
 
-  // Close sort dropdown when clicking outside
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -2237,26 +2216,25 @@ const AgentPropertiesGallery: React.FC = () => {
     };
   }, [isSortOpen]);
 
-  // Load properties - ONLY from fetchPropertiesBySlug
+ 
   const loadProperties = useCallback(
     async (page: number = 1) => {
       if (!personalUrl) return;
 
       try {
         clearError();
-        console.log("🚀 Loading properties for slug:", personalUrl);
+      
 
         const response = await fetchPropertiesBySlug(personalUrl, page, 9);
 
-        console.log("🎯 fetchPropertiesBySlug RESPONSE:", response);
+       
 
         if (response) {
           const transformedProperties = transformProperties(
             response.properties || [],
           );
 
-          console.log("🏠 Transformed Properties:", transformedProperties);
-          console.log("👤 Agent Info from response:", response.agent);
+          
 
           setProperties(transformedProperties);
           setFilteredProperties(transformedProperties);
@@ -2270,23 +2248,18 @@ const AgentPropertiesGallery: React.FC = () => {
           );
         }
       } catch (err) {
-        console.error("Failed to load properties:", err);
+       
       }
     },
     [personalUrl, clearError, fetchPropertiesBySlug, transformProperties],
   );
 
-  // Fetch properties
+ 
   useEffect(() => {
     loadProperties(currentPage);
   }, [personalUrl, currentPage, loadProperties]);
 
-  // Fetch banners
-  // useEffect(() => {
-  //   fetchAgentBanners();
-  // }, [fetchAgentBanners]);
-
-  // Filter and sort properties
+ 
   useEffect(() => {
     let result = [...properties];
 
@@ -2414,9 +2387,7 @@ const AgentPropertiesGallery: React.FC = () => {
 
   const handleBookingSubmit = async (bookingData: any) => {
     try {
-      console.log("✅ Booking submitted successfully:", bookingData);
-
-      // Check if we have multiple booking periods
+    
       if (bookingData.dateClusters && bookingData.dateClusters.length > 1) {
         toast.success(
           `Booking initiated successfully! You have ${bookingData.dateClusters.length} separate booking periods. Redirecting to payment...`,
@@ -2435,7 +2406,7 @@ const AgentPropertiesGallery: React.FC = () => {
         );
       }
     } catch (error) {
-      console.error("Failed to process booking:", error);
+    
       toast.error("Failed to process booking. Please try again.", {
         position: "top-right",
         autoClose: 5000,
