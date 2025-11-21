@@ -151,14 +151,13 @@ const AgentProfile = () => {
     loadData();
   }, [fetchAgentProfile]);
 
-  useEffect(() => {
-    if (activeTab === "properties" && agentInfo?.id) {
-      loadProperties();
-    } else if (activeTab === "banners" && agentInfo?.id) {
-      loadBanners();
-    }
-  }, [activeTab, agentInfo?.id]);
-
+ useEffect(() => {
+  if (activeTab === "properties" && agentInfo?.id) {
+    loadProperties();
+  } else if (activeTab === "banners" && agentInfo?.id) {
+    loadBanners();
+  }
+}, [activeTab, agentInfo?.id]);
   // Initialize profile form when agentInfo is available
   useEffect(() => {
     if (agentInfo) {
@@ -220,9 +219,7 @@ const AgentProfile = () => {
   };
 
   const handleDeleteProperty = async (propertyId: string) => {
-    console.log("🔄 Delete property called with ID:", propertyId);
-    console.log("📋 Available properties:", enlistedProperties);
-    
+  
     // Find the property to verify we have the right ID
     const propertyToDelete = enlistedProperties.find(p => 
       p.apartmentId === propertyId || p.id === propertyId
@@ -245,7 +242,6 @@ const AgentProfile = () => {
         showSnackbar(result.message, "error");
       }
     } catch (error: any) {
-      console.error("Error deleting property:", error);
       showSnackbar(error.message || "Failed to delete property", "error");
     } finally {
       setDeleteDialogOpen(false);
@@ -300,7 +296,7 @@ const AgentProfile = () => {
         showSnackbar(result.message, "error");
       }
     } catch (error) {
-      console.error("Error deleting banner:", error);
+     
       showSnackbar("Failed to delete banner", "error");
     } finally {
       setDeleteBannerDialogOpen(false);
@@ -346,7 +342,7 @@ const AgentProfile = () => {
         showSnackbar(result.message, "error");
       }
     } catch (error: any) {
-      console.error("Error creating banner:", error);
+      
       showSnackbar(error.message || "Failed to create banner", "error");
     }
   };
@@ -372,7 +368,7 @@ const AgentProfile = () => {
         showSnackbar(result.message, "error");
       }
     } catch (error: any) {
-      console.error("Error updating banner:", error);
+     
       showSnackbar(error.message || "Failed to update banner", "error");
     }
   };
@@ -440,44 +436,47 @@ const AgentProfile = () => {
       setAvatarFile(null);
       await fetchAgentProfile();
     } catch (error: any) {
-      console.error("Error updating profile:", error);
+    
       showSnackbar(error.message || "Failed to update profile", "error");
     }
   };
 
   const transformPropertyData = (property: any): Property => {
-    console.log("Transforming property data:", property);
+  console.log("Transforming property data:", property);
+  
+  const agentPricing = property.agentPricing || {};
+  
+  // Get the actual base price - use property.price directly
+  const basePrice = property.price || 0;
+  const markedUpPrice = agentPricing.markedUpPrice || 0; 
+  
+  // Calculate total based on actual base price + markup
+  const totalPrice = basePrice + markedUpPrice;
+  
+  // Make sure we're using the correct apartment ID
+  const apartmentId = property.apartmentId || property.id || property._id;
+  
+  return {
+    id: property.id || property._id,
+    apartmentId: apartmentId,
+    title: property.title || property.name || "Untitled Property",
+    price: basePrice,  
+    markedUpPrice: markedUpPrice,
+    location: property.location || property.address || "Location not specified",
+    images: property.images || property.photos || [property.image] || [],
+    status: property.status || "active",
+    type: property.type || property.propertyType || "Residential",
+    bedroom: property.bedroom || property.bedrooms || 0,
+    agentPercentage: property.agentPercentage || property.commission || 0,
+    createdAt: property.createdAt || property.createdDate,
     
-    const agentPricing = property.agentPricing || {};
-    
-    const basePrice = agentPricing.basePrice || property.price || 0;
-    const markedUpPrice = agentPricing.markedUpPrice || 0; 
-    const totalPrice = agentPricing.total || property.price || 0;
-    
-    // Make sure we're using the correct apartment ID
-    const apartmentId = property.apartmentId || property.id || property._id;
-    
-    return {
-      id: property.id || property._id,
-      apartmentId: apartmentId, // This is the ID that removeApartment expects
-      title: property.title || property.name || "Untitled Property",
-      price: basePrice, 
-      markedUpPrice: markedUpPrice, 
-      location: property.location || property.address || "Location not specified",
-      images: property.images || property.photos || [property.image] || [],
-      status: property.status || "active",
-      type: property.type || property.propertyType || "Residential",
-      bedroom: property.bedroom || property.bedrooms || 0,
-      agentPercentage: property.agentPercentage || property.commission || 0,
-      createdAt: property.createdAt || property.createdDate,
-      
-      basePrice: basePrice,
-      totalPrice: totalPrice,
-      priceChangedAt: agentPricing.priceChangedAt, 
-      servicing: property.servicing,
-      amenities: property.amenities || []
-    };
+    basePrice: basePrice, 
+    totalPrice: totalPrice, 
+    priceChangedAt: agentPricing.priceChangedAt, 
+    servicing: property.servicing,
+    amenities: property.amenities || []
   };
+};
 
   if (isLoading && !agentInfo) {
     return (

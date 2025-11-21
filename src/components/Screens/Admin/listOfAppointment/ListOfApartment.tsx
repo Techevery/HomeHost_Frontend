@@ -44,6 +44,15 @@ import ViewDetailsModal from "../listOfAppointment/ViewPropertyModal";
 import DeleteConfirmationModal from "../listOfAppointment/DeletePropertyModal";
 import AddPropertyModal from "../listOfAppointment/AddPropertyModal";
 
+interface ApartmentLog {
+  availability: boolean;
+  status: string;
+  booking_period: {
+    start_date: string;
+    end_date: string;
+  };
+}
+
 interface Property {
   id: string;
   name: string;
@@ -60,6 +69,7 @@ interface Property {
   rating?: number;
   location?: string;
   agentPercentage?: string;
+  ApartmentLog?: ApartmentLog[];
 }
 
 const ApartmentsList: React.FC = () => {
@@ -71,7 +81,7 @@ const ApartmentsList: React.FC = () => {
     deleteApartment,
     clearError,
   } = useAdminStore();
-
+   
   const [properties, setProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -118,6 +128,11 @@ const ApartmentsList: React.FC = () => {
     return [];
   };
 
+  // Check if property is booked
+  const isPropertyBooked = (property: Property): boolean => {
+    return safeString(property.status).toLowerCase() === "booked";
+  };
+
   useEffect(() => {
     const fetchProperties = async () => {
       try {
@@ -125,7 +140,7 @@ const ApartmentsList: React.FC = () => {
         setError(null);
 
         const result = await listProperties(1, 50);
-
+      
         let propertiesData: Property[] = [];
 
         if (result?.data?.apartments) {
@@ -149,6 +164,8 @@ const ApartmentsList: React.FC = () => {
             "A beautiful property with modern amenities and great location.",
           amenities: safeArray(property.amenities),
           images: safeArray(property.images),
+          
+          status: property.ApartmentLog?.[0]?.status || property.status || "available",
         }));
 
         setProperties(propertiesWithRatings);
@@ -173,11 +190,9 @@ const ApartmentsList: React.FC = () => {
     }
   }, [token, listProperties]);
 
-  // Client-side filtering based on search query and filters
   useEffect(() => {
     let filtered = properties;
 
-    // Search filter - search in name, address, type, and location
     if (searchQuery.trim() !== "") {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -233,6 +248,11 @@ const ApartmentsList: React.FC = () => {
   };
 
   const handleDeleteClick = (property: Property) => {
+    // Prevent deletion if property is booked
+    if (isPropertyBooked(property)) {
+      return;
+    }
+    
     setSelectedProperty({
       ...property,
       amenities: safeArray(property.amenities),
@@ -261,12 +281,13 @@ const ApartmentsList: React.FC = () => {
               "A beautiful property with modern amenities and great location.",
             amenities: safeArray(property.amenities),
             images: safeArray(property.images),
+            status: property.ApartmentLog?.[0]?.status || property.status || "available",
           })),
         );
       }
       setAddModalOpen(false);
     } catch (error) {
-      console.error("Add property error:", error);
+     
       setError("Failed to add property");
     } finally {
       setUpdateLoading(false);
@@ -290,6 +311,7 @@ const ApartmentsList: React.FC = () => {
               "A beautiful property with modern amenities and great location.",
             amenities: safeArray(property.amenities),
             images: safeArray(property.images),
+            status: property.ApartmentLog?.[0]?.status || property.status || "available",
           })),
         );
       }
@@ -306,6 +328,13 @@ const ApartmentsList: React.FC = () => {
 
   const handleDeleteConfirm = async () => {
     if (!selectedProperty) return;
+
+    // Double check if property is booked before deletion
+    if (isPropertyBooked(selectedProperty)) {
+      setError("Cannot delete a booked property");
+      setDeleteModalOpen(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -347,10 +376,19 @@ const ApartmentsList: React.FC = () => {
     if (statusLower === "available") return "success";
     if (statusLower === "rented") return "error";
     if (statusLower === "maintenance") return "warning";
+    if (statusLower === "booked") return "error";
     return "default";
   };
 
-
+  const getStatusBackgroundColor = (status: string | undefined) => {
+    if (!status) return theme.palette.grey[500];
+    const statusLower = status.toLowerCase();
+    if (statusLower === "available") return theme.palette.success.main;
+    if (statusLower === "rented") return theme.palette.error.main;
+    if (statusLower === "maintenance") return theme.palette.warning.main;
+    if (statusLower === "booked") return theme.palette.error.main;
+    return theme.palette.grey[500];
+  };
 
   const formatPrice = (price: string | undefined) => {
     if (!price) return "₦0";
@@ -448,7 +486,6 @@ const ApartmentsList: React.FC = () => {
           />
 
           <FormControl sx={{ minWidth: 150 }}>
-            {/* <InputLabel sx={{ color: "white" }}>Status</InputLabel> */}
             <Select
               value={statusFilter}
               label="Status"
@@ -463,12 +500,12 @@ const ApartmentsList: React.FC = () => {
               <MenuItem value="all">All Status</MenuItem>
               <MenuItem value="available">Available</MenuItem>
               <MenuItem value="rented">Rented</MenuItem>
+              <MenuItem value="booked">Booked</MenuItem>
               <MenuItem value="maintenance">Maintenance</MenuItem>
             </Select>
           </FormControl>
 
           <FormControl sx={{ minWidth: 150 }}>
-            {/* <InputLabel sx={{ color: "white" }}>Type</InputLabel> */}
             <Select
               value={typeFilter}
               label="Type"
@@ -513,7 +550,13 @@ const ApartmentsList: React.FC = () => {
 
       {/* Properties Grid */}
       <Grid container spacing={3}>
-        {filteredProperties.map((property) => (
+        {filteredProperties.map((property) => {
+          const isBooked = isPropertyBooked(property);
+          const deleteTooltipTitle = isBooked 
+            ? `${safeString(property.name)} is booked and cannot be deleted`
+            : "Delete Property";
+
+          return (
           <Grid item xs={12} sm={6} md={4} lg={3} key={property.id}>
             <Card
               sx={{
@@ -568,6 +611,19 @@ const ApartmentsList: React.FC = () => {
                     alignItems: "flex-start",
                   }}>
                   
+                  {/* Status Chip */}
+                  <Chip
+                    label={safeString(property.status).toUpperCase()}
+                    size="small"
+                    sx={{
+                      fontWeight: "bold",
+                      fontSize: "0.7rem",
+                      height: 24,
+                      color: "white",
+                      backgroundColor: getStatusBackgroundColor(property.status),
+                    }}
+                  />
+
                   <IconButton
                     onClick={(e) => {
                       e.stopPropagation();
@@ -833,32 +889,40 @@ const ApartmentsList: React.FC = () => {
                       <Visibility fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Delete Property">
-                    <IconButton
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteClick(property);
-                      }}
-                      sx={{
-                        flex: 1,
-                        backgroundColor: alpha(theme.palette.error.main, 0.1),
-                        color: "error.main",
-                        borderRadius: 2,
-                        py: 1,
-                        "&:hover": {
-                          backgroundColor: alpha(theme.palette.error.main, 0.2),
-                          transform: "translateY(-1px)",
-                        },
-                        transition: "all 0.2s ease",
-                      }}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
+                  <Tooltip title={deleteTooltipTitle}>
+                    <span> {/* Wrapper span for disabled tooltip */}
+                      <IconButton
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClick(property);
+                        }}
+                        disabled={isBooked}
+                        sx={{
+                          flex: 1,
+                          backgroundColor: isBooked 
+                            ? alpha(theme.palette.grey[400], 0.1)
+                            : alpha(theme.palette.error.main, 0.1),
+                          color: isBooked 
+                            ? theme.palette.grey[400]
+                            : "error.main",
+                          borderRadius: 2,
+                          py: 1,
+                          "&:hover": !isBooked ? {
+                            backgroundColor: alpha(theme.palette.error.main, 0.2),
+                            transform: "translateY(-1px)",
+                          } : {},
+                          transition: "all 0.2s ease",
+                          cursor: isBooked ? 'not-allowed' : 'pointer',
+                        }}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </span>
                   </Tooltip>
                 </Box>
               </CardContent>
             </Card>
           </Grid>
-        ))}
+        )})}
       </Grid>
 
       {/* Empty State */}

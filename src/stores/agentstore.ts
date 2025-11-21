@@ -992,7 +992,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
             throw new Error("Slug is required.");
           }
 
-          console.log("🔍 Store - Fetching properties for slug:", slug);
+     
 
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/agent/${slug}/properties`,
@@ -1002,7 +1002,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
             },
           );
 
-          console.log("🔍 Store - API Response:", response.data);
+       
 
           const { data } = response.data;
 
@@ -1022,7 +1022,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
             agent: data.agent || null,
           };
         } catch (error: any) {
-          console.error("❌ Store - Error fetching properties by slug:", error);
+       
           const errorMessage = handleApiError(
             error,
             "Failed to fetch properties by slug.",
@@ -1060,7 +1060,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
             params.cursor = cursor;
           }
 
-          console.log("🔍 Fetching unlisted properties with params:", params);
+      
 
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/agent/unlisted-apartment`,
@@ -1073,7 +1073,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
             },
           );
 
-          console.log("🔍 Unlisted properties API response:", response.data);
+    
 
           const result = response.data;
 
@@ -1115,7 +1115,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
             message: result.message || "Unlisted properties fetched successfully",
           };
         } catch (error: any) {
-          console.error("❌ Error fetching unlisted properties:", error);
+        
           const errorMessage = handleApiError(
             error,
             "Failed to fetch unlisted properties.",

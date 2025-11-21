@@ -199,25 +199,31 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       setIsSubmitting(true);
       setSubmitError("");
 
-      // Prepare update data
-      const updateData: any = {
-        name: formData.name,
-        address: formData.address,
-        type: formData.type,
-        servicing: formData.servicing,
-        bedroom: formData.bedroom,
-        price: parseFloat(formData.price),
-        agentPercentage: parseFloat(formData.agentPercentage),
-      };
+      // Prepare update data - only include fields that have changed
+      const updateData: any = {};
 
-      // Handle amenities - convert from string to array
-      if (formData.amenities) {
-        const amenitiesArray = formData.amenities
-          .split(",")
-          .map((a) => a.trim())
-          .filter((a) => a);
-        updateData.amenities = amenitiesArray.join(","); // Send as comma-separated string
+      // Only include fields that are different from original or have values
+      if (formData.name !== property.name) updateData.name = formData.name;
+      if (formData.address !== property.address) updateData.address = formData.address;
+      if (formData.type !== property.type) updateData.type = formData.type;
+      if (formData.servicing !== property.servicing) updateData.servicing = formData.servicing;
+      if (formData.bedroom !== property.bedroom) updateData.bedroom = formData.bedroom;
+      if (parseFloat(formData.price) !== property.price) updateData.price = parseFloat(formData.price);
+      if (parseFloat(formData.agentPercentage) !== property.agentPercentage) updateData.agentPercentage = parseFloat(formData.agentPercentage);
+
+      // Handle amenities - only update if changed
+      const amenitiesArray = formData.amenities
+        .split(",")
+        .map((a) => a.trim())
+        .filter((a) => a);
+      const newAmenities = amenitiesArray.join(",");
+      
+      if (newAmenities !== property.amenities) {
+        updateData.amenities = newAmenities;
       }
+
+      // Determine if we should delete existing images
+      const shouldDeleteExistingImages = imagesToDelete.length > 0 && images.length > 0;
 
       // Call the updateApartment method from admin store
       if (property?.id) {
@@ -225,14 +231,14 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
           property.id,
           updateData,
           images.length > 0 ? images : undefined,
-          imagesToDelete.length > 0
+          shouldDeleteExistingImages
         );
 
         // Call the onSave callback with updated data
         await onSave({ 
           ...formData, 
           id: property.id,
-          images: [...existingImages] // Use only existing images (new ones will be processed by backend)
+          // The backend will return the updated images array
         });
       }
 
@@ -474,6 +480,11 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                 sx={{ display: "block", mt: 1 }}>
                 {`Add new images or remove existing ones. Maximum 10 images total. ${allImages.length}/10 images selected. Maximum 5MB per image.`}
               </Typography>
+              {imagesToDelete.length > 0 && (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  {imagesToDelete.length} existing image(s) will be removed and replaced with new ones
+                </Alert>
+              )}
             </Box>
 
             {/* Image Previews */}

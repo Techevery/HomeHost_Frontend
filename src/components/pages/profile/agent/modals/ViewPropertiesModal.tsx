@@ -103,10 +103,10 @@ const ViewPropertiesModal: React.FC<ViewPropertiesModalProps> = ({
     }
   };
 
-  // Handle favorite button click (stop propagation to prevent card click)
+
   const handleFavoriteClick = (event: React.MouseEvent, property: Property) => {
     event.stopPropagation();
-    // TODO: Implement favorite functionality
+
     console.log('Favorite clicked for property:', property.id);
   };
 
@@ -117,7 +117,6 @@ const ViewPropertiesModal: React.FC<ViewPropertiesModalProps> = ({
     
     let filtered = unlistedProperties;
 
-    // Apply search term filter
     if (searchTerm.trim()) {
       filtered = filtered.filter((property: Property) => {
         const searchLower = searchTerm.toLowerCase();

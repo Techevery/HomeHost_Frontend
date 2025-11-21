@@ -140,14 +140,27 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
 
   const calculateCommission = () => {
     if (!property) return "0";
+    
     const basePrice = parseFloat(property.price || "0");
-    const markup =
-      pricingOption === "add-markup" ? parseFloat(markupPrice) || 0 : 0;
-    const agentPercentage = property.agentPercentage || 10;
+    
+    if (pricingOption === "add-markup") {
+      // When markup is used, commission is the markup amount itself
+      const markup = parseFloat(markupPrice) || 0;
+      return markup.toLocaleString();
+    } else {
+      // When percentage is used, calculate based on agent percentage
+      const agentPercentage = property.agentPercentage || 10;
+      const commission = (basePrice * agentPercentage) / 100;
+      return commission.toLocaleString();
+    }
+  };
 
-    const finalPrice = basePrice + markup;
-    const commission = (finalPrice * agentPercentage) / 100;
-    return commission.toLocaleString();
+  const getCommissionLabel = () => {
+    if (pricingOption === "add-markup") {
+      return "Your Commission (Markup):";
+    } else {
+      return `Your Commission (${property?.agentPercentage || 10}%):`;
+    }
   };
 
   const isFormValid = () => {
@@ -181,7 +194,7 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   };
 
   const getErrorMessage = (errorMessage: string): string => {
-    // Handle generic "Error" messages from backend
+    
     if (errorMessage === "Error" || errorMessage.includes("Error")) {
       return "Unable to add property at this time. Please try again later.";
     }
@@ -255,22 +268,13 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
         pricingOption === "add-markup" ? parseFloat(markupPrice) : 0;
       const agentPercentage = property.agentPercentage || 10;
 
-      console.log("🚀 Adding property with:", {
-        apartmentId: property.id,
-        markedUpPrice,
-        agentPercentage,
-        agentStatus: agentInfo?.status,
-        isVerified: agentInfo?.isVerified,
-        pricingOption,
-      });
-
-      // Call enlistApartment with only the relevant parameters based on pricing option
+    
       const result =
         pricingOption === "add-markup"
-          ? await enlistApartment(property.id, markedUpPrice, undefined) // Send only markup price
-          : await enlistApartment(property.id, undefined, agentPercentage); // Send only agent percentage
+          ? await enlistApartment(property.id, markedUpPrice, undefined) 
+          : await enlistApartment(property.id, undefined, agentPercentage); 
 
-      console.log("📦 Enlist property result:", result);
+ 
 
       if (result.success) {
         showSnackbar(
@@ -278,23 +282,18 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
           "success",
         );
         onPropertyAdded();
-        // Close modal after successful addition
+       
         setTimeout(() => {
           handleClose();
         }, 1500);
       } else {
-        // Use the improved error message handling
+        
         const userFriendlyMessage = getErrorMessage(result.message);
-        console.log("❌ Add property failed:", {
-          originalMessage: result.message,
-          userFriendlyMessage: userFriendlyMessage,
-          agentStatus: agentInfo?.status,
-          isVerified: agentInfo?.isVerified,
-        });
+       
         showSnackbar(userFriendlyMessage, "error");
       }
     } catch (error: any) {
-      console.error("💥 Unexpected error adding property:", error);
+     
 
       let errorMessage = "An unexpected error occurred. Please try again.";
 
@@ -542,7 +541,9 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                     color="primary.dark"
                     fontWeight="medium">
                     <CheckIcon sx={{ fontSize: 16, mr: 1 }} />
-                    Agent Commission: {property.agentPercentage || 10}%
+                    {pricingOption === "add-markup" 
+                      ? "Commission: Markup Amount" 
+                      : `Agent Commission: ${property.agentPercentage || 10}%`}
                   </Typography>
                 </Box>
 
@@ -593,9 +594,9 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                     }
                     label="Pricing Option">
                     <MenuItem value="accept-percentage">
-                      Accept {property.agentPercentage || 10}% Commission
+                      Use {property.agentPercentage || 10}% Commission
                     </MenuItem>
-                    <MenuItem value="add-markup">Add Markup Price</MenuItem>
+                    <MenuItem value="add-markup">Please Add Your Markup Price</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -608,7 +609,7 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                     value={markupPrice}
                     onChange={handleMarkupPriceChange}
                     sx={{ mb: 3 }}
-                    helperText="Additional amount you want to add to the base price"
+                    helperText="Additional amount you want to add to the base price (this becomes your commission)"
                     disabled={isAdding}
                     error={!!validateMarkupPrice()}
                   />
@@ -655,7 +656,7 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                     justifyContent="space-between"
                     sx={{ mb: 1 }}>
                     <Typography variant="body2">
-                      Your Commission ({property.agentPercentage || 10}%):
+                      {getCommissionLabel()}
                     </Typography>
                     <Typography
                       variant="body2"

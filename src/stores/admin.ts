@@ -94,6 +94,11 @@ interface AdminActions {
     files?: File[]
   ) => Promise<any>;
   offlineBooking: (bookingData: OfflineBookingData) => Promise<any>;
+  // New methods for agent profile modal
+  getAgentDetails: (agentId: string) => Promise<any>;
+  getAgentPayouts: (agentId: string) => Promise<any>;
+  getAgentProperties: (agentId: string) => Promise<any>;
+  getAgentDashboard: (agentId: string) => Promise<any>;
 }
 
 const initialState: AdminState = {
@@ -618,55 +623,65 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
-      updateApartment: async (apartmentId, updateData, files, deleteExistingImages = false) => {
-        set({ isLoading: true });
-        try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("Authentication token not found");
-          }
+     updateApartment: async (
+  apartmentId: string,
+  updateData: UpdateApartmentData,
+  files?: File[],
+  deleteExistingImages?: boolean
+) => {
+  set({ isLoading: true });
+  try {
+    const token = get().token || localStorage.getItem("token");
+    if (!token) {
+      throw new Error("Authentication token not found");
+    }
 
-          const formData = new FormData();
-          
-          // Type-safe way to append form data
-          Object.entries(updateData).forEach(([key, value]) => {
-            if (value !== undefined) {
-              formData.append(key, value.toString());
-            }
-          });
-          
-          // Append files if any
-          if (files) {
-            files.forEach(file => {
-              formData.append('files', file);
-            });
-          }
-          
-          // Append deleteExistingImages flag
-          formData.append('deleteExistingImages', deleteExistingImages.toString());
+    const formData = new FormData();
+    
+    // Type-safe way to append form data - only include provided fields
+    Object.entries(updateData).forEach(([key, value]) => {
+      if (value !== undefined) {
+        formData.append(key, value.toString());
+      }
+    });
+    
+    // Append files if any
+    if (files) {
+      files.forEach(file => {
+        formData.append('files', file);
+      });
+    }
+    
+    if (deleteExistingImages !== undefined) {
+      formData.append('deleteExistingImages', deleteExistingImages.toString());
+    }
 
-          const response = await axios.patch(
-            `${API_BASE_URL}/api/v1/admin/update-apartment/${apartmentId}`,
-            formData,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'multipart/form-data',
-              },
-            },
-          );
-
-          set({ isLoading: false });
-          return response.data;
-        } catch (error: any) {
-          set({
-            error: error.response?.data?.message,
-            isLoading: false,
-          });
-          throw error;
-        }
+    const response = await axios.patch(
+      `${API_BASE_URL}/api/v1/admin/update-apartment/${apartmentId}`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
       },
+    );
 
+    set({ isLoading: false });
+    return response.data;
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to update apartment";
+
+    set({
+      error: errorMessage,
+      isLoading: false,
+    });
+    throw error;
+  }
+},
       createApartment: async (apartmentData, files) => {
         set({ isLoading: true });
         try {
@@ -738,6 +753,139 @@ const useAdminStore = create<AdminState & AdminActions>()(
             error.response?.data?.message ||
             error.message ||
             "Offline booking failed";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      // New methods for agent profile modal
+      getAgentDetails: async (agentId: string) => {
+        set({ isLoading: true });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/admin/agent/${agentId}/details`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to fetch agent details";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      getAgentPayouts: async (agentId: string) => {
+        set({ isLoading: true });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/admin/agent/${agentId}/payouts`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to fetch agent payouts";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      getAgentProperties: async (agentId: string) => {
+        set({ isLoading: true });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/admin/agent/${agentId}/properties`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to fetch agent properties";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      getAgentDashboard: async (agentId: string) => {
+        set({ isLoading: true });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/admin/agent/${agentId}/dashboard`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to fetch agent dashboard data";
 
           set({
             error: errorMessage,

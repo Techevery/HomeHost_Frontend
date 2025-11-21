@@ -1,4 +1,3 @@
-
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
@@ -29,6 +28,7 @@ interface PaymentData {
     durationDays: number;
   }>;
   totalBookingPeriods?: number;
+  personalUrl?: string; // Added personalUrl
 }
 
 interface PaymentState {
@@ -53,6 +53,7 @@ interface PaymentActions {
     nextofKinNumber: string,
     fullName: string,
     agentId?: string,
+    personalUrl?: string // Added personalUrl parameter
   ) => Promise<{ success: boolean; data?: any; message?: string }>;
 
   verifyPayment: (
@@ -64,7 +65,7 @@ interface PaymentActions {
 }
 
 const initialState: PaymentState = {
-  isLoading: false,
+  isLoading: false, 
   error: null,
   paymentData: null,
   verificationData: null,
@@ -77,13 +78,13 @@ const API_BASE_URL =
 
 // Enhanced error handler utility
 const handleApiError = (error: any, defaultMessage: string): string => {
- 
+  console.error("API Error:", error);
 
   if (error.response) {
     const status = error.response.status;
     const serverMessage =
       error.response.data?.message || error.response.data?.error;
-
+ 
     switch (status) {
       case 400:
         return serverMessage || "Bad request. Please check your input.";
@@ -139,12 +140,14 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
         nextofKinNumber: string,
         fullName: string,
         agentId?: string,
+        personalUrl?: string // Added personalUrl parameter
       ) => {
         set({ isInitializingPayment: true, paymentInitError: null });
 
         try {
           let finalAgentId: string | null = null;
           let authToken: string | null = null;
+          let finalPersonalUrl: string | null = personalUrl || null;
 
           try {
             const agentStoreModule = await import("./agentstore");
@@ -158,33 +161,39 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
               if (agentInfo && typeof agentInfo === 'object' && agentInfo.id) {
                 finalAgentId = agentInfo.id;
                 authToken = token;
+                // If personalUrl wasn't provided, try to get it from agent store
+                if (!finalPersonalUrl && agentInfo.personalUrl) {
+                  finalPersonalUrl = agentInfo.personalUrl;
+                }
                 console.log("Using authenticated agent ID:", finalAgentId);
               } else {
                 console.warn("Agent is authenticated but agentInfo is missing id:", agentInfo);
               }
             }
           } catch (error) {
-           
+            console.warn("Could not load agent store:", error);
           }
 
-       
+          // If no agentId from auth, use the provided agentId
           if (!finalAgentId) {
             if (agentId) {
               finalAgentId = agentId;
-           
             } else {
-              
+              // Try to get from localStorage as fallback
               try {
                 const storedAgent = localStorage.getItem('agent-storage');
                 if (storedAgent) {
                   const parsedAgent = JSON.parse(storedAgent);
                   if (parsedAgent.state?.agentInfo?.id) {
                     finalAgentId = parsedAgent.state.agentInfo.id;
-                  
+                    // Also try to get personalUrl from storage
+                    if (!finalPersonalUrl && parsedAgent.state?.agentInfo?.personalUrl) {
+                      finalPersonalUrl = parsedAgent.state.agentInfo.personalUrl;
+                    }
                   }
                 }
               } catch (storageError) {
-              
+                console.warn("Could not get agent from storage:", storageError);
               }
             }
           }
@@ -192,24 +201,21 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
           if (!finalAgentId) {
             return {
               success: false,
-              message:
-                "Agent information is required. Please provide agentId or ensure you are logged in.",
+              message: "Agent information is required. Please provide agentId or ensure you are logged in.",
             };
           }
 
           if (!email || !apartmentId || !startDates || !endDates) {
             return {
               success: false,
-              message:
-                "Email, apartment ID, start dates, and end dates are required.",
+              message: "Email, apartment ID, start dates, and end dates are required.",
             };
           }
 
           if (startDates.length !== endDates.length) {
             return {
               success: false,
-              message:
-                "Start dates and end dates arrays must have the same length.",
+              message: "Start dates and end dates arrays must have the same length.",
             };
           }
 
@@ -239,9 +245,10 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             nextofKinName: nextofKinName || "",
             nextofKinNumber: nextofKinNumber || "",
             fullName: fullName || "",
+            personalUrl: finalPersonalUrl || "", // Include personalUrl in payload
           };
 
-         
+          console.log("Payment data with personalUrl:", paymentData);
 
           const headers: any = {
             "Content-Type": "application/json",
@@ -260,7 +267,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             },
           );
 
-      
+          console.log("Payment initiation response:", response.data);
 
           const result = response.data.data;
 
@@ -290,6 +297,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             isMarkedUp: result.isMarkedUp,
             bookingPeriods: result.bookingPeriods,
             totalBookingPeriods: result.totalBookingPeriods,
+            personalUrl: finalPersonalUrl || personalUrl, // Store personalUrl
           };
 
           set({
@@ -303,7 +311,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             message: "Payment initialized successfully",
           };
         } catch (error: any) {
-       
+          console.error("Payment initiation error:", error);
 
           const errorMessage = handleApiError(
             error,
@@ -348,6 +356,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             };
           }
 
+          console.log("Verifying payment with reference:", reference);
 
           const response = await axios.post(
             `${API_BASE_URL}/api/v1/payment/verify`,
@@ -361,7 +370,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             },
           );
 
-      
+          console.log("Payment verification response:", response.data);
 
           const result = response.data.data;
 
@@ -396,7 +405,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             message: "Payment verified successfully",
           };
         } catch (error: any) {
-        
+          console.error("Payment verification error:", error);
 
           const errorMessage = handleApiError(
             error,

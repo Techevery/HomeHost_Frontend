@@ -2,34 +2,71 @@ import React from 'react'
 import PayoutTable from './PayoutTable'
 
 const Payout = () => {
-
-
   return (
-    <div>
-          <div className='bg-white rounded-[20px] px-4 py-4'>
-<div className='grid lg:gap-20 md:gap-14 gap-10 grid-cols-2 md:grid-cols-3'>
-<div className='text-center text-white leading-[22px] py-6 rounded-[12px] bg-[#4977E7]'>
-<h5 className='text-[15px] '>Total Payout</h5>
-<h3 className='text-[20px] font-bold'>NGN 2,000,000</h3>
-</div>
-
-
-<div className='text-center text-white leading-[22px] py-6 rounded-[12px] bg-[#9E71CE]'>
-<h5 className='text-[15px] '>Pending Payout</h5>
-<h3 className='text-[20px] font-bold'>NGN 400,000</h3>
-</div>
-
-
-
-
-<div className='text-center text-white leading-[22px] py-6 rounded-[12px] bg-[#86D1B3]'>
-<h5 className='text-[15px] '>Profit</h5>
-<h3 className='text-[20px] font-bold'>NGN 2,000,000</h3>
-</div>
-</div>
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Total Payout Processed */}
+        <div className="bg-[#4EC368] rounded-[12px] p-6 shadow-sm">
+          <h3 className="text-white text-sm font-medium mb-2">Total Payout processed</h3>
+          <div className="flex items-baseline justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-white">N2,450,000</h2>
+              <div className="flex items-center mt-1">
+                <span className="text-white/90 text-sm font-medium">+12.5%</span>
+                <span className="text-white/80 text-sm ml-1">This month</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-<PayoutTable />
+        {/* Pending Approvals */}
+        <div className="bg-[#4977E7] rounded-[12px] p-6 shadow-sm">
+          <h3 className="text-white text-sm font-medium mb-2">Pending Approvals</h3>
+          <div className="flex items-baseline justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-white">N2,450,000</h2>
+              <div className="flex items-center mt-1">
+                <span className="text-white/90 text-sm font-medium">$ Pending</span>
+                <span className="text-white/80 text-sm ml-1">Awaiting review</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Agents */}
+        <div className="bg-[#9E71CE] rounded-[12px] p-6 shadow-sm">
+          <h3 className="text-white text-sm font-medium mb-2">Active Agents</h3>
+          <div className="flex items-baseline justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-white">48</h2>
+              <div className="flex items-center mt-1">
+                <span className="text-white/80 text-sm">Registered agents</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Platform Revenue */}
+        <div className="bg-[#86D1B3] rounded-[12px] p-6 shadow-sm">
+          <h3 className="text-white text-sm font-medium mb-2">Platform Revenue</h3>
+          <div className="flex items-baseline justify-between">
+            <div>
+              <div className="flex items-center space-x-4 mb-2">
+                <span className="text-3xl font-bold text-white">000</span>
+                <span className="text-3xl text-white/80 font-normal">&</span>
+                <span className="text-3xl font-bold text-white">N85,400</span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-white/90 text-sm font-medium">+18.2%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Payout Table */}
+      <PayoutTable />
     </div>
   )
 }

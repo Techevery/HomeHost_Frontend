@@ -1202,7 +1202,7 @@ Generated on: ${new Date().toLocaleDateString()}
         </div>
       )}
     </>
-  );
+    );
 };
 
 
@@ -1234,72 +1234,62 @@ const BookingModal: React.FC<{
 
   const { fetchBookingDates, bookingDates, loading, error } = useBookingStore();
 
-  
+  // Fetch booked dates when modal opens
   useEffect(() => {
     const fetchBookedDates = async (propertyId: string) => {
       try {
         setLoadingBookedDates(true);
-        console.log("🔄 Fetching booked dates for property:", propertyId);
+       
 
-        
+        // Clear previous dates
         setBookedDates([]);
 
-        
+        // Fetch booking dates
         await fetchBookingDates(propertyId);
-
-      
 
         const dates: Date[] = [];
 
-    
+        // Process booking dates
         if (bookingDates && bookingDates.length > 0) {
           bookingDates.forEach((bookingDate) => {
-            console.log("📋 Processing booking date:", bookingDate);
+           
 
-            
+            // Check if booking has valid dates
             if (bookingDate.booking_start_date && bookingDate.booking_end_date) {
               const start = new Date(bookingDate.booking_start_date);
               const end = new Date(bookingDate.booking_end_date);
 
-              
+              // Validate dates
               if (isNaN(start.getTime()) || isNaN(end.getTime())) {
                 console.warn("Invalid date found:", bookingDate);
                 return;
               }
 
-        
+              // Normalize dates to start of day
               start.setHours(0, 0, 0, 0);
               end.setHours(0, 0, 0, 0);
 
-              
-
-            
+              // Add all dates in the range to booked dates
               const currentDate = new Date(start);
               while (currentDate <= end) {
                 const dateToAdd = new Date(currentDate);
                 dates.push(dateToAdd);
-               
                 currentDate.setDate(currentDate.getDate() + 1);
               }
             }
           });
-        } else {
-         
         }
 
-       
+        // Remove duplicates and sort
         const uniqueDates = Array.from(
           new Set(dates.map((date) => date.getTime())),
         ).map((timestamp) => new Date(timestamp));
 
         uniqueDates.sort((a, b) => a.getTime() - b.getTime());
 
-        
-    
-
         setBookedDates(uniqueDates);
       } catch (error) {
-      
+        console.error("Error fetching booked dates:", error);
         toast.warning(
           "Unable to load booked dates. Some dates may be unavailable.",
           {
@@ -1318,7 +1308,7 @@ const BookingModal: React.FC<{
     }
   }, [property, isOpen, fetchBookingDates, bookingDates]);
 
-
+  // Clear booked dates when property changes
   useEffect(() => {
     if (property && isOpen) {
       setBookedDates([]);
@@ -1404,7 +1394,7 @@ const BookingModal: React.FC<{
     }
   };
 
-
+  // Get date clusters for multiple booking periods
   const getDateClusters = (dates: Date[]): Date[][] => {
     if (dates.length === 0) return [];
 
@@ -1431,12 +1421,12 @@ const BookingModal: React.FC<{
     return clusters;
   };
 
- 
+  // Calculate total nights across all clusters
   const calculateTotalNights = (clusters: Date[][]): number => {
     return clusters.reduce((total, cluster) => total + cluster.length, 0);
   };
 
-
+  // Format date for display
   const formatDisplayDate = (date: Date): string => {
     return date.toLocaleDateString("en-US", {
       weekday: "short",
@@ -1446,7 +1436,7 @@ const BookingModal: React.FC<{
     });
   };
 
-
+  // Convert clusters to date arrays for API
   const convertClustersToDateArrays = (
     clusters: Date[][],
   ): { startDates: string[]; endDates: string[] } => {
@@ -1455,10 +1445,10 @@ const BookingModal: React.FC<{
 
     clusters.forEach((cluster) => {
       if (cluster.length > 0) {
-      
+        // Start date is the first date in the cluster
         startDates.push(cluster[0].toISOString().split("T")[0]);
 
-       
+        // End date is the day after the last date in the cluster
         const endDate = new Date(cluster[cluster.length - 1]);
         endDate.setDate(endDate.getDate() + 1);
         endDates.push(endDate.toISOString().split("T")[0]);
@@ -1476,7 +1466,6 @@ const BookingModal: React.FC<{
     const isSelected = isDateSelected(normalizedDate);
     const isToday =
       new Date().setHours(0, 0, 0, 0) === normalizedDate.getTime();
-
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1596,7 +1585,7 @@ const BookingModal: React.FC<{
       return;
     }
 
- 
+    // Determine agent ID - prioritize agentData, fall back to property.agentId
     const finalAgentId = agentData?.id || property.agentId;
 
     if (!finalAgentId) {
@@ -1628,38 +1617,29 @@ const BookingModal: React.FC<{
       const totalNights = calculateTotalNights(dateClusters);
       const totalAmount = property.price * totalNights;
 
-      console.log("💰 Amount Verification:");
-      console.log("Property Price:", property.price);
-      console.log("Total Nights:", totalNights);
-      console.log("Calculated Total:", totalAmount);
-      console.log(
-        "Individual Bookings Total:",
-        dateClusters.reduce(
-          (sum, cluster) => sum + property.price * cluster.length,
-          0,
-        ),
-      );
+     
 
-    
+      
       const { startDates, endDates } =
         convertClustersToDateArrays(dateClusters);
 
-
+      
       const paymentData = {
         email: bookingData.email,
         channels: ["card", "bank"],
         currency: "NGN",
         agentId: finalAgentId,
         apartmentId: property.id,
-        startDates: startDates, 
-        endDates: endDates, 
+        startDates: startDates,
+        endDates: endDates,
         phoneNumber: bookingData.phone,
         nextofKinName: bookingData.name_of_nxt_of_kin,
         nextofKinNumber: bookingData.number_of_nxt_of_kin,
         fullName: bookingData.name,
+        personalUrl: personalUrl || agentData?.personalUrl, 
       };
 
-    
+      console.log("Payment data with personalUrl:", paymentData);
 
       const toastId = toast.loading("Initializing payment...", {
         position: "top-right",
@@ -1672,13 +1652,14 @@ const BookingModal: React.FC<{
         paymentData.channels,
         paymentData.currency,
         paymentData.apartmentId,
-        paymentData.startDates, 
-        paymentData.endDates, 
+        paymentData.startDates,
+        paymentData.endDates,
         paymentData.phoneNumber,
         paymentData.nextofKinName,
         paymentData.nextofKinNumber,
         paymentData.fullName,
         paymentData.agentId,
+        paymentData.personalUrl 
       );
 
       if (paymentResult.success && paymentResult.data) {
@@ -1699,15 +1680,17 @@ const BookingModal: React.FC<{
           totalPrice: totalAmount,
           paymentReference: paymentResult.data.reference,
           agentId: finalAgentId,
+          personalUrl: paymentData.personalUrl, 
           authorizationUrl:
             paymentResult.data.paymentUrl ||
             paymentResult.data.authorizationUrl,
         };
 
-       
+        
         sessionStorage.setItem("pendingBooking", JSON.stringify(bookingInfo));
         onSubmit(bookingInfo);
 
+        
         setTimeout(() => {
           if (paymentResult.data.paymentUrl) {
             window.location.href = paymentResult.data.paymentUrl;
@@ -1722,7 +1705,7 @@ const BookingModal: React.FC<{
         throw new Error(paymentResult.message || "Payment initiation failed");
       }
     } catch (error: any) {
-      
+      console.error("Payment submission error:", error);
       toast.error(`Payment failed: ${error.message || "Please try again"}`, {
         position: "top-right",
         autoClose: 5000,
@@ -1730,6 +1713,7 @@ const BookingModal: React.FC<{
     }
   };
 
+  // Reset form when modal closes
   useEffect(() => {
     const resetForm = () => {
       setBookingData({
@@ -1774,7 +1758,7 @@ const BookingModal: React.FC<{
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-          
+            {/* Personal Information Section */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 Personal Information
@@ -1821,7 +1805,7 @@ const BookingModal: React.FC<{
               </div>
             </div>
 
-          
+            {/* Next of Kin Information Section */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 Next of Kin Information
@@ -1861,7 +1845,7 @@ const BookingModal: React.FC<{
               </div>
             </div>
 
-         
+            {/* Date Selection Section */}
             <div className="border rounded-lg p-4 relative">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Select Dates
@@ -1956,7 +1940,7 @@ const BookingModal: React.FC<{
                     </span>
                   </div>
 
-                 
+                  {/* Individual booking periods */}
                   <div className="space-y-4 mb-4">
                     {dateClusters.map((cluster, clusterIndex) => (
                       <div
@@ -2010,7 +1994,7 @@ const BookingModal: React.FC<{
                     ))}
                   </div>
 
-                  
+                  {/* Total amount */}
                   {property.price && (
                     <div className="pt-4 border-t border-gray-200">
                       <div className="flex justify-between items-center mb-2">
@@ -2024,7 +2008,7 @@ const BookingModal: React.FC<{
                         </span>
                       </div>
 
-                    
+                      {/* Individual booking amounts (if multiple periods) */}
                       {dateClusters.length > 1 && (
                         <div className="flex justify-between items-center mb-2 text-sm">
                           <span className="text-gray-600">
@@ -2061,7 +2045,7 @@ const BookingModal: React.FC<{
               )}
             </div>
 
-      
+            {/* Action Buttons */}
             <div className="flex space-x-3 pt-4">
               <button
                 type="button"
