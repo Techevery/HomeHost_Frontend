@@ -11,31 +11,34 @@ const BookingDetails = () => {
 
   const [selectedStatus, setSelectedStatus] = useState("all");
 
-  
   const { bookings, loading, error, fetchBookings } = useBookingStore();
 
-  
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
 
- 
+  // Safe data transformation with validation
   const transformBookingData = () => {
+    if (!bookings || !Array.isArray(bookings)) {
+      return [];
+    }
+
     return bookings.map((booking) => ({
-      id: booking.id,
-      customer: booking.guest_name || "Customer", 
-      apartment_booked: booking.apartment?.name || "Apartment",
-      date: formatDate(booking.created_at),
-      phone_number: booking.guest_phone || "+234 000 000 0000",
-      check_in: formatDate(booking.booking_start_date),
-      check_out: formatDate(booking.booking_end_date),
+      id: booking?.id || `temp-${Math.random()}`,
+      customer: booking?.guest_name || "Customer", 
+      apartment_booked: booking?.apartment?.name || "Apartment",
+      date: formatDate(booking?.created_at),
+      phone_number: booking?.guest_phone || "+234 000 000 0000",
+      check_in: formatDate(booking?.booking_start_date),
+      check_out: formatDate(booking?.booking_end_date),
       apartment_agent: "Agent", 
-      status: mapStatus(booking.status),
+      status: mapStatus(booking?.status),
     }));
   };
 
-  
   const mapStatus = (status: string) => {
+    if (!status) return "Pending";
+    
     const statusMap: { [key: string]: string } = {
       booked: "Successful",
       confirmed: "Successful",
@@ -52,6 +55,8 @@ const BookingDetails = () => {
 
     try {
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "Invalid Date";
+      
       return date.toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
@@ -65,14 +70,19 @@ const BookingDetails = () => {
     }
   };
 
-  // Filter data based on selected status
-  const filteredData =
-    selectedStatus === "all"
-      ? transformBookingData()
-      : transformBookingData().filter(
-          (booking) =>
-            booking.status.toLowerCase() === selectedStatus.toLowerCase(),
-        );
+  // Filter data based on selected status with validation
+  const filteredData = React.useMemo(() => {
+    const transformedData = transformBookingData();
+    
+    if (selectedStatus === "all") {
+      return transformedData;
+    }
+    
+    return transformedData.filter(
+      (booking) =>
+        booking.status.toLowerCase() === selectedStatus.toLowerCase(),
+    );
+  }, [bookings, selectedStatus]);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -99,7 +109,6 @@ const BookingDetails = () => {
       cellStyle: { paddingLeft: "20px" },
       render: (rowData: any) => (
         <div className="flex items-center">
-          
           <span className="font-medium text-gray-900">
             {rowData.customer || "N/A"}
           </span>
@@ -148,14 +157,6 @@ const BookingDetails = () => {
         <div className="text-gray-600">{rowData.check_out || "N/A"}</div>
       ),
     },
-    // {
-    //   title: "Agent",
-    //   field: "apartment_agent",
-    //   cellStyle: { paddingLeft: "20px" },
-    //   render: (rowData: any) => (
-    //     <div className="font-medium text-gray-700">{rowData.apartment_agent || 'N/A'}</div>
-    //   ),
-    // },
     {
       title: "Status",
       field: "status",
@@ -246,11 +247,7 @@ const BookingDetails = () => {
                 data={filteredData}
                 title=""
                 options={{
-                  paging: !["dashboard", "home"].every((ai) =>
-                    pathnames.includes(ai),
-                  )
-                    ? true
-                    : false,
+                  paging: true,
                   search: true,
                   rowStyle: {
                     color: "#374151",
@@ -287,6 +284,13 @@ const BookingDetails = () => {
                   minBodyHeight: "400px",
                   pageSize: 10,
                   pageSizeOptions: [5, 10, 20],
+                  paginationType: "stepped",
+                  showFirstLastPageButtons: true,
+                }}
+                localization={{
+                  body: {
+                    emptyDataSourceMessage: "No bookings found",
+                  },
                 }}
               />
             </div>
