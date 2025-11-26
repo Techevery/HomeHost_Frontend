@@ -66,7 +66,9 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
 
   // Safe data loading with validation
   useEffect(() => {
-    if (property) {
+    if (property && open) {
+      console.log('📝 Loading property data for editing:', property);
+      
       // Validate and set property type safely
       const safeType = PROPERTY_TYPES.includes(property.type as any) 
         ? property.type 
@@ -88,8 +90,10 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       setImagePreviews([]);
       setImages([]);
       setImagesToDelete([]);
+      setErrors({});
+      setSubmitError("");
     }
-  }, [property]);
+  }, [property, open]);
 
   const handleInputChange =
     (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,19 +122,15 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       const newImages = Array.from(files);
 
       // Validate total images count (max 10 as per backend)
-      if (
-        images.length +
-          newImages.length +
-          existingImages.length -
-          imagesToDelete.length >
-        10
-      ) {
+      const totalImagesAfterUpload = images.length + newImages.length + existingImages.length - imagesToDelete.length;
+      if (totalImagesAfterUpload > 10) {
         setErrors((prev) => ({ ...prev, images: "Maximum 10 images allowed" }));
         return;
       }
 
+      // Validate file sizes
       const oversizedFiles = newImages.filter(
-        (file) => file.size > 1024 * 1024 * 5,
+        (file) => file.size > 1024 * 1024 * 5, // 5MB limit
       );
       if (oversizedFiles.length > 0) {
         setErrors((prev) => ({
@@ -140,6 +140,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
         return;
       }
 
+      // Validate file types
       const invalidFiles = newImages.filter(
         (file) => !file.type.startsWith("image/"),
       );
@@ -159,10 +160,16 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       if (errors.images) {
         setErrors((prev) => ({ ...prev, images: "" }));
       }
+      
+      // Reset file input
+      event.target.value = '';
     }
   };
 
   const removeNewImage = (index: number) => {
+    // Revoke object URL to prevent memory leaks
+    URL.revokeObjectURL(imagePreviews[index]);
+    
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
@@ -179,78 +186,90 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     if (!formData.name?.trim()) newErrors.name = "Property name is required";
     if (!formData.address?.trim()) newErrors.address = "Address is required";
     if (!formData.type) newErrors.type = "Property type is required";
-    if (!formData.servicing?.trim())
-      newErrors.servicing = "Services information is required";
-    if (!formData.bedroom || parseInt(formData.bedroom) <= 0)
+    if (!formData.servicing?.trim()) newErrors.servicing = "Services information is required";
+    
+    if (!formData.bedroom || parseInt(formData.bedroom) <= 0) {
       newErrors.bedroom = "Valid number of bedrooms is required";
-    if (!formData.price || parseFloat(formData.price) <= 0)
+    }
+    
+    if (!formData.price || parseFloat(formData.price) <= 0) {
       newErrors.price = "Valid price is required";
-    if (!formData.agentPercentage || parseFloat(formData.agentPercentage) <= 0)
+    }
+    
+    if (!formData.agentPercentage || parseFloat(formData.agentPercentage) <= 0) {
       newErrors.agentPercentage = "Valid agent percentage is required";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+  if (!validateForm()) return;
 
-    try {
-      setIsSubmitting(true);
-      setSubmitError("");
+  try {
+    setIsSubmitting(true);
+    setSubmitError("");
 
-      // Prepare update data - only include fields that have changed
-      const updateData: any = {};
+    const updateData: any = {
+      name: formData.name.trim(),
+      address: formData.address.trim(),
+      type: formData.type,
+      servicing: formData.servicing.trim(),
+      bedroom: formData.bedroom,
+      price: parseFloat(formData.price),
+      agentPercentage: parseFloat(formData.agentPercentage),
+    };
 
-      // Only include fields that are different from original or have values
-      if (formData.name !== property.name) updateData.name = formData.name;
-      if (formData.address !== property.address) updateData.address = formData.address;
-      if (formData.type !== property.type) updateData.type = formData.type;
-      if (formData.servicing !== property.servicing) updateData.servicing = formData.servicing;
-      if (formData.bedroom !== property.bedroom) updateData.bedroom = formData.bedroom;
-      if (parseFloat(formData.price) !== property.price) updateData.price = parseFloat(formData.price);
-      if (parseFloat(formData.agentPercentage) !== property.agentPercentage) updateData.agentPercentage = parseFloat(formData.agentPercentage);
-
-      // Handle amenities - only update if changed
+    // Handle amenities
+    if (formData.amenities.trim()) {
       const amenitiesArray = formData.amenities
         .split(",")
         .map((a) => a.trim())
         .filter((a) => a);
-      const newAmenities = amenitiesArray.join(",");
-      
-      if (newAmenities !== property.amenities) {
-        updateData.amenities = newAmenities;
-      }
-
-      // Determine if we should delete existing images
-      const shouldDeleteExistingImages = imagesToDelete.length > 0 && images.length > 0;
-
-      // Call the updateApartment method from admin store
-      if (property?.id) {
-        await updateApartment(
-          property.id,
-          updateData,
-          images.length > 0 ? images : undefined,
-          shouldDeleteExistingImages
-        );
-
-        // Call the onSave callback with updated data
-        await onSave({ 
-          ...formData, 
-          id: property.id,
-          // The backend will return the updated images array
-        });
-      }
-
-      handleClose(); // Close modal on success
-    } catch (error: any) {
-      setSubmitError(error.message || "Failed to update property");
-    } finally {
-      setIsSubmitting(false);
+      updateData.amenities = amenitiesArray.join(",");
     }
-  };
+
+    console.log('📦 Calling updateApartment with:', {
+      updateData,
+      imagesCount: images.length,
+      imagesToDeleteCount: imagesToDelete.length,
+      deleteExistingImages: imagesToDelete.length > 0 || images.length > 0
+    });
+
+    // Determine if we should delete existing images
+    const shouldDeleteExistingImages = imagesToDelete.length > 0 || images.length > 0;
+
+    if (property?.id) {
+      const result = await updateApartment(
+        property.id,
+        updateData,
+        images.length > 0 ? images : undefined,
+        shouldDeleteExistingImages // This should be boolean: true or false
+      );
+
+      console.log('✅ Update result:', result);
+      
+      if (onSave && result.data) {
+        await onSave(result.data);
+      }
+
+      handleClose();
+    }
+  } catch (error: any) {
+    console.error('❌ Update failed:', error);
+    setSubmitError(error.message || "Failed to update property");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleClose = () => {
+    console.log('🔒 Closing modal and cleaning up...');
+    
+    // Clean up object URLs to prevent memory leaks
+    imagePreviews.forEach(url => URL.revokeObjectURL(url));
+    
     setFormData({
       name: "",
       address: "",
@@ -276,7 +295,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
   return (
     <Dialog
       open={open}
-      onClose={handleClose}
+      onClose={isLoading ? undefined : handleClose}
       maxWidth="md"
       fullWidth
       PaperProps={{
@@ -294,7 +313,11 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
         <Typography variant="h5" fontWeight="bold">
           Edit Property
         </Typography>
-        <IconButton onClick={handleClose} size="small">
+        <IconButton 
+          onClick={handleClose} 
+          size="small"
+          disabled={isLoading}
+        >
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -322,6 +345,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               onChange={handleInputChange("name")}
               error={!!errors.name}
               helperText={errors.name}
+              disabled={isLoading}
             />
           </Grid>
 
@@ -335,6 +359,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               helperText={errors.address}
               multiline
               rows={2}
+              disabled={isLoading}
             />
           </Grid>
 
@@ -347,12 +372,13 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <FormControl fullWidth error={!!errors.type}>
+            <FormControl fullWidth error={!!errors.type} disabled={isLoading}>
               <InputLabel>Property Type *</InputLabel>
               <Select
                 value={formData.type}
                 label="Property Type *"
-                onChange={handleSelectChange("type")}>
+                onChange={handleSelectChange("type")}
+              >
                 {PROPERTY_TYPES.map((type) => (
                   <MenuItem key={type} value={type}>
                     {type}
@@ -379,6 +405,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               error={!!errors.servicing}
               helperText={errors.servicing}
               placeholder="e.g., Full Service, Cleaning, Maintenance"
+              disabled={isLoading}
             />
           </Grid>
 
@@ -392,6 +419,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               error={!!errors.bedroom}
               helperText={errors.bedroom}
               inputProps={{ min: 0 }}
+              disabled={isLoading}
             />
           </Grid>
 
@@ -403,6 +431,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               onChange={handleInputChange("amenities")}
               placeholder="e.g., Pool, Gym, Parking (comma separated)"
               helperText="Separate multiple amenities with commas"
+              disabled={isLoading}
             />
           </Grid>
 
@@ -424,6 +453,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               error={!!errors.price}
               helperText={errors.price}
               inputProps={{ min: 0, step: "0.01" }}
+              disabled={isLoading}
             />
           </Grid>
 
@@ -437,6 +467,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               error={!!errors.agentPercentage}
               helperText={errors.agentPercentage}
               inputProps={{ min: 0, max: 100, step: "0.01" }}
+              disabled={isLoading}
             />
           </Grid>
 
@@ -455,6 +486,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                 type="file"
                 multiple
                 onChange={handleImageUpload}
+                disabled={isLoading}
               />
               <label htmlFor="edit-property-images">
                 <Button
@@ -462,7 +494,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                   component="span"
                   startIcon={<UploadIcon />}
                   sx={{ mb: 2 }}
-                  disabled={allImages.length >= 10}>
+                  disabled={isLoading || allImages.length >= 10}>
                   Add More Images
                 </Button>
               </label>
@@ -482,7 +514,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               </Typography>
               {imagesToDelete.length > 0 && (
                 <Alert severity="info" sx={{ mt: 1 }}>
-                  {imagesToDelete.length} existing image(s) will be removed and replaced with new ones
+                  {imagesToDelete.length} existing image(s) will be removed
                 </Alert>
               )}
             </Box>
@@ -506,6 +538,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                     <IconButton
                       size="small"
                       onClick={() => removeExistingImage(index)}
+                      disabled={isLoading}
                       sx={{
                         position: "absolute",
                         top: -8,
@@ -514,6 +547,9 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                         color: "white",
                         "&:hover": {
                           backgroundColor: "error.dark",
+                        },
+                        "&:disabled": {
+                          backgroundColor: "grey.400",
                         },
                       }}>
                       <DeleteImageIcon fontSize="small" />
@@ -536,6 +572,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                     <IconButton
                       size="small"
                       onClick={() => removeNewImage(index)}
+                      disabled={isLoading}
                       sx={{
                         position: "absolute",
                         top: -8,
@@ -544,6 +581,9 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                         color: "white",
                         "&:hover": {
                           backgroundColor: "error.dark",
+                        },
+                        "&:disabled": {
+                          backgroundColor: "grey.400",
                         },
                       }}>
                       <DeleteImageIcon fontSize="small" />

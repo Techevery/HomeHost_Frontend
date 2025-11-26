@@ -1636,7 +1636,7 @@ const BookingModal: React.FC<{
         nextofKinName: bookingData.name_of_nxt_of_kin,
         nextofKinNumber: bookingData.number_of_nxt_of_kin,
         fullName: bookingData.name,
-        personalUrl: personalUrl || agentData?.personalUrl, 
+        // personalUrl: personalUrl || agentData?.personalUrl, 
       };
 
       console.log("Payment data with personalUrl:", paymentData);
@@ -1659,7 +1659,7 @@ const BookingModal: React.FC<{
         paymentData.nextofKinNumber,
         paymentData.fullName,
         paymentData.agentId,
-        paymentData.personalUrl 
+        // paymentData.personalUrl 
       );
 
       if (paymentResult.success && paymentResult.data) {
@@ -1680,7 +1680,7 @@ const BookingModal: React.FC<{
           totalPrice: totalAmount,
           paymentReference: paymentResult.data.reference,
           agentId: finalAgentId,
-          personalUrl: paymentData.personalUrl, 
+          // personalUrl: paymentData.personalUrl, 
           authorizationUrl:
             paymentResult.data.paymentUrl ||
             paymentResult.data.authorizationUrl,

@@ -622,8 +622,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           throw error;
         }
       },
-
-     updateApartment: async (
+updateApartment: async (
   apartmentId: string,
   updateData: UpdateApartmentData,
   files?: File[],

@@ -43,6 +43,9 @@ import ViewPropertiesModal from "../../pages/profile/agent/modals/ViewProperties
 import PropertyDetailModal from "../../pages/profile/agent/modals/PropertyDetailModal";
 import EditProfileModal from "../../pages/profile/agent/modals/EditProfileModal";
 
+// Import Wallet Dashboard
+import WalletDashboard from "../../../components/pages/profile/agent/modals/wallet/WalletDashboard"; // Adjust path as needed
+
 interface ProfileFormData {
   name: string;
   avatar?: string;
@@ -151,13 +154,14 @@ const AgentProfile = () => {
     loadData();
   }, [fetchAgentProfile]);
 
- useEffect(() => {
-  if (activeTab === "properties" && agentInfo?.id) {
-    loadProperties();
-  } else if (activeTab === "banners" && agentInfo?.id) {
-    loadBanners();
-  }
-}, [activeTab, agentInfo?.id]);
+  useEffect(() => {
+    if (activeTab === "properties" && agentInfo?.id) {
+      loadProperties();
+    } else if (activeTab === "banners" && agentInfo?.id) {
+      loadBanners();
+    }
+  }, [activeTab, agentInfo?.id]);
+
   // Initialize profile form when agentInfo is available
   useEffect(() => {
     if (agentInfo) {
@@ -219,7 +223,6 @@ const AgentProfile = () => {
   };
 
   const handleDeleteProperty = async (propertyId: string) => {
-  
     // Find the property to verify we have the right ID
     const propertyToDelete = enlistedProperties.find(p => 
       p.apartmentId === propertyId || p.id === propertyId
@@ -296,7 +299,6 @@ const AgentProfile = () => {
         showSnackbar(result.message, "error");
       }
     } catch (error) {
-     
       showSnackbar("Failed to delete banner", "error");
     } finally {
       setDeleteBannerDialogOpen(false);
@@ -342,7 +344,6 @@ const AgentProfile = () => {
         showSnackbar(result.message, "error");
       }
     } catch (error: any) {
-      
       showSnackbar(error.message || "Failed to create banner", "error");
     }
   };
@@ -368,7 +369,6 @@ const AgentProfile = () => {
         showSnackbar(result.message, "error");
       }
     } catch (error: any) {
-     
       showSnackbar(error.message || "Failed to update banner", "error");
     }
   };
@@ -436,47 +436,46 @@ const AgentProfile = () => {
       setAvatarFile(null);
       await fetchAgentProfile();
     } catch (error: any) {
-    
       showSnackbar(error.message || "Failed to update profile", "error");
     }
   };
 
   const transformPropertyData = (property: any): Property => {
-  console.log("Transforming property data:", property);
-  
-  const agentPricing = property.agentPricing || {};
-  
-  // Get the actual base price - use property.price directly
-  const basePrice = property.price || 0;
-  const markedUpPrice = agentPricing.markedUpPrice || 0; 
-  
-  // Calculate total based on actual base price + markup
-  const totalPrice = basePrice + markedUpPrice;
-  
-  // Make sure we're using the correct apartment ID
-  const apartmentId = property.apartmentId || property.id || property._id;
-  
-  return {
-    id: property.id || property._id,
-    apartmentId: apartmentId,
-    title: property.title || property.name || "Untitled Property",
-    price: basePrice,  
-    markedUpPrice: markedUpPrice,
-    location: property.location || property.address || "Location not specified",
-    images: property.images || property.photos || [property.image] || [],
-    status: property.status || "active",
-    type: property.type || property.propertyType || "Residential",
-    bedroom: property.bedroom || property.bedrooms || 0,
-    agentPercentage: property.agentPercentage || property.commission || 0,
-    createdAt: property.createdAt || property.createdDate,
+    console.log("Transforming property data:", property);
     
-    basePrice: basePrice, 
-    totalPrice: totalPrice, 
-    priceChangedAt: agentPricing.priceChangedAt, 
-    servicing: property.servicing,
-    amenities: property.amenities || []
+    const agentPricing = property.agentPricing || {};
+    
+    // Get the actual base price - use property.price directly
+    const basePrice = property.price || 0;
+    const markedUpPrice = agentPricing.markedUpPrice || 0; 
+    
+    // Calculate total based on actual base price + markup
+    const totalPrice = basePrice + markedUpPrice;
+    
+    // Make sure we're using the correct apartment ID
+    const apartmentId = property.apartmentId || property.id || property._id;
+    
+    return {
+      id: property.id || property._id,
+      apartmentId: apartmentId,
+      title: property.title || property.name || "Untitled Property",
+      price: basePrice,  
+      markedUpPrice: markedUpPrice,
+      location: property.location || property.address || "Location not specified",
+      images: property.images || property.photos || [property.image] || [],
+      status: property.status || "active",
+      type: property.type || property.propertyType || "Residential",
+      bedroom: property.bedroom || property.bedrooms || 0,
+      agentPercentage: property.agentPercentage || property.commission || 0,
+      createdAt: property.createdAt || property.createdDate,
+      
+      basePrice: basePrice, 
+      totalPrice: totalPrice, 
+      priceChangedAt: agentPricing.priceChangedAt, 
+      servicing: property.servicing,
+      amenities: property.amenities || []
+    };
   };
-};
 
   if (isLoading && !agentInfo) {
     return (
@@ -571,14 +570,10 @@ const AgentProfile = () => {
               Add Property
             </Button>
 
-            {/* Action Buttons */}
+            {/* Action Buttons - Replaced Wallet button with WalletDashboard */}
             <Box display="flex" gap={1}>
-              <Button
-                variant="outlined"
-                startIcon={<WalletIcon />}
-                size="small">
-                Wallet
-              </Button>
+              {/* Wallet Dashboard Component */}
+              <WalletDashboard />
 
               <Button
                 variant="outlined"
@@ -804,11 +799,14 @@ const AgentProfile = () => {
                     Edit Profile
                   </Button>
 
+                  {/* This button is now handled by WalletDashboard component */}
                   <Button
                     variant="outlined"
                     startIcon={<WalletIcon />}
-                    fullWidth>
-                    View Earnings
+                    fullWidth
+                    
+                  >
+                    View Booking
                   </Button>
 
                   <Button

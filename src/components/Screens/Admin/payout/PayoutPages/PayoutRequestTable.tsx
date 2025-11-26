@@ -1,12 +1,14 @@
 // PayoutRequestTable.tsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Paper } from "@material-ui/core";
 import { ThemeProvider, createTheme } from "@mui/material";
 import MaterialTable from "material-table";
 import { useLocation } from 'react-router-dom';
-import { MdClose, MdCheck, MdCancel, MdCloudUpload } from 'react-icons/md';
+import { MdClose, MdCheck, MdCancel, MdCloudUpload, MdFilterList, MdSearch } from 'react-icons/md';
+import useWalletStore, { PayoutStatus } from '../../../../../stores/payoutStore';
 
 interface RowData {
+  id: string;
   agent: string;
   property: string;
   booking: string;
@@ -15,6 +17,7 @@ interface RowData {
   bank: string;
   date: string;
   status: string;
+  originalStatus: PayoutStatus; // Add original status for filtering
 }
 
 const PayoutRequestTable = () => {
@@ -23,43 +26,109 @@ const PayoutRequestTable = () => {
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+    const [statusFilter, setStatusFilter] = useState<PayoutStatus | 'ALL'>('ALL');
+    const [filteredData, setFilteredData] = useState<RowData[]>([]);
+    const [showStatusFilter, setShowStatusFilter] = useState(false);
+    const [searchText, setSearchText] = useState('');
+
+    // Use the wallet store
+    const { 
+      payouts, 
+      isLoading, 
+      error, 
+      isProcessingPayout, 
+      getAllPayouts, 
+      confirmPayout,
+      clearError 
+    } = useWalletStore();
 
     const url = useLocation();
     const { pathname } = url;
     const pathnames = pathname.split("/").filter((x) => x);
     
-    const data: RowData[] = [
-      {
-        agent: "John Doe",
-        property: "Luxury 48R Apartment - Leikli Phase I",
-        booking: "BK-6788",
-        calculation: "Percentage\n8%\nMSB,000 x 8%\n\nMarkup\n(MS,000/day)\nMS,000 x 4 days",
-        amount: "N9,950\nGross : MS,000\nFee: MSD",
-        bank: "GT Bank\n9789",
-        date: "Nov 21, 2025\nSubmitted Nov 21, 2025",
-        status: "Pending"
-      },
-      {
-        agent: "Jane Smith",
-        property: "Studio Apartment - Neja GRA",
-        booking: "BK-9921",
-        calculation: "Percentage\n8%\nMSB,000 x 8%\n\nMarkup\n(MS,000/day)\nMS,000 x 4 days",
-        amount: "N19,950\nGross : MS,000\nFee: NSD",
-        bank: "Access Bank\n1234",
-        date: "Nov 19, 2025\nSubmitted Nov 19, 2025",
-        status: "Pending"
-      },
-      {
-        agent: "Mike Johnson",
-        property: "38R Duplex - Victoria Island",
-        booking: "BK-1205",
-        calculation: "Percentage\n8%\nMSB,000 x 8%\n\nMarkup\n(MS,000/day)\nMS,000 x 4 days",
-        amount: "N11,950\nGross : MS,000\nFee: NSD",
-        bank: "First Bank\n5678",
-        date: "Nov 18, 2025\nSubmitted Nov 18, 2025",
-        status: "Pending"
+    // Fetch payouts on component mount
+    useEffect(() => {
+      getAllPayouts();
+    }, [getAllPayouts]);
+
+    // Transform payout data to RowData format
+    const transformPayoutToRowData = (payout: any): RowData => {
+      const transaction = payout.transaction || {};
+      const agent = payout.agent || {};
+      
+      // Calculate amount details
+      const grossAmount = transaction.amount || 0;
+      const agentPercentage = transaction.agentPercentage || 0;
+      const agentAmount = grossAmount * (agentPercentage / 100);
+      const fee = grossAmount - agentAmount;
+
+      // Format calculation string
+      const calculation = `Percentage\n${agentPercentage}%\n₦${grossAmount.toLocaleString()} x ${agentPercentage}%\n\nMarkup\n(₦${transaction.mockupPrice || 0}/day)\n₦${transaction.mockupPrice || 0} x 4 days`;
+
+      // Format amount string
+      const amount = `₦${agentAmount.toLocaleString()}\nGross: ₦${grossAmount.toLocaleString()}\nFee: ₦${fee.toLocaleString()}`;
+
+      // Format date strings
+      const createdDate = new Date(payout.createdAt).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      const updatedDate = new Date(payout.updatedAt).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      const date = `${createdDate}\nSubmitted ${updatedDate}`;
+
+      // Map status - Fixed TypeScript error by including all PayoutStatus values
+      const statusMap: Record<PayoutStatus, string> = {
+        [PayoutStatus.PENDING]: 'Pending',
+        [PayoutStatus.SUCCESS]: 'Approved',
+        [PayoutStatus.FAILED]: 'Rejected',
+        [PayoutStatus.CANCELLED]: 'Rejected' // Added CANCELLED status
+      };
+
+      return {
+        id: payout.id,
+        agent: agent.name || 'Unknown Agent',
+        property: transaction.apartment?.name || 'Unknown Property',
+        booking: `BK-${payout.id.slice(-4).toUpperCase()}`,
+        calculation,
+        amount,
+        bank: "Bank details not available", // You might want to get this from agent profile
+        date,
+        status: statusMap[payout.status as PayoutStatus] || 'Pending',
+        originalStatus: payout.status // Store original status for filtering
+      };
+    };
+
+    const data: RowData[] = payouts.map(transformPayoutToRowData);
+
+    // Apply both status filter and search filter
+    useEffect(() => {
+      let result = data;
+
+      // Apply status filter
+      if (statusFilter !== 'ALL') {
+        result = result.filter(row => row.originalStatus === statusFilter);
       }
-    ];
+
+      // Apply search filter
+      if (searchText.trim()) {
+        const searchLower = searchText.toLowerCase();
+        result = result.filter(row => 
+          row.agent.toLowerCase().includes(searchLower) ||
+          row.property.toLowerCase().includes(searchLower) ||
+          row.booking.toLowerCase().includes(searchLower) ||
+          row.amount.toLowerCase().includes(searchLower) ||
+          row.bank.toLowerCase().includes(searchLower) ||
+          row.status.toLowerCase().includes(searchLower)
+        );
+      }
+
+      setFilteredData(result);
+    }, [payouts, statusFilter, searchText]);
 
     const handleApproveClick = (rowData: RowData) => {
         setSelectedRow(rowData);
@@ -77,6 +146,7 @@ const PayoutRequestTable = () => {
         setSelectedRow(null);
         setRejectReason('');
         setUploadedFile(null);
+        clearError();
     };
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,17 +156,67 @@ const PayoutRequestTable = () => {
         }
     };
 
-    const handleApproveSubmit = () => {
-        // Handle approve submission here
-        console.log('Approving payout for:', selectedRow, 'with file:', uploadedFile);
-        handleCloseModals();
+    const handleApproveSubmit = async () => {
+        if (!selectedRow) return;
+
+        try {
+            const files = uploadedFile ? [uploadedFile] : [];
+            
+            await confirmPayout({
+                payoutId: selectedRow.id,
+                remark: `Payout approved for ${selectedRow.agent}. Amount: ${selectedRow.amount.split('\n')[0]}`,
+                files
+            });
+
+            console.log('Payout approved successfully:', selectedRow);
+            handleCloseModals();
+            
+            // Refresh the payouts list
+            await getAllPayouts();
+            
+        } catch (error) {
+            console.error('Failed to approve payout:', error);
+            // Error is already handled in the store
+        }
     };
 
-    const handleRejectSubmit = () => {
-        // Handle reject submission here
-        console.log('Rejecting payout for:', selectedRow, 'Reason:', rejectReason);
-        handleCloseModals();
+    const handleRejectSubmit = async () => {
+        if (!selectedRow) return;
+
+        try {
+            await confirmPayout({
+                payoutId: selectedRow.id,
+                remark: `Payout rejected. Reason: ${rejectReason}`
+            });
+
+            console.log('Payout rejected successfully:', selectedRow);
+            handleCloseModals();
+            
+            // Refresh the payouts list
+            await getAllPayouts();
+            
+        } catch (error) {
+            console.error('Failed to reject payout:', error);
+            // Error is already handled in the store
+        }
     };
+
+    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchText(event.target.value);
+    };
+
+    const clearSearch = () => {
+        setSearchText('');
+    };
+
+    // Status filter options
+    const statusFilterOptions = [
+      { value: 'ALL' as const, label: 'All Status', count: data.length },
+      { value: PayoutStatus.PENDING, label: 'Pending', count: data.filter(row => row.originalStatus === PayoutStatus.PENDING).length },
+      { value: PayoutStatus.SUCCESS, label: 'Approved', count: data.filter(row => row.originalStatus === PayoutStatus.SUCCESS).length },
+      { value: PayoutStatus.FAILED, label: 'Rejected', count: data.filter(row => row.originalStatus === PayoutStatus.FAILED).length },
+      { value: PayoutStatus.CANCELLED, label: 'Cancelled', count: data.filter(row => row.originalStatus === PayoutStatus.CANCELLED).length },
+    ];
 
     const COLUMNS = [
       {
@@ -191,22 +311,26 @@ const PayoutRequestTable = () => {
             }`}>
               {rowData.status}
             </div>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => handleApproveClick(rowData)}
-                className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors"
-              >
-                <MdCheck className="w-4 h-4" />
-                Approve
-              </button>
-              <button 
-                onClick={() => handleRejectClick(rowData)}
-                className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors"
-              >
-                <MdCancel className="w-4 h-4" />
-                Reject
-              </button>
-            </div>
+            {rowData.status === 'Pending' && (
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => handleApproveClick(rowData)}
+                  disabled={isProcessingPayout}
+                  className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  <MdCheck className="w-4 h-4" />
+                  {isProcessingPayout ? 'Processing...' : 'Approve'}
+                </button>
+                <button 
+                  onClick={() => handleRejectClick(rowData)}
+                  disabled={isProcessingPayout}
+                  className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  <MdCancel className="w-4 h-4" />
+                  {isProcessingPayout ? 'Processing...' : 'Reject'}
+                </button>
+              </div>
+            )}
           </div>
         ),
       },
@@ -218,8 +342,83 @@ const PayoutRequestTable = () => {
       },
     });
 
+    // Show loading state
+    if (isLoading) {
+      return (
+        <div className="bg-white rounded-[20px] p-6 flex items-center justify-center">
+          <div className="text-gray-600">Loading payouts...</div>
+        </div>
+      );
+    }
+
+    // Show error state
+    if (error) {
+      return (
+        <div className="bg-white rounded-[20px] p-6">
+          <div className="text-red-600 mb-4">Error: {error}</div>
+          <button 
+            onClick={getAllPayouts}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-white rounded-[20px] p-6">
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="text-red-700 text-sm">{error}</div>
+            <button 
+              onClick={clearError}
+              className="mt-2 text-red-600 hover:text-red-800 text-sm"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Status Filter Panel */}
+        {showStatusFilter && (
+          <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <MdFilterList className="w-5 h-5 text-gray-600" />
+              <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {statusFilterOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setStatusFilter(option.value)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    statusFilter === option.value
+                      ? option.value === 'ALL' 
+                        ? 'bg-blue-600 text-white'
+                        : option.value === PayoutStatus.PENDING
+                        ? 'bg-yellow-600 text-white'
+                        : option.value === PayoutStatus.SUCCESS
+                        ? 'bg-green-600 text-white'
+                        : 'bg-red-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {option.label} 
+                  <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
+                    statusFilter === option.value 
+                      ? 'bg-white bg-opacity-20' 
+                      : 'bg-gray-100'
+                  }`}>
+                    {option.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Approve Modal */}
         {isApproveModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -230,6 +429,7 @@ const PayoutRequestTable = () => {
                 <button 
                   onClick={handleCloseModals}
                   className="text-gray-500 hover:text-gray-700 transition-colors"
+                  disabled={isProcessingPayout}
                 >
                   <MdClose className="w-6 h-6" />
                 </button>
@@ -279,6 +479,7 @@ const PayoutRequestTable = () => {
                       className="hidden"
                       accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
                       onChange={handleFileUpload}
+                      disabled={isProcessingPayout}
                     />
                     <label htmlFor="document-upload" className="cursor-pointer">
                       <MdCloudUpload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
@@ -310,20 +511,21 @@ const PayoutRequestTable = () => {
               <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
                 <button
                   onClick={handleCloseModals}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  disabled={isProcessingPayout}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleApproveSubmit}
-                  disabled={!uploadedFile}
+                  disabled={!uploadedFile || isProcessingPayout}
                   className={`px-6 py-2 rounded-lg text-white transition-colors ${
-                    uploadedFile 
+                    uploadedFile && !isProcessingPayout
                       ? 'bg-green-600 hover:bg-green-700' 
                       : 'bg-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  Submit & Approve
+                  {isProcessingPayout ? 'Processing...' : 'Submit & Approve'}
                 </button>
               </div>
             </div>
@@ -340,6 +542,7 @@ const PayoutRequestTable = () => {
                 <button 
                   onClick={handleCloseModals}
                   className="text-gray-500 hover:text-gray-700 transition-colors"
+                  disabled={isProcessingPayout}
                 >
                   <MdClose className="w-6 h-6" />
                 </button>
@@ -373,8 +576,9 @@ const PayoutRequestTable = () => {
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                     placeholder="Please provide a reason for rejecting this payout request..."
-                    className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:opacity-50"
                     required
+                    disabled={isProcessingPayout}
                   />
                 </div>
 
@@ -389,20 +593,21 @@ const PayoutRequestTable = () => {
               <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
                 <button
                   onClick={handleCloseModals}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  disabled={isProcessingPayout}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleRejectSubmit}
-                  disabled={!rejectReason.trim()}
+                  disabled={!rejectReason.trim() || isProcessingPayout}
                   className={`px-6 py-2 rounded-lg text-white transition-colors ${
-                    rejectReason.trim() 
+                    rejectReason.trim() && !isProcessingPayout
                       ? 'bg-red-600 hover:bg-red-700' 
                       : 'bg-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  Confirm Rejection
+                  {isProcessingPayout ? 'Processing...' : 'Confirm Rejection'}
                 </button>
               </div>
             </div>
@@ -419,9 +624,67 @@ const PayoutRequestTable = () => {
             <MaterialTable
               components={{
                 Container: (props) => <Paper {...props} elevation={0} />,
+                Toolbar: (props) => (
+                  <div className="flex flex-col">
+                    <div className="flex items-center justify-between p-4">
+                      {/* Custom Search Field */}
+                      <div className="relative flex-1 max-w-md">
+                        <div className="relative">
+                          <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                          <input
+                            type="text"
+                            placeholder="Search payouts..."
+                            value={searchText}
+                            onChange={handleSearchChange}
+                            className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                          />
+                          {searchText && (
+                            <button
+                              onClick={clearSearch}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              <MdClose className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                        {searchText && (
+                          <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 mt-1 p-2">
+                            <div className="text-sm text-gray-600">
+                              Searching for: "<span className="font-medium">{searchText}</span>"
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Found {filteredData.length} results
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Filter Button */}
+                      <button
+                        onClick={() => setShowStatusFilter(!showStatusFilter)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          showStatusFilter || statusFilter !== 'ALL'
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        <MdFilterList className="w-4 h-4" />
+                        Filter
+                        {(statusFilter !== 'ALL' || searchText) && (
+                          <span className="ml-1 px-1.5 py-0.5 bg-white bg-opacity-20 rounded-full text-xs">
+                            {filteredData.length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                    {props.components?.Actions && (
+                      <props.components.Actions {...props} />
+                    )}
+                  </div>
+                ),
               }}
               columns={COLUMNS}
-              data={data}
+              data={filteredData}
               title=""
               options={{
                 paging: !["dashboard", "home"].every((ai) =>
@@ -429,7 +692,7 @@ const PayoutRequestTable = () => {
                 )
                   ? true
                   : false,
-                search: true,
+                search: false, // Disable default search since we have custom search
                 rowStyle: {
                   color: "#474E70",
                   backgroundColor: "transparent",
@@ -447,15 +710,6 @@ const PayoutRequestTable = () => {
                   borderBottom: "1px solid #E8E9ED",
                   paddingLeft: "2%",
                 },
-                searchFieldStyle: {
-                  border: "0px",
-                  borderRadius: "0px",
-                  borderBottom: "1px solid #E8E9ED",
-                  width: "192px",
-                  height: "36px",
-                  backgroundColor: "transparent",
-                },
-                searchFieldVariant: "standard",
                 actionsColumnIndex: -1,
                 actionsCellStyle: {
                   border: "0",
@@ -464,6 +718,8 @@ const PayoutRequestTable = () => {
                 exportButton: false,
                 minBodyHeight: "400px",
                 showTitle: false,
+                searchAutoFocus: false,
+                toolbarButtonAlignment: "left",
               }}
             />
           </div>

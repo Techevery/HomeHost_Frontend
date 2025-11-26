@@ -265,66 +265,99 @@ const ApartmentsList: React.FC = () => {
     setAddModalOpen(true);
   };
 
-  const handleAddSave = async (propertyData: any) => {
-    try {
-      setUpdateLoading(true);
-      // Refresh the properties list after adding
-      const result = await listProperties(1, 50);
-      if (result?.data?.apartments) {
-        setProperties(
-          result.data.apartments.map((property: Property) => ({
-            ...property,
-            rating: Math.random() * 2 + 3,
-            reviews: Math.floor(Math.random() * 100) + 1,
-            description:
-              property.description ||
-              "A beautiful property with modern amenities and great location.",
-            amenities: safeArray(property.amenities),
-            images: safeArray(property.images),
-            status: property.ApartmentLog?.[0]?.status || property.status || "available",
-          })),
-        );
-      }
-      setAddModalOpen(false);
-    } catch (error) {
-     
-      setError("Failed to add property");
-    } finally {
-      setUpdateLoading(false);
+ const handleAddSave = async (newPropertyData: any) => {
+  try {
+    setUpdateLoading(true);
+    console.log('🔄 Adding new property to local state:', newPropertyData);
+
+    // Refresh the entire list from server for new properties to ensure we have all data
+    const result = await listProperties(1, 50);
+    if (result?.data?.apartments) {
+      setProperties(
+        result.data.apartments.map((property: Property) => ({
+          ...property,
+          rating: Math.random() * 2 + 3,
+          reviews: Math.floor(Math.random() * 100) + 1,
+          description:
+            property.description ||
+            "A beautiful property with modern amenities and great location.",
+          amenities: safeArray(property.amenities),
+          images: safeArray(property.images),
+          status: property.ApartmentLog?.[0]?.status || property.status || "available",
+        })),
+      );
     }
-  };
+    
+    setAddModalOpen(false);
+    console.log('✅ New property added successfully');
+    
+  } catch (error) {
+    console.error('❌ Failed to add property:', error);
+    setError("Failed to add property");
+  } finally {
+    setUpdateLoading(false);
+  }
+};
 
-  const handleEditSave = async (propertyData: any) => {
-    try {
-      setUpdateLoading(true);
+ const handleEditSave = async (updatedPropertyData: any) => {
+  try {
+    setUpdateLoading(true);
+    console.log('🔄 Updating property in local state:', updatedPropertyData);
 
-      // Refresh the properties list after editing
-      const result = await listProperties(1, 50);
-      if (result?.data?.apartments) {
-        setProperties(
-          result.data.apartments.map((property: Property) => ({
-            ...property,
-            rating: Math.random() * 2 + 3,
-            reviews: Math.floor(Math.random() * 100) + 1,
-            description:
-              property.description ||
-              "A beautiful property with modern amenities and great location.",
-            amenities: safeArray(property.amenities),
-            images: safeArray(property.images),
-            status: property.ApartmentLog?.[0]?.status || property.status || "available",
-          })),
-        );
-      }
+    // Update the specific property in local state with the data returned from the API
+    setProperties(prevProperties => 
+      prevProperties.map(property => 
+        property.id === updatedPropertyData.id 
+          ? {
+              ...property,
+              ...updatedPropertyData,
+              // Preserve existing fields that might not be in the response
+              rating: property.rating,
+              reviews: property.reviews,
+              description: property.description,
+              // Ensure arrays are properly handled
+              amenities: safeArray(updatedPropertyData.amenities),
+              images: safeArray(updatedPropertyData.images),
+              // Update status if provided
+              status: updatedPropertyData.ApartmentLog?.[0]?.status || updatedPropertyData.status || property.status,
+            }
+          : property
+      )
+    );
 
-      setEditModalOpen(false);
-      setSelectedProperty(null);
-    } catch (error) {
-      console.error("Update error:", error);
-      setError("Failed to update property");
-    } finally {
-      setUpdateLoading(false);
-    }
-  };
+    // Also update filtered properties
+    setFilteredProperties(prevFiltered => 
+      prevFiltered.map(property => 
+        property.id === updatedPropertyData.id 
+          ? {
+              ...property,
+              ...updatedPropertyData,
+              rating: property.rating,
+              reviews: property.reviews,
+              description: property.description,
+              amenities: safeArray(updatedPropertyData.amenities),
+              images: safeArray(updatedPropertyData.images),
+              status: updatedPropertyData.ApartmentLog?.[0]?.status || updatedPropertyData.status || property.status,
+            }
+          : property
+      )
+    );
+
+    console.log('✅ Property updated successfully in local state');
+    
+    setEditModalOpen(false);
+    setSelectedProperty(null);
+    
+    // Optional: Show success message
+    // You can add a snackbar or toast notification here
+    
+  } catch (error) {
+    console.error('❌ Failed to update property in local state:', error);
+    setError("Failed to update property");
+  } finally {
+    setUpdateLoading(false);
+  }
+};
 
   const handleDeleteConfirm = async () => {
     if (!selectedProperty) return;

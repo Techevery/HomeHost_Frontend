@@ -28,7 +28,6 @@ interface PaymentData {
     durationDays: number;
   }>;
   totalBookingPeriods?: number;
-  personalUrl?: string; // Added personalUrl
 }
 
 interface PaymentState {
@@ -52,8 +51,7 @@ interface PaymentActions {
     nextofKinName: string,
     nextofKinNumber: string,
     fullName: string,
-    agentId?: string,
-    personalUrl?: string // Added personalUrl parameter
+    agentId?: string
   ) => Promise<{ success: boolean; data?: any; message?: string }>;
 
   verifyPayment: (
@@ -139,15 +137,13 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
         nextofKinName: string,
         nextofKinNumber: string,
         fullName: string,
-        agentId?: string,
-        personalUrl?: string // Added personalUrl parameter
+        agentId?: string
       ) => {
         set({ isInitializingPayment: true, paymentInitError: null });
 
         try {
           let finalAgentId: string | null = null;
           let authToken: string | null = null;
-          let finalPersonalUrl: string | null = personalUrl || null;
 
           try {
             const agentStoreModule = await import("./agentstore");
@@ -161,10 +157,6 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
               if (agentInfo && typeof agentInfo === 'object' && agentInfo.id) {
                 finalAgentId = agentInfo.id;
                 authToken = token;
-                // If personalUrl wasn't provided, try to get it from agent store
-                if (!finalPersonalUrl && agentInfo.personalUrl) {
-                  finalPersonalUrl = agentInfo.personalUrl;
-                }
                 console.log("Using authenticated agent ID:", finalAgentId);
               } else {
                 console.warn("Agent is authenticated but agentInfo is missing id:", agentInfo);
@@ -186,10 +178,6 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
                   const parsedAgent = JSON.parse(storedAgent);
                   if (parsedAgent.state?.agentInfo?.id) {
                     finalAgentId = parsedAgent.state.agentInfo.id;
-                    // Also try to get personalUrl from storage
-                    if (!finalPersonalUrl && parsedAgent.state?.agentInfo?.personalUrl) {
-                      finalPersonalUrl = parsedAgent.state.agentInfo.personalUrl;
-                    }
                   }
                 }
               } catch (storageError) {
@@ -245,10 +233,9 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             nextofKinName: nextofKinName || "",
             nextofKinNumber: nextofKinNumber || "",
             fullName: fullName || "",
-            personalUrl: finalPersonalUrl || "", // Include personalUrl in payload
           };
 
-          console.log("Payment data with personalUrl:", paymentData);
+          console.log("Payment data:", paymentData);
 
           const headers: any = {
             "Content-Type": "application/json",
@@ -297,7 +284,6 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             isMarkedUp: result.isMarkedUp,
             bookingPeriods: result.bookingPeriods,
             totalBookingPeriods: result.totalBookingPeriods,
-            personalUrl: finalPersonalUrl || personalUrl, // Store personalUrl
           };
 
           set({

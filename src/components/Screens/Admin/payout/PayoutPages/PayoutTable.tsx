@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Paper, Modal, Box, Button, IconButton } from "@material-ui/core";
 import { ThemeProvider, createTheme } from "@mui/material";
 import MaterialTable, { MTableToolbar } from "material-table";
-import {  useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { MdFilterList, MdSearch, MdClose } from 'react-icons/md';
+import useWalletStore, { PayoutStatus } from '../../../../../stores/payoutStore';
 
 const PayoutTable = () => {
   const url = useLocation();
@@ -10,80 +12,159 @@ const PayoutTable = () => {
   const pathnames = pathname.split("/").filter((x) => x);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedPayout, setSelectedPayout] = useState<any>(null);
+  const [statusFilter, setStatusFilter] = useState<PayoutStatus | 'ALL'>('ALL');
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [showStatusFilter, setShowStatusFilter] = useState(false);
+  const [searchText, setSearchText] = useState('');
 
-  const data = [
-    {
-      id: 1,
-      agent: "John Doe",
-      property: "Luxury 488 Apartment - Leikit Phase I",
-      booking: "BK-6789",
-      period: "Nov 19: Nov 22 (4 days)",
-      calculation_type: "Percentage",
-      calculation_detail: "10%",
-      amount_detail: "N100,000 x 10%",
-      amount: "N9,950",
-      gross: "N80,000",
-      fee: "N50",
-      bank: "GT Bank",
-      account_number: "---6789",
-      date: "Nov 20, 2025",
-      submitted_date: "Submitted Nov 20, 2025",
-      status: "Approved",
-      receipt: {
-        file_name: "payment_receipt_6789.pdf",
-        file_size: "2.4 MB",
-        uploaded_date: "Nov 21, 2025, 14:30",
-        uploaded_by: "Sarah Wilson",
-        transaction_id: "TXN-6789ABC",
-        payment_date: "Nov 21, 2025"
-      }
-    },
-    {
-      id: 2,
-      agent: "Jane Smith",
-      property: "Studio Apartment - Nejq GRA",
-      booking: "BK-9921",
-      period: "Nov 19: Nov 22 (4 days)",
-      calculation_type: "Markup",
-      calculation_detail: "(N8,000/day)",
-      amount_detail: "N5,000 x 4 days",
-      amount: "N19,950",
-      gross: "N20,000",
-      fee: "N50",
-      bank: "Access Bank",
-      account_number: "---1234",
-      date: "Nov 21, 2025",
-      submitted_date: "Submitted Nov 21, 2025",
-      status: "Approved",
-      receipt: {
-        file_name: "receipt_9921.png",
-        file_size: "1.8 MB",
-        uploaded_date: "Nov 22, 2025, 09:15",
-        uploaded_by: "Mike Johnson",
-        transaction_id: "TXN-9921XYZ",
-        payment_date: "Nov 22, 2025"
-      }
-    },
-    {
-      id: 3,
-      agent: "John Doe",
-      property: "Executive 388 – Victoria Island",
-      booking: "BK-6789",
-      period: "Nov 19: Nov 14 (4 days)",
-      calculation_type: "Percentage",
-      calculation_detail: "6%",
-      amount_detail: "N180,000 x 8%",
-      amount: "N11,950",
-      gross: "N12,000",
-      fee: "N50",
-      bank: "First Bank",
-      account_number: "---5678",
-      date: "Nov 19, 2025",
-      submitted_date: "Submitted Nov 19, 2025",
-      status: "Rejected",
-      rejection_reason: "Insufficient documentation provided for verification."
-    },
-  ];
+  // Use the wallet store
+  const { 
+    payouts, 
+    isLoading, 
+    error, 
+    getAllPayouts,
+    clearError 
+  } = useWalletStore();
+
+  // Fetch payouts on component mount
+  useEffect(() => {
+    getAllPayouts();
+  }, [getAllPayouts]);
+
+  // Transform payout data to table format
+  const transformPayoutToRowData = (payout: any) => {
+    const transaction = payout.transaction || {};
+    const agent = payout.agent || {};
+    
+    // Calculate amount details
+    const grossAmount = transaction.amount || 0;
+    const agentPercentage = transaction.agentPercentage || 0;
+    const agentAmount = grossAmount * (agentPercentage / 100);
+    const fee = grossAmount - agentAmount;
+
+    // Format calculation details
+    const calculationType = "Percentage";
+    const calculationDetail = `${agentPercentage}%`;
+    const amountDetail = `₦${grossAmount.toLocaleString()} x ${agentPercentage}%`;
+
+    // Format period (you might want to get this from booking dates)
+    const period = "Nov 19: Nov 22 (4 days)"; // Placeholder
+
+    // Format dates
+    const createdDate = new Date(payout.createdAt).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    const updatedDate = new Date(payout.updatedAt).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+
+    // Map status
+    const statusMap: Record<PayoutStatus, string> = {
+      [PayoutStatus.PENDING]: 'Pending',
+      [PayoutStatus.SUCCESS]: 'Approved',
+      [PayoutStatus.FAILED]: 'Rejected',
+      [PayoutStatus.CANCELLED]: 'Rejected'
+    };
+
+    // Ensure proper typing when indexing the map
+    const statusKey = payout.status as PayoutStatus;
+    const resolvedStatus = statusMap[statusKey] ?? 'Pending';
+
+    // Get file name from proof URL
+    const getFileNameFromUrl = (url: string) => {
+      if (!url) return null;
+      const parts = url.split('/');
+      return parts[parts.length - 1] || `receipt_${payout.id}`;
+    };
+
+    // Get file type from URL
+    const getFileTypeFromUrl = (url: string) => {
+      if (!url) return 'unknown';
+      const extension = url.split('.').pop()?.toLowerCase();
+      return extension || 'file';
+    };
+
+    // Create receipt data if proof exists
+    const receipt = payout.proof ? {
+      file_name: getFileNameFromUrl(payout.proof),
+      file_type: getFileTypeFromUrl(payout.proof),
+      file_url: payout.proof,
+      file_size: "2.4 MB", // You might want to get actual file size from backend
+      uploaded_date: new Date(payout.updatedAt).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      uploaded_by: "Admin", // You might want to get actual uploader
+      transaction_id: `TXN-${payout.id.slice(-8).toUpperCase()}`,
+      payment_date: new Date(payout.updatedAt).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    } : null;
+
+    return {
+      id: payout.id,
+      agent: agent.name || 'Unknown Agent',
+      property: transaction.apartment?.name || 'Unknown Property',
+      booking: `BK-${payout.id.slice(-4).toUpperCase()}`,
+      period,
+      calculation_type: calculationType,
+      calculation_detail: calculationDetail,
+      amount_detail: amountDetail,
+      amount: `₦${agentAmount.toLocaleString()}`,
+      gross: `₦${grossAmount.toLocaleString()}`,
+      fee: `₦${fee.toLocaleString()}`,
+      bank: "GT Bank", // You might want to get this from agent profile
+      account_number: "---" + payout.id.slice(-4),
+      date: createdDate,
+      submitted_date: `Submitted ${updatedDate}`,
+      status: resolvedStatus,
+      originalStatus: payout.status, // Store original status for filtering
+      originalPayout: payout, // Store original payout data for modal
+      receipt: receipt,
+      // For approved payouts, show remark; for rejected, show reason
+      admin_notes: payout.status === PayoutStatus.SUCCESS ? payout.remark : 
+                   payout.status === PayoutStatus.CANCELLED ? payout.reason : 
+                   null,
+      rejection_reason: payout.status === PayoutStatus.CANCELLED ? payout.reason : null
+    };
+  };
+
+  const data = payouts.map(transformPayoutToRowData);
+
+  // Apply both status filter and search filter
+  useEffect(() => {
+    let result = data;
+
+    // Apply status filter
+    if (statusFilter !== 'ALL') {
+      result = result.filter(row => row.originalStatus === statusFilter);
+    }
+
+    // Apply search filter
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase();
+      result = result.filter(row => 
+        row.agent.toLowerCase().includes(searchLower) ||
+        row.property.toLowerCase().includes(searchLower) ||
+        row.booking.toLowerCase().includes(searchLower) ||
+        row.amount.toLowerCase().includes(searchLower) ||
+        row.bank.toLowerCase().includes(searchLower) ||
+        row.status.toLowerCase().includes(searchLower) ||
+        row.account_number.toLowerCase().includes(searchLower)
+      );
+    }
+
+    setFilteredData(result);
+  }, [payouts, statusFilter, searchText]);
 
   const handleViewClick = (rowData: any) => {
     setSelectedPayout(rowData);
@@ -95,15 +176,110 @@ const PayoutTable = () => {
     setSelectedPayout(null);
   };
 
-  const handleDownloadReceipt = () => {
-    // Handle receipt download logic
-    console.log("Downloading receipt:", selectedPayout?.receipt?.file_name);
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchText(event.target.value);
+  };
+
+  const clearSearch = () => {
+    setSearchText('');
+  };
+
+  const handleDownloadReceipt = async () => {
+    if (selectedPayout?.receipt?.file_url) {
+      try {
+        const response = await fetch(selectedPayout.receipt.file_url);
+        const blob = await response.blob();
+        
+        // Create a download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = selectedPayout.receipt.file_name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        console.log("Downloaded receipt:", selectedPayout.receipt.file_name);
+      } catch (error) {
+        console.error("Error downloading receipt:", error);
+        // Fallback: open in new tab if download fails
+        window.open(selectedPayout.receipt.file_url, '_blank');
+      }
+    }
   };
 
   const handleViewReceipt = () => {
-    // Handle view receipt logic
-    console.log("Viewing receipt:", selectedPayout?.receipt?.file_name);
+    if (selectedPayout?.receipt?.file_url) {
+      // Open the receipt in a new tab
+      window.open(selectedPayout.receipt.file_url, '_blank');
+    }
   };
+
+  // Generate PDF report for payout
+  const generatePDFReport = () => {
+    if (!selectedPayout) return;
+
+    const pdfContent = `
+      PAYOUT REPORT
+      =============
+      
+      Agent: ${selectedPayout.agent}
+      Property: ${selectedPayout.property}
+      Booking ID: ${selectedPayout.booking}
+      Period: ${selectedPayout.period}
+      
+      CALCULATION DETAILS:
+      -------------------
+      Type: ${selectedPayout.calculation_type}
+      Detail: ${selectedPayout.calculation_detail}
+      Formula: ${selectedPayout.amount_detail}
+      
+      AMOUNT BREAKDOWN:
+      -----------------
+      Agent Amount: ${selectedPayout.amount}
+      Gross Amount: ${selectedPayout.gross}
+      Platform Fee: ${selectedPayout.fee}
+      
+      BANK DETAILS:
+      -------------
+      Bank: ${selectedPayout.bank}
+      Account: ${selectedPayout.account_number}
+      
+      DATES:
+      ------
+      Created: ${selectedPayout.date}
+      ${selectedPayout.submitted_date}
+      
+      STATUS: ${selectedPayout.status}
+      
+      ${selectedPayout.admin_notes ? `ADMIN NOTES:\n${selectedPayout.admin_notes}` : ''}
+      ${selectedPayout.rejection_reason ? `REJECTION REASON:\n${selectedPayout.rejection_reason}` : ''}
+      
+      ${selectedPayout.receipt ? `RECEIPT:\nFile: ${selectedPayout.receipt.file_name}\nTransaction ID: ${selectedPayout.receipt.transaction_id}` : ''}
+      
+      Generated on: ${new Date().toLocaleString()}
+    `;
+
+    const blob = new Blob([pdfContent], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `payout_report_${selectedPayout.booking}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Status filter options
+  const statusFilterOptions = [
+    { value: 'ALL' as const, label: 'All Status', count: data.length },
+    { value: PayoutStatus.PENDING, label: 'Pending', count: data.filter(row => row.originalStatus === PayoutStatus.PENDING).length },
+    { value: PayoutStatus.SUCCESS, label: 'Approved', count: data.filter(row => row.originalStatus === PayoutStatus.SUCCESS).length },
+    { value: PayoutStatus.FAILED, label: 'Rejected', count: data.filter(row => row.originalStatus === PayoutStatus.FAILED).length },
+    { value: PayoutStatus.CANCELLED, label: 'Cancelled', count: data.filter(row => row.originalStatus === PayoutStatus.CANCELLED).length },
+  ];
 
   const COLUMNS = [
     {
@@ -217,8 +393,82 @@ const PayoutTable = () => {
     },
   });
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-[12px] shadow-sm border border-[#E8E9ED] p-6 flex items-center justify-center">
+        <div className="text-gray-600">Loading payouts...</div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="bg-white rounded-[12px] shadow-sm border border-[#E8E9ED] p-6">
+        <div className="text-red-600 mb-4">Error: {error}</div>
+        <button 
+          onClick={getAllPayouts}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div>
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="text-red-700 text-sm">{error}</div>
+          <button 
+            onClick={clearError}
+            className="mt-2 text-red-600 hover:text-red-800 text-sm"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Status Filter Panel */}
+      {showStatusFilter && (
+        <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <MdFilterList className="w-5 h-5 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {statusFilterOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setStatusFilter(option.value)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  statusFilter === option.value
+                    ? option.value === 'ALL' 
+                      ? 'bg-blue-600 text-white'
+                      : option.value === PayoutStatus.PENDING
+                      ? 'bg-yellow-600 text-white'
+                      : option.value === PayoutStatus.SUCCESS
+                      ? 'bg-green-600 text-white'
+                      : 'bg-red-600 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {option.label} 
+                <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
+                  statusFilter === option.value 
+                    ? 'bg-white bg-opacity-20' 
+                    : 'bg-gray-100'
+                }`}>
+                  {option.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     
       {/* Table Section */}
       <div className="bg-white rounded-[12px] shadow-sm border border-[#E8E9ED]">
@@ -232,9 +482,67 @@ const PayoutTable = () => {
             <MaterialTable
               components={{
                 Container: (props) => <Paper {...props} elevation={0} />,
+                Toolbar: (props) => (
+                  <div className="flex flex-col">
+                    <div className="flex items-center justify-between p-4">
+                      {/* Custom Search Field */}
+                      <div className="relative flex-1 max-w-md">
+                        <div className="relative">
+                          <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                          <input
+                            type="text"
+                            placeholder="Search payouts..."
+                            value={searchText}
+                            onChange={handleSearchChange}
+                            className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                          />
+                          {searchText && (
+                            <button
+                              onClick={clearSearch}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              <MdClose className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                        {searchText && (
+                          <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 mt-1 p-2">
+                            <div className="text-sm text-gray-600">
+                              Searching for: "<span className="font-medium">{searchText}</span>"
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Found {filteredData.length} results
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Filter Button */}
+                      <button
+                        onClick={() => setShowStatusFilter(!showStatusFilter)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          showStatusFilter || statusFilter !== 'ALL'
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        <MdFilterList className="w-4 h-4" />
+                        Filter
+                        {(statusFilter !== 'ALL' || searchText) && (
+                          <span className="ml-1 px-1.5 py-0.5 bg-white bg-opacity-20 rounded-full text-xs">
+                            {filteredData.length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                    {props.components?.Actions && (
+                      <props.components.Actions {...props} />
+                    )}
+                  </div>
+                ),
               }}
               columns={COLUMNS}
-              data={data}
+              data={filteredData} // Use filtered data instead of all data
               title=""
               options={{
                 paging: !["dashboard", "home"].every((ai) =>
@@ -242,7 +550,7 @@ const PayoutTable = () => {
                 )
                   ? true
                   : false,
-                search: true,
+                search: false, // Disable default search since we have custom search
                 rowStyle: {
                   color: "#002221",
                   backgroundColor: "transparent",
@@ -263,16 +571,6 @@ const PayoutTable = () => {
                   letterSpacing: "0.05em",
                   textAlign: "left",
                 },
-                searchFieldStyle: {
-                  border: "0px",
-                  borderRadius: "8px",
-                  borderBottom: "1px solid #E8E9ED",
-                  width: "250px",
-                  height: "40px",
-                  backgroundColor: "transparent",
-                  marginBottom: "16px",
-                },
-                searchFieldVariant: "outlined",
                 actionsColumnIndex: -1,
                 actionsCellStyle: {
                   border: "0",
@@ -281,6 +579,9 @@ const PayoutTable = () => {
                 minBodyHeight: "400px",
                 pageSize: 5,
                 pageSizeOptions: [5, 10, 20],
+                showTitle: false,
+                searchAutoFocus: false,
+                toolbarButtonAlignment: "left",
               }}
             />
           </div>
@@ -302,7 +603,7 @@ const PayoutTable = () => {
         <Box
           sx={{
             position: 'relative',
-            width: '500px',
+            width: '600px',
             maxHeight: '95vh',
             bgcolor: 'background.paper',
             borderRadius: '12px',
@@ -389,8 +690,22 @@ const PayoutTable = () => {
                   </div>
                 </div>
 
-                {/* Uploaded Receipt Section */}
-                {selectedPayout.receipt && (
+                {/* Admin Notes for Approved Payouts */}
+                {selectedPayout.status === "Approved" && selectedPayout.admin_notes && (
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h3 className="font-semibold text-blue-800 mb-3 text-lg">Approval Notes</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-blue-800 bg-blue-25 p-3 rounded border border-blue-200">
+                          {selectedPayout.admin_notes}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Uploaded Receipt Section - Only show for approved payouts with proof */}
+                {selectedPayout.status === "Approved" && selectedPayout.receipt && (
                   <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                     <h3 className="font-semibold text-green-800 mb-4 text-lg">Uploaded Receipt</h3>
                     <div className="space-y-4">
@@ -402,7 +717,9 @@ const PayoutTable = () => {
                           </svg>
                         </div>
                         <p className="font-medium text-green-800 mb-2">{selectedPayout.receipt.file_name}</p>
-                        <p className="text-sm text-green-600 mb-4">{selectedPayout.receipt.file_size}</p>
+                        <p className="text-sm text-green-600 mb-4">
+                          {selectedPayout.receipt.file_type.toUpperCase()} • {selectedPayout.receipt.file_size}
+                        </p>
                         
                         {/* Receipt Details */}
                         <div className="grid grid-cols-2 gap-4 text-left mb-4">
@@ -445,7 +762,7 @@ const PayoutTable = () => {
                 )}
 
                 {/* Rejected Payout - Show Rejection Reason */}
-                {selectedPayout.status === "Rejected" && (
+                {selectedPayout.status === "Rejected" && selectedPayout.rejection_reason && (
                   <div className="bg-red-50 rounded-lg p-4 border border-red-200">
                     <h3 className="font-semibold text-red-800 mb-3 text-lg">Rejection Details</h3>
                     <div className="space-y-3">
@@ -458,18 +775,37 @@ const PayoutTable = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Pending Payout - No additional actions */}
+                {selectedPayout.status === "Pending" && (
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h3 className="font-semibold text-blue-800 mb-3 text-lg">Pending Approval</h3>
+                    <p className="text-blue-700">
+                      This payout request is currently pending approval. Once approved or rejected, 
+                      additional details will be available here.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           {/* Modal Footer */}
-          <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
             <Button
-              onClick={handleCloseModal}
-              className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              onClick={generatePDFReport}
+              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
             >
-              Close
+              Download PDF Report
             </Button>
+            <div className="flex space-x-3">
+              <Button
+                onClick={handleCloseModal}
+                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </Box>
       </Modal>
