@@ -61,6 +61,8 @@ interface WalletActions {
   clearPayouts: () => void;
 }
 
+
+
 const initialState: WalletState = {
   payouts: [],
   isLoading: false,

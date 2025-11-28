@@ -79,7 +79,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
         address: property.address || "",
         type: safeType,
         servicing: property.servicing || "",
-        bedroom: property.bedroom || "",
+        bedroom: property.bedroom?.toString() || "",
         price: property.price ? property.price.toString() : "",
         agentPercentage: property.agentPercentage ? property.agentPercentage.toString() : "",
         amenities: Array.isArray(property.amenities)
@@ -204,13 +204,14 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async () => {
+ const handleSubmit = async () => {
   if (!validateForm()) return;
 
   try {
     setIsSubmitting(true);
     setSubmitError("");
 
+    // Format data exactly like create property
     const updateData: any = {
       name: formData.name.trim(),
       address: formData.address.trim(),
@@ -221,44 +222,101 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       agentPercentage: parseFloat(formData.agentPercentage),
     };
 
-    // Handle amenities
+    // Handle amenities - convert to JSON string like in create
     if (formData.amenities.trim()) {
       const amenitiesArray = formData.amenities
         .split(",")
         .map((a) => a.trim())
         .filter((a) => a);
-      updateData.amenities = amenitiesArray.join(",");
+      updateData.amenities = JSON.stringify(amenitiesArray);
+    } else {
+      updateData.amenities = JSON.stringify([]);
+    }
+
+    // Add images to delete if any
+    if (imagesToDelete.length > 0) {
+      updateData.imagesToDelete = imagesToDelete;
     }
 
     console.log('📦 Calling updateApartment with:', {
       updateData,
       imagesCount: images.length,
+      existingImagesCount: existingImages.length,
       imagesToDeleteCount: imagesToDelete.length,
-      deleteExistingImages: imagesToDelete.length > 0 || images.length > 0
+      imagesToDelete: imagesToDelete
     });
 
-    // Determine if we should delete existing images
-    const shouldDeleteExistingImages = imagesToDelete.length > 0 || images.length > 0;
+    // Check if there are any changes
+    const hasChanges = 
+      formData.name !== property?.name ||
+      formData.address !== property?.address ||
+      formData.type !== property?.type ||
+      formData.servicing !== property?.servicing ||
+      formData.bedroom !== property?.bedroom?.toString() ||
+      parseFloat(formData.price) !== property?.price ||
+      parseFloat(formData.agentPercentage) !== property?.agentPercentage ||
+      formData.amenities !== (Array.isArray(property?.amenities) ? property.amenities.join(", ") : property?.amenities);
+
+    const hasImageChanges = images.length > 0 || imagesToDelete.length > 0;
+
+    if (!hasChanges && !hasImageChanges) {
+      setSubmitError("No changes detected");
+      setIsSubmitting(false);
+      return;
+    }
 
     if (property?.id) {
+      console.log('🔄 Final update data:', updateData);
+
+      // Call updateApartment with images to delete
       const result = await updateApartment(
         property.id,
         updateData,
-        images.length > 0 ? images : undefined,
-        shouldDeleteExistingImages // This should be boolean: true or false
+        images.length > 0 ? images : undefined
       );
 
       console.log('✅ Update result:', result);
       
-      if (onSave && result.data) {
+      if (result && result.data) {
         await onSave(result.data);
+      } else if (result) {
+        await onSave(result);
+      } else {
+        throw new Error("No response data received from server");
       }
 
+      console.log('✅ Property updated successfully');
       handleClose();
     }
   } catch (error: any) {
     console.error('❌ Update failed:', error);
-    setSubmitError(error.message || "Failed to update property");
+    
+    let errorMessage = "Failed to update property";
+    
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    // Handle specific error cases
+    if (errorMessage.includes('Unexpected field')) {
+      errorMessage = "File upload error: Please check the field names";
+    } else if (errorMessage.includes('File upload error')) {
+      errorMessage = "Image upload failed: " + errorMessage;
+    } else if (error.response?.status === 400) {
+      errorMessage = "Bad request: " + (error.response.data.message || "Please check your input data");
+    } else if (error.response?.status === 401) {
+      errorMessage = "Authentication failed. Please log in again.";
+    } else if (error.response?.status === 403) {
+      errorMessage = "You don't have permission to update this property";
+    } else if (error.response?.status === 404) {
+      errorMessage = "Property not found";
+    } else if (error.response?.status === 500) {
+      errorMessage = "Server error. Please try again later.";
+    }
+
+    setSubmitError(errorMessage);
   } finally {
     setIsSubmitting(false);
   }
@@ -266,8 +324,6 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
 
   const handleClose = () => {
     console.log('🔒 Closing modal and cleaning up...');
-    
-    // Clean up object URLs to prevent memory leaks
     imagePreviews.forEach(url => URL.revokeObjectURL(url));
     
     setFormData({

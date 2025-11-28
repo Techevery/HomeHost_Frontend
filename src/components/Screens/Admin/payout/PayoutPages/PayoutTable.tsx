@@ -4,7 +4,15 @@ import { ThemeProvider, createTheme } from "@mui/material";
 import MaterialTable, { MTableToolbar } from "material-table";
 import { useLocation } from "react-router-dom";
 import { MdFilterList, MdSearch, MdClose } from 'react-icons/md';
-import useWalletStore, { PayoutStatus } from '../../../../../stores/payoutStore';
+import useAdminStore from '../../../../../stores/admin';
+
+// Define payout status enum locally since we're not using the wallet store
+enum PayoutStatus {
+  PENDING = 'PENDING',
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED'
+}
 
 const PayoutTable = () => {
   const url = useLocation();
@@ -17,35 +25,81 @@ const PayoutTable = () => {
   const [showStatusFilter, setShowStatusFilter] = useState(false);
   const [searchText, setSearchText] = useState('');
 
-  // Use the wallet store
+  // Use the admin store
   const { 
-    payouts, 
+      getPayoutRequests,
     isLoading, 
     error, 
-    getAllPayouts,
     clearError 
-  } = useWalletStore();
+  } = useAdminStore();
+
+  // State for payouts data
+  const [payouts, setPayouts] = useState<any[]>([]);
 
   // Fetch payouts on component mount
   useEffect(() => {
-    getAllPayouts();
-  }, [getAllPayouts]);
+    fetchPayouts();
+  }, []);
 
-  // Transform payout data to table format
+  const fetchPayouts = async () => {
+    try {
+      const response = await  getPayoutRequests();
+      // Handle different response structures
+      if (response.data) {
+        setPayouts(response.data);
+      } else if (Array.isArray(response)) {
+        setPayouts(response);
+      } else if (response.payouts) {
+        setPayouts(response.payouts);
+      } else {
+        setPayouts([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch payouts:", err);
+      setPayouts([]);
+    }
+  };
+
+  // Transform payout data to table format based on actual API response
   const transformPayoutToRowData = (payout: any) => {
     const transaction = payout.transaction || {};
     const agent = payout.agent || {};
+    const apartment = transaction.apartment || {};
     
     // Calculate amount details
-    const grossAmount = transaction.amount || 0;
+    const grossAmount = transaction.amount || payout.amount || 0;
     const agentPercentage = transaction.agentPercentage || 0;
-    const agentAmount = grossAmount * (agentPercentage / 100);
-    const fee = grossAmount - agentAmount;
+    const mockupPrice = transaction.mockupPrice || 0;
+    
+    let agentAmount = 0;
+    let calculationType = "";
+    let calculationDetail = "";
+    let amountDetail = "";
+    let fee = 0;
 
-    // Format calculation details
-    const calculationType = "Percentage";
-    const calculationDetail = `${agentPercentage}%`;
-    const amountDetail = `₦${grossAmount.toLocaleString()} x ${agentPercentage}%`;
+    // Determine calculation type and calculate accordingly
+    if (mockupPrice > 0) {
+      // Calculate based on markup (fixed amount)
+      calculationType = "Markup";
+      calculationDetail = `₦${mockupPrice.toLocaleString()}`;
+      agentAmount = mockupPrice;
+      amountDetail = `Fixed markup: ₦${mockupPrice.toLocaleString()}`;
+      fee = agentAmount;
+    } else if (agentPercentage > 0) {
+      // Calculate based on percentage
+      calculationType = "Percentage";
+      calculationDetail = `${agentPercentage}%`;
+      agentAmount = grossAmount * (agentPercentage / 100);
+      amountDetail = `₦${grossAmount.toLocaleString()} x ${agentPercentage}%`;
+      fee = agentAmount;
+    } else {
+      // Default case - use percentage calculation as fallback
+      calculationType = "Percentage";
+      calculationDetail = `${agentPercentage}%`;
+      agentAmount = grossAmount * (agentPercentage / 100);
+      amountDetail = `₦${grossAmount.toLocaleString()} x ${agentPercentage}%`;
+      fee = agentAmount;
+    }
 
     // Format period (you might want to get this from booking dates)
     const period = "Nov 19: Nov 22 (4 days)"; // Placeholder
@@ -56,23 +110,22 @@ const PayoutTable = () => {
       day: 'numeric',
       year: 'numeric'
     });
-    const updatedDate = new Date(payout.updatedAt).toLocaleDateString('en-US', {
+    const updatedDate = new Date(payout.createdAt).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
     });
 
-    // Map status
-    const statusMap: Record<PayoutStatus, string> = {
-      [PayoutStatus.PENDING]: 'Pending',
-      [PayoutStatus.SUCCESS]: 'Approved',
-      [PayoutStatus.FAILED]: 'Rejected',
-      [PayoutStatus.CANCELLED]: 'Rejected'
+    // Map status from API to display status
+    const statusMap: Record<string, string> = {
+      'success': 'Approved',
+      'pending': 'Pending',
+      'failed': 'Rejected',
+      'cancelled': 'Rejected'
     };
 
-    // Ensure proper typing when indexing the map
-    const statusKey = payout.status as PayoutStatus;
-    const resolvedStatus = statusMap[statusKey] ?? 'Pending';
+    const originalStatus = payout.status?.toLowerCase() || 'pending';
+    const resolvedStatus = statusMap[originalStatus] || 'Pending';
 
     // Get file name from proof URL
     const getFileNameFromUrl = (url: string) => {
@@ -94,16 +147,16 @@ const PayoutTable = () => {
       file_type: getFileTypeFromUrl(payout.proof),
       file_url: payout.proof,
       file_size: "2.4 MB", // You might want to get actual file size from backend
-      uploaded_date: new Date(payout.updatedAt).toLocaleDateString('en-US', {
+      uploaded_date: new Date(payout.createdAt).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
       }),
-      uploaded_by: "Admin", // You might want to get actual uploader
-      transaction_id: `TXN-${payout.id.slice(-8).toUpperCase()}`,
-      payment_date: new Date(payout.updatedAt).toLocaleDateString('en-US', {
+      uploaded_by: "Admin",
+      transaction_id: payout.transactionId || `TXN-${payout.id?.slice(-8)?.toUpperCase() || 'N/A'}`,
+      payment_date: new Date(payout.createdAt).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric'
@@ -112,9 +165,9 @@ const PayoutTable = () => {
 
     return {
       id: payout.id,
-      agent: agent.name || 'Unknown Agent',
-      property: transaction.apartment?.name || 'Unknown Property',
-      booking: `BK-${payout.id.slice(-4).toUpperCase()}`,
+      agent: agent.name || payout.accountName || 'Unknown Agent',
+      property: apartment.name || 'Unknown Property',
+      booking: payout.reference || `BK-${payout.id?.slice(-4)?.toUpperCase() || 'N/A'}`,
       period,
       calculation_type: calculationType,
       calculation_detail: calculationDetail,
@@ -122,19 +175,24 @@ const PayoutTable = () => {
       amount: `₦${agentAmount.toLocaleString()}`,
       gross: `₦${grossAmount.toLocaleString()}`,
       fee: `₦${fee.toLocaleString()}`,
-      bank: "GT Bank", // You might want to get this from agent profile
-      account_number: "---" + payout.id.slice(-4),
+      bank: payout.bankName || "Unknown Bank",
+      account_number: payout.accountNumber || "---",
       date: createdDate,
       submitted_date: `Submitted ${updatedDate}`,
       status: resolvedStatus,
       originalStatus: payout.status, // Store original status for filtering
       originalPayout: payout, // Store original payout data for modal
       receipt: receipt,
-      // For approved payouts, show remark; for rejected, show reason
-      admin_notes: payout.status === PayoutStatus.SUCCESS ? payout.remark : 
-                   payout.status === PayoutStatus.CANCELLED ? payout.reason : 
-                   null,
-      rejection_reason: payout.status === PayoutStatus.CANCELLED ? payout.reason : null
+      // For approved payouts, show remark; for rejected, show reason/remark
+      admin_notes: payout.status?.toLowerCase() === 'success' ? payout.remark : null,
+      rejection_reason: (payout.status?.toLowerCase() === 'failed' || payout.status?.toLowerCase() === 'cancelled') ? 
+                       (payout.reason || payout.remark) : null,
+      // Store additional data for modal
+      account_name: payout.accountName,
+      reference: payout.reference,
+      proof: payout.proof,
+      remark: payout.remark,
+      reason: payout.reason
     };
   };
 
@@ -146,7 +204,14 @@ const PayoutTable = () => {
 
     // Apply status filter
     if (statusFilter !== 'ALL') {
-      result = result.filter(row => row.originalStatus === statusFilter);
+      const statusMap: Record<PayoutStatus, string> = {
+        [PayoutStatus.PENDING]: 'pending',
+        [PayoutStatus.SUCCESS]: 'success',
+        [PayoutStatus.FAILED]: 'failed',
+        [PayoutStatus.CANCELLED]: 'cancelled'
+      };
+      const targetStatus = statusMap[statusFilter];
+      result = result.filter(row => row.originalPayout.status?.toLowerCase() === targetStatus);
     }
 
     // Apply search filter
@@ -245,6 +310,7 @@ const PayoutTable = () => {
       -------------
       Bank: ${selectedPayout.bank}
       Account: ${selectedPayout.account_number}
+      Account Name: ${selectedPayout.account_name}
       
       DATES:
       ------
@@ -275,10 +341,10 @@ const PayoutTable = () => {
   // Status filter options
   const statusFilterOptions = [
     { value: 'ALL' as const, label: 'All Status', count: data.length },
-    { value: PayoutStatus.PENDING, label: 'Pending', count: data.filter(row => row.originalStatus === PayoutStatus.PENDING).length },
-    { value: PayoutStatus.SUCCESS, label: 'Approved', count: data.filter(row => row.originalStatus === PayoutStatus.SUCCESS).length },
-    { value: PayoutStatus.FAILED, label: 'Rejected', count: data.filter(row => row.originalStatus === PayoutStatus.FAILED).length },
-    { value: PayoutStatus.CANCELLED, label: 'Cancelled', count: data.filter(row => row.originalStatus === PayoutStatus.CANCELLED).length },
+    { value: PayoutStatus.PENDING, label: 'Pending', count: data.filter(row => row.originalPayout.status?.toLowerCase() === 'pending').length },
+    { value: PayoutStatus.SUCCESS, label: 'Approved', count: data.filter(row => row.originalPayout.status?.toLowerCase() === 'success').length },
+    { value: PayoutStatus.FAILED, label: 'Rejected', count: data.filter(row => row.originalPayout.status?.toLowerCase() === 'failed').length },
+    { value: PayoutStatus.CANCELLED, label: 'Cancelled', count: data.filter(row => row.originalPayout.status?.toLowerCase() === 'cancelled').length },
   ];
 
   const COLUMNS = [
@@ -408,7 +474,7 @@ const PayoutTable = () => {
       <div className="bg-white rounded-[12px] shadow-sm border border-[#E8E9ED] p-6">
         <div className="text-red-600 mb-4">Error: {error}</div>
         <button 
-          onClick={getAllPayouts}
+          onClick={fetchPayouts}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           Retry
@@ -542,7 +608,7 @@ const PayoutTable = () => {
                 ),
               }}
               columns={COLUMNS}
-              data={filteredData} // Use filtered data instead of all data
+              data={filteredData}
               title=""
               options={{
                 paging: !["dashboard", "home"].every((ai) =>
@@ -550,7 +616,7 @@ const PayoutTable = () => {
                 )
                   ? true
                   : false,
-                search: false, // Disable default search since we have custom search
+                search: false,
                 rowStyle: {
                   color: "#002221",
                   backgroundColor: "transparent",
@@ -588,204 +654,298 @@ const PayoutTable = () => {
         </ThemeProvider>
       </div>
 
-      {/* View Modal - Showing Uploaded Receipt */}
+      {/* View Modal - Single Consolidated Box with Uploaded Files Section */}
       <Modal
         open={modalOpen}
         onClose={handleCloseModal}
         aria-labelledby="view-payout-modal"
         style={{ 
           display: 'flex', 
-          alignItems: 'flex-start', 
-          justifyContent: 'flex-end',
-          marginTop: '20px'
+          alignItems: 'center', 
+          justifyContent: 'center',
         }}
       >
         <Box
           sx={{
             position: 'relative',
-            width: '600px',
-            maxHeight: '95vh',
+            width: '800px',
+            maxHeight: '90vh',
             bgcolor: 'background.paper',
             borderRadius: '12px',
             boxShadow: 24,
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
-            marginRight: '40px',
-            marginTop: '20px'
           }}
         >
           {/* Modal Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
-            <div>
-              <h2 className="text-xl font-bold text-[#002221]">
-                Payout Details
-              </h2>
-              <p className="text-sm text-[#958F8F] mt-1">
-                {selectedPayout?.agent} - {selectedPayout?.booking}
-              </p>
+            <div className="flex items-center space-x-4">
+              <div className={`w-3 h-12 rounded-full ${
+                selectedPayout?.status === "Approved" ? "bg-green-500" :
+                selectedPayout?.status === "Rejected" ? "bg-red-500" :
+                "bg-blue-500"
+              }`}></div>
+              <div>
+                <h2 className="text-2xl font-bold text-[#002221]">
+                  Payout Details
+                </h2>
+                <p className="text-sm text-[#958F8F] mt-1">
+                  {selectedPayout?.booking} • {selectedPayout?.date}
+                </p>
+              </div>
             </div>
-            <IconButton
-              onClick={handleCloseModal}
-              className="text-gray-400 hover:text-gray-600"
-              size="small"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </IconButton>
+            <div className="flex items-center space-x-3">
+              <div className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                selectedPayout?.status === "Approved" ? "bg-green-100 text-green-800" :
+                selectedPayout?.status === "Rejected" ? "bg-red-100 text-red-800" :
+                "bg-blue-100 text-blue-800"
+              }`}>
+                {selectedPayout?.status}
+              </div>
+              <IconButton
+                onClick={handleCloseModal}
+                className="text-gray-400 hover:text-gray-600"
+                size="small"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </IconButton>
+            </div>
           </div>
 
-          {/* Scrollable Content - Payment Information and Uploaded Receipt */}
-          <div className="flex-1 overflow-y-auto p-6" style={{ maxHeight: 'calc(95vh - 140px)' }}>
+          {/* Single Consolidated Content Box */}
+          <div className="flex-1 overflow-y-auto p-6 bg-gray-50" style={{ maxHeight: 'calc(90vh - 140px)' }}>
             {selectedPayout && (
-              <div className="space-y-6">
-                {/* Payment Information */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-[#002221] mb-4 text-lg">Payment Information</h3>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="space-y-6">
+                  {/* Main Information Grid */}
+                  <div className="grid grid-cols-2 gap-8">
+                    {/* Left Column */}
+                    <div className="space-y-6">
+                      {/* Agent & Property Information */}
                       <div>
-                        <label className="text-sm text-[#958F8F] block">Agent</label>
-                        <p className="font-medium text-[#002221]">{selectedPayout.agent}</p>
+                        <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
+                          <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          Agent & Property
+                        </h3>
+                        <div className="space-y-3">
+                          <div className="flex justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-[#958F8F]">Agent:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.agent}</span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-[#958F8F]">Property:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.property}</span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-[#958F8F]">Booking Period:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.period}</span>
+                          </div>
+                        </div>
                       </div>
+
+                      {/* Bank Details */}
                       <div>
-                        <label className="text-sm text-[#958F8F] block">Booking</label>
-                        <p className="font-medium text-[#002221]">{selectedPayout.booking}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm text-[#958F8F] block">Amount</label>
-                        <p className="font-medium text-[#002221] text-lg">{selectedPayout.amount}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-[#958F8F] block">Status</label>
-                        <div className={`px-3 py-1 rounded-md text-sm font-medium w-fit ${
-                          selectedPayout.status === "Approved" 
-                            ? "bg-[#4EC368] text-white" 
-                            : selectedPayout.status === "Rejected"
-                            ? "bg-[#DC2626] text-white"
-                            : "bg-[#4977E7] text-white"
-                        }`}>
-                          {selectedPayout.status}
+                        <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
+                          <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                          </svg>
+                          Bank Details
+                        </h3>
+                        <div className="space-y-3">
+                          <div className="flex justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-[#958F8F]">Bank:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.bank}</span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-[#958F8F]">Account Number:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.account_number}</span>
+                          </div>
+                          <div className="flex justify-between py-2">
+                            <span className="text-sm text-[#958F8F]">Account Name:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.account_name}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+
+                    {/* Right Column */}
+                    <div className="space-y-6">
+                      {/* Amount Details */}
                       <div>
-                        <label className="text-sm text-[#958F8F] block">Bank</label>
-                        <p className="font-medium text-[#002221]">{selectedPayout.bank}</p>
+                        <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
+                          <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                          </svg>
+                          Amount Details
+                        </h3>
+                        <div className="space-y-3">
+                          <div className="flex justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-[#958F8F]">Agent Amount:</span>
+                            <span className="font-bold text-[#002221] text-lg">{selectedPayout.amount}</span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-[#958F8F]">Gross Amount:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.gross}</span>
+                          </div>
+                          <div className="flex justify-between py-2">
+                            <span className="text-sm text-[#958F8F]">Platform Fee:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.fee}</span>
+                          </div>
+                        </div>
                       </div>
+
+                      {/* Calculation Details */}
                       <div>
-                        <label className="text-sm text-[#958F8F] block">Account</label>
-                        <p className="font-medium text-[#002221]">{selectedPayout.account_number}</p>
+                        <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
+                          <svg className="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                          Calculation
+                        </h3>
+                        <div className="space-y-3">
+                          <div className="flex justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-[#958F8F]">Type:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.calculation_type}</span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-[#958F8F]">Detail:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.calculation_detail}</span>
+                          </div>
+                          <div className="py-2">
+                            <span className="text-sm text-[#958F8F] block mb-2">Formula:</span>
+                            <span className="font-medium text-[#002221] text-sm bg-gray-50 px-3 py-2 rounded border block">{selectedPayout.amount_detail}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <label className="text-sm text-[#958F8F] block">Calculation</label>
-                      <p className="font-medium text-[#002221]">{selectedPayout.calculation_type} - {selectedPayout.calculation_detail}</p>
-                      <p className="text-sm text-[#958F8F]">{selectedPayout.amount_detail}</p>
+                  </div>
+
+                  {/* Uploaded Files Section - Always Visible */}
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
+                      <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Uploaded Files & Receipts
+                    </h3>
+                    
+                    {selectedPayout.receipt ? (
+                      <div className="space-y-4">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                              </div>
+                              <div>
+                                <p className="font-medium text-blue-800">{selectedPayout.receipt.file_name}</p>
+                                <p className="text-sm text-blue-600">
+                                  {selectedPayout.receipt.file_type.toUpperCase()} • {selectedPayout.receipt.file_size}
+                                </p>
+                                <div className="flex space-x-4 mt-1 text-xs text-blue-500">
+                                  <span>Uploaded: {selectedPayout.receipt.uploaded_date}</span>
+                                  <span>By: {selectedPayout.receipt.uploaded_by}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex space-x-2">
+                              <Button
+                                onClick={handleViewReceipt}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                              >
+                                View File
+                              </Button>
+                              <Button
+                                onClick={handleDownloadReceipt}
+                                className="px-4 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50 transition-colors text-sm"
+                              >
+                                Download
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {/* Additional Receipt Information */}
+                          <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-blue-200">
+                            <div>
+                              <label className="text-xs text-blue-600 font-medium block mb-1">Transaction ID:</label>
+                              <p className="text-sm font-medium text-blue-800">{selectedPayout.receipt.transaction_id}</p>
+                            </div>
+                            <div>
+                              <label className="text-xs text-blue-600 font-medium block mb-1">Payment Date:</label>
+                              <p className="text-sm font-medium text-blue-800">{selectedPayout.receipt.payment_date}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                        <svg className="w-12 h-12 text-yellow-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <p className="text-yellow-800 font-medium">No files uploaded</p>
+                        <p className="text-yellow-600 text-sm mt-1">No receipts or supporting documents have been uploaded for this payout.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Status Specific Information */}
+                  {selectedPayout.status === "Approved" && selectedPayout.admin_notes && (
+                    <div className="border-t border-gray-200 pt-6">
+                      <h3 className="font-semibold text-green-800 mb-4 text-lg flex items-center">
+                        <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Approval Details
+                      </h3>
+                      <div className="bg-green-50 p-4 rounded border border-green-200">
+                        <label className="text-sm text-green-600 font-medium block mb-2">Approval Notes:</label>
+                        <p className="text-green-800">{selectedPayout.admin_notes}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedPayout.status === "Rejected" && selectedPayout.rejection_reason && (
+                    <div className="border-t border-gray-200 pt-6">
+                      <h3 className="font-semibold text-red-800 mb-4 text-lg flex items-center">
+                        <svg className="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Rejection Details
+                      </h3>
+                      <div className="bg-red-50 p-4 rounded border border-red-200">
+                        <label className="text-sm text-red-600 font-medium block mb-2">Reason:</label>
+                        <p className="text-red-800">{selectedPayout.rejection_reason}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Timeline Information */}
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
+                      <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Timeline
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between py-2 border-b border-gray-100">
+                        <span className="text-sm text-[#958F8F]">Created Date:</span>
+                        <span className="font-medium text-[#002221]">{selectedPayout.date}</span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span className="text-sm text-[#958F8F]">Last Updated:</span>
+                        <span className="font-medium text-[#002221]">{selectedPayout.submitted_date}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                {/* Admin Notes for Approved Payouts */}
-                {selectedPayout.status === "Approved" && selectedPayout.admin_notes && (
-                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                    <h3 className="font-semibold text-blue-800 mb-3 text-lg">Approval Notes</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-blue-800 bg-blue-25 p-3 rounded border border-blue-200">
-                          {selectedPayout.admin_notes}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Uploaded Receipt Section - Only show for approved payouts with proof */}
-                {selectedPayout.status === "Approved" && selectedPayout.receipt && (
-                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                    <h3 className="font-semibold text-green-800 mb-4 text-lg">Uploaded Receipt</h3>
-                    <div className="space-y-4">
-                      {/* Receipt File Preview */}
-                      <div className="border-2 border-green-300 rounded-lg p-6 text-center bg-white">
-                        <div className="text-green-500 mb-4">
-                          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </div>
-                        <p className="font-medium text-green-800 mb-2">{selectedPayout.receipt.file_name}</p>
-                        <p className="text-sm text-green-600 mb-4">
-                          {selectedPayout.receipt.file_type.toUpperCase()} • {selectedPayout.receipt.file_size}
-                        </p>
-                        
-                        {/* Receipt Details */}
-                        <div className="grid grid-cols-2 gap-4 text-left mb-4">
-                          <div>
-                            <label className="text-xs text-green-600 block">Transaction ID</label>
-                            <p className="text-sm font-medium text-green-800">{selectedPayout.receipt.transaction_id}</p>
-                          </div>
-                          <div>
-                            <label className="text-xs text-green-600 block">Payment Date</label>
-                            <p className="text-sm font-medium text-green-800">{selectedPayout.receipt.payment_date}</p>
-                          </div>
-                          <div>
-                            <label className="text-xs text-green-600 block">Uploaded By</label>
-                            <p className="text-sm font-medium text-green-800">{selectedPayout.receipt.uploaded_by}</p>
-                          </div>
-                          <div>
-                            <label className="text-xs text-green-600 block">Upload Date</label>
-                            <p className="text-sm font-medium text-green-800">{selectedPayout.receipt.uploaded_date}</p>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex space-x-3 justify-center">
-                          <Button
-                            onClick={handleViewReceipt}
-                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                          >
-                            View Receipt
-                          </Button>
-                          <Button
-                            onClick={handleDownloadReceipt}
-                            className="px-4 py-2 border border-green-600 text-green-600 rounded-md hover:bg-green-50 transition-colors"
-                          >
-                            Download
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Rejected Payout - Show Rejection Reason */}
-                {selectedPayout.status === "Rejected" && selectedPayout.rejection_reason && (
-                  <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-                    <h3 className="font-semibold text-red-800 mb-3 text-lg">Rejection Details</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm text-red-600 font-medium block mb-2">Reason for Rejection:</label>
-                        <p className="text-red-800 bg-red-25 p-3 rounded border border-red-200">
-                          {selectedPayout.rejection_reason}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Pending Payout - No additional actions */}
-                {selectedPayout.status === "Pending" && (
-                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                    <h3 className="font-semibold text-blue-800 mb-3 text-lg">Pending Approval</h3>
-                    <p className="text-blue-700">
-                      This payout request is currently pending approval. Once approved or rejected, 
-                      additional details will be available here.
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -794,9 +954,12 @@ const PayoutTable = () => {
           <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
             <Button
               onClick={generatePDFReport}
-              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center space-x-2"
             >
-              Download PDF Report
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Download PDF Report</span>
             </Button>
             <div className="flex space-x-3">
               <Button

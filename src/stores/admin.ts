@@ -44,6 +44,7 @@ interface UpdateApartmentData {
   price?: number;
   amenities?: string;
   agentPercentage?: number;
+  imagesToDelete?: string[]; 
 }
 
 // Offline booking interface
@@ -99,6 +100,9 @@ interface AdminActions {
   getAgentPayouts: (agentId: string) => Promise<any>;
   getAgentProperties: (agentId: string) => Promise<any>;
   getAgentDashboard: (agentId: string) => Promise<any>;
+  // New methods for wallet and payouts
+  getSuccessfulPayouts: (page?: number, pageSize?: number) => Promise<any>;
+  getPayoutRequests: (page?: number, pageSize?: number) => Promise<any>;
 }
 
 const initialState: AdminState = {
@@ -622,11 +626,11 @@ const useAdminStore = create<AdminState & AdminActions>()(
           throw error;
         }
       },
+
 updateApartment: async (
   apartmentId: string,
   updateData: UpdateApartmentData,
   files?: File[],
-  deleteExistingImages?: boolean
 ) => {
   set({ isLoading: true });
   try {
@@ -637,23 +641,32 @@ updateApartment: async (
 
     const formData = new FormData();
     
-    // Type-safe way to append form data - only include provided fields
+    // Append form data
     Object.entries(updateData).forEach(([key, value]) => {
-      if (value !== undefined) {
-        formData.append(key, value.toString());
+      if (value !== undefined && value !== null && value !== '') {
+        // Handle arrays specially (like imagesToDelete)
+        if (Array.isArray(value) && value.length > 0) {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, value.toString());
+        }
       }
     });
     
-    // Append files if any
-    if (files) {
+    // Append new images
+    if (files && files.length > 0) {
       files.forEach(file => {
-        formData.append('files', file);
+        formData.append('images', file);
       });
     }
-    
-    if (deleteExistingImages !== undefined) {
-      formData.append('deleteExistingImages', deleteExistingImages.toString());
-    }
+
+    console.log('🔄 Sending update request with:', {
+      apartmentId,
+      updateData,
+      filesCount: files?.length || 0,
+      imagesToDelete: updateData.imagesToDelete,
+      formDataEntries: Array.from(formData.entries())
+    });
 
     const response = await axios.patch(
       `${API_BASE_URL}/api/v1/admin/update-apartment/${apartmentId}`,
@@ -663,14 +676,23 @@ updateApartment: async (
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data',
         },
+        timeout: 30000,
       },
     );
 
+    console.log('✅ Update response:', response);
     set({ isLoading: false });
     return response.data;
   } catch (error: any) {
+    console.error('❌ Update error details:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    
     const errorMessage =
       error.response?.data?.message ||
+      error.response?.data?.error ||
       error.message ||
       "Failed to update apartment";
 
@@ -885,6 +907,75 @@ updateApartment: async (
             error.response?.data?.message ||
             error.message ||
             "Failed to fetch agent dashboard data";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      // New methods for wallet and payouts
+      getSuccessfulPayouts: async (page = 1, pageSize = 10) => {
+        set({ isLoading: true });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/wallet/successful-payout`,
+            {
+              params: { page, pageSize },
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to fetch successful payouts";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      getPayoutRequests: async (page = 1, pageSize = 10) => {
+        set({ isLoading: true });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/wallet`,
+            {
+              params: { page, pageSize },
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to fetch payout requests";
 
           set({
             error: errorMessage,

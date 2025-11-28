@@ -21,6 +21,7 @@ import Earnings from "./components/pages/profile/earnings/Earnings";
 import EarningsReport from "./components/pages/profile/earnings/EarningsReport";
 import AdminDashboard from "./components/Screens/Admin/AdminDashboard";
 import AdminBooking from "./components/Screens/Admin/adminBooking/AdminBooking";
+import BookingRequest from  "./components/Screens/Admin/adminBooking/BookingRequest";
 import AdminLogin from "./components/Screens/Admin/auth/AdminLogin";
 import Agent from "./components/Screens/Admin/agent/AgentHome";
 import ListOfApartment from "./components/Screens/Admin/listOfAppointment/ListOfApartment";
@@ -93,6 +94,7 @@ function App() {
           />
           <Route path="/dashboard/home" element={<AdminDashboard />} />
           <Route path="booking" element={<AdminBooking />} />
+           <Route path="booking-requests" element={<BookingRequest />} />
           <Route path="agent" element={<AgentHome />} />
           <Route path="payout" element={<Payout />} />
           <Route path="list-of-apartment" element={<ListOfApartment />} />

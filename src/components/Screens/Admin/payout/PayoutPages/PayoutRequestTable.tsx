@@ -17,7 +17,7 @@ interface RowData {
   bank: string;
   date: string;
   status: string;
-  originalStatus: PayoutStatus; // Add original status for filtering
+  originalStatus: PayoutStatus;
 }
 
 const PayoutRequestTable = () => {
@@ -25,6 +25,7 @@ const PayoutRequestTable = () => {
     const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
+    const [approveRemark, setApproveRemark] = useState('');
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
     const [statusFilter, setStatusFilter] = useState<PayoutStatus | 'ALL'>('ALL');
     const [filteredData, setFilteredData] = useState<RowData[]>([]);
@@ -39,6 +40,7 @@ const PayoutRequestTable = () => {
       isProcessingPayout, 
       getAllPayouts, 
       confirmPayout,
+      rejectPayout,
       clearError 
     } = useWalletStore();
 
@@ -51,55 +53,72 @@ const PayoutRequestTable = () => {
       getAllPayouts();
     }, [getAllPayouts]);
 
-    // Transform payout data to RowData format
+    // Transform payout data to RowData format with correct API response mapping
     const transformPayoutToRowData = (payout: any): RowData => {
       const transaction = payout.transaction || {};
       const agent = payout.agent || {};
       
-      // Calculate amount details
-      const grossAmount = transaction.amount || 0;
+      // Use payout amount directly from payout object
+      const payoutAmount = payout.amount || 0;
+      const grossAmount = transaction.amount || payoutAmount;
       const agentPercentage = transaction.agentPercentage || 0;
-      const agentAmount = grossAmount * (agentPercentage / 100);
-      const fee = grossAmount - agentAmount;
+      
+      // Calculate agent amount if percentage is available, otherwise use payout amount
+      const agentAmount = agentPercentage > 0 ? grossAmount * (agentPercentage / 100) : payoutAmount;
+      const fee = agentAmount;
 
-      // Format calculation string
-      const calculation = `Percentage\n${agentPercentage}%\n₦${grossAmount.toLocaleString()} x ${agentPercentage}%\n\nMarkup\n(₦${transaction.mockupPrice || 0}/day)\n₦${transaction.mockupPrice || 0} x 4 days`;
+      // Format calculation string - show agentPercentage and mockup price if available
+      let calculation = '';
+      
+      if (agentPercentage > 0) {
+        calculation += `Percentage\n${agentPercentage}%\n₦${grossAmount.toLocaleString()} x ${agentPercentage}%\n\n`;
+      }
+      
+      if (transaction.mockupPrice && transaction.mockupPrice > 0) {
+        calculation += `Markup\n(₦${transaction.mockupPrice}/day)\n₦${transaction.mockupPrice} x 4 days`;
+      } else if (calculation.endsWith('\n\n')) {
+        calculation = calculation.slice(0, -2); // Remove extra newlines if no mockup price
+      }
+
+      // If neither percentage nor mockup price is available, show basic calculation
+      if (!calculation) {
+        calculation = `Amount\n₦${grossAmount.toLocaleString()}`;
+      }
 
       // Format amount string
       const amount = `₦${agentAmount.toLocaleString()}\nGross: ₦${grossAmount.toLocaleString()}\nFee: ₦${fee.toLocaleString()}`;
 
-      // Format date strings
+      // Format bank details using actual API response fields
+      const bankDetails = `${payout.bankName || 'Bank not specified'}\n${payout.accountNumber || 'Account not specified'}\n${payout.accountName || 'Name not available'}`;
+
+      // Format date using createdAt from API response
       const createdDate = new Date(payout.createdAt).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric'
       });
-      const updatedDate = new Date(payout.updatedAt).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-      const date = `${createdDate}\nSubmitted ${updatedDate}`;
+      
+      const date = `${createdDate}`;
 
-      // Map status - Fixed TypeScript error by including all PayoutStatus values
+      // Map status
       const statusMap: Record<PayoutStatus, string> = {
         [PayoutStatus.PENDING]: 'Pending',
         [PayoutStatus.SUCCESS]: 'Approved',
         [PayoutStatus.FAILED]: 'Rejected',
-        [PayoutStatus.CANCELLED]: 'Rejected' // Added CANCELLED status
+        [PayoutStatus.CANCELLED]: 'Rejected'
       };
 
       return {
         id: payout.id,
         agent: agent.name || 'Unknown Agent',
         property: transaction.apartment?.name || 'Unknown Property',
-        booking: `BK-${payout.id.slice(-4).toUpperCase()}`,
+        booking: `REF-${payout.reference?.slice(-8).toUpperCase() || payout.id.slice(-8).toUpperCase()}`,
         calculation,
         amount,
-        bank: "Bank details not available", // You might want to get this from agent profile
+        bank: bankDetails,
         date,
         status: statusMap[payout.status as PayoutStatus] || 'Pending',
-        originalStatus: payout.status // Store original status for filtering
+        originalStatus: payout.status
       };
     };
 
@@ -133,11 +152,13 @@ const PayoutRequestTable = () => {
     const handleApproveClick = (rowData: RowData) => {
         setSelectedRow(rowData);
         setIsApproveModalOpen(true);
+        setApproveRemark('');
     };
 
     const handleRejectClick = (rowData: RowData) => {
         setSelectedRow(rowData);
         setIsRejectModalOpen(true);
+        setRejectReason('');
     };
 
     const handleCloseModals = () => {
@@ -145,6 +166,7 @@ const PayoutRequestTable = () => {
         setIsRejectModalOpen(false);
         setSelectedRow(null);
         setRejectReason('');
+        setApproveRemark('');
         setUploadedFile(null);
         clearError();
     };
@@ -162,9 +184,12 @@ const PayoutRequestTable = () => {
         try {
             const files = uploadedFile ? [uploadedFile] : [];
             
+            // Use the remark from input field
+            const remark = approveRemark.trim() || `Payout approved for ${selectedRow.agent}. Amount: ${selectedRow.amount.split('\n')[0]}`;
+            
             await confirmPayout({
                 payoutId: selectedRow.id,
-                remark: `Payout approved for ${selectedRow.agent}. Amount: ${selectedRow.amount.split('\n')[0]}`,
+                remark: remark,
                 files
             });
 
@@ -176,7 +201,6 @@ const PayoutRequestTable = () => {
             
         } catch (error) {
             console.error('Failed to approve payout:', error);
-            // Error is already handled in the store
         }
     };
 
@@ -184,9 +208,9 @@ const PayoutRequestTable = () => {
         if (!selectedRow) return;
 
         try {
-            await confirmPayout({
+            await rejectPayout({
                 payoutId: selectedRow.id,
-                remark: `Payout rejected. Reason: ${rejectReason}`
+                reason: rejectReason
             });
 
             console.log('Payout rejected successfully:', selectedRow);
@@ -197,7 +221,6 @@ const PayoutRequestTable = () => {
             
         } catch (error) {
             console.error('Failed to reject payout:', error);
-            // Error is already handled in the store
         }
     };
 
@@ -209,10 +232,9 @@ const PayoutRequestTable = () => {
         setSearchText('');
     };
 
-    // Status filter options
+    // Status filter options - removed PENDING from filter options but kept in data
     const statusFilterOptions = [
       { value: 'ALL' as const, label: 'All Status', count: data.length },
-      { value: PayoutStatus.PENDING, label: 'Pending', count: data.filter(row => row.originalStatus === PayoutStatus.PENDING).length },
       { value: PayoutStatus.SUCCESS, label: 'Approved', count: data.filter(row => row.originalStatus === PayoutStatus.SUCCESS).length },
       { value: PayoutStatus.FAILED, label: 'Rejected', count: data.filter(row => row.originalStatus === PayoutStatus.FAILED).length },
       { value: PayoutStatus.CANCELLED, label: 'Cancelled', count: data.filter(row => row.originalStatus === PayoutStatus.CANCELLED).length },
@@ -277,7 +299,11 @@ const PayoutRequestTable = () => {
         render: (rowData: RowData) => (
           <div className="whitespace-pre-line text-sm">
             {rowData.bank.split('\n').map((line: string, index: number) => (
-              <div key={index} className={index === 0 ? 'font-medium' : 'text-gray-600'}>
+              <div key={index} className={
+                index === 0 ? 'font-medium text-gray-800' : 
+                index === 1 ? 'font-semibold text-green-600' : 
+                'text-gray-500 text-xs'
+              }>
                 {line}
               </div>
             ))}
@@ -290,11 +316,7 @@ const PayoutRequestTable = () => {
         cellStyle: {  },
         render: (rowData: RowData) => (
           <div className="whitespace-pre-line text-sm">
-            {rowData.date.split('\n').map((line: string, index: number) => (
-              <div key={index} className={index === 0 ? 'font-medium' : 'text-gray-500 text-xs'}>
-                {line}
-              </div>
-            ))}
+            <div className="font-medium">{rowData.date}</div>
           </div>
         ),
       },
@@ -306,12 +328,12 @@ const PayoutRequestTable = () => {
           <div className="flex flex-col gap-2">
             <div className={`px-3 py-1 rounded-full text-xs font-medium ${
               rowData.status === 'Approved' ? 'bg-green-100 text-green-800' :
-              rowData.status === 'Rejected' ? 'bg-red-100 text-red-800' :
-              'bg-yellow-100 text-yellow-800'
+              rowData.status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+              
             }`}>
-              {rowData.status}
+        
             </div>
-            {rowData.status === 'Pending' && (
+            
               <div className="flex gap-2">
                 <button 
                   onClick={() => handleApproveClick(rowData)}
@@ -330,7 +352,7 @@ const PayoutRequestTable = () => {
                   {isProcessingPayout ? 'Processing...' : 'Reject'}
                 </button>
               </div>
-            )}
+          
           </div>
         ),
       },
@@ -397,8 +419,6 @@ const PayoutRequestTable = () => {
                     statusFilter === option.value
                       ? option.value === 'ALL' 
                         ? 'bg-blue-600 text-white'
-                        : option.value === PayoutStatus.PENDING
-                        ? 'bg-yellow-600 text-white'
                         : option.value === PayoutStatus.SUCCESS
                         ? 'bg-green-600 text-white'
                         : 'bg-red-600 text-white'
@@ -450,7 +470,7 @@ const PayoutRequestTable = () => {
                         <p className="font-medium">{selectedRow.property}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Booking ID</p>
+                        <p className="text-sm text-gray-600">Booking Reference</p>
                         <p className="font-medium">{selectedRow.booking}</p>
                       </div>
                       <div>
@@ -462,12 +482,31 @@ const PayoutRequestTable = () => {
                         <p className="font-medium">{selectedRow.bank.split('\n')[1]}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Bank</p>
+                        <p className="text-sm text-gray-600">Bank Name</p>
                         <p className="font-medium">{selectedRow.bank.split('\n')[0]}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Account Name</p>
+                        <p className="font-medium">{selectedRow.bank.split('\n')[2]}</p>
                       </div>
                     </div>
                   </div>
                 )}
+
+                {/* Remark Input Section */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold mb-4">Remark</h4>
+                  <textarea
+                    value={approveRemark}
+                    onChange={(e) => setApproveRemark(e.target.value)}
+                    placeholder="Enter approval remark (optional)"
+                    className="w-full h-24 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50"
+                    disabled={isProcessingPayout}
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    This remark will be included in the approval notification.
+                  </p>
+                </div>
 
                 {/* Document Upload Section */}
                 <div className="mb-6">
@@ -692,7 +731,7 @@ const PayoutRequestTable = () => {
                 )
                   ? true
                   : false,
-                search: false, // Disable default search since we have custom search
+                search: false,
                 rowStyle: {
                   color: "#474E70",
                   backgroundColor: "transparent",
