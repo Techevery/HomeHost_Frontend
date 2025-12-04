@@ -65,8 +65,8 @@ const StatsCards: React.FC<{ stats: WalletStats }> = ({ stats }) => (
       <Card sx={{ 
         borderRadius: 3, 
         border: '1px solid #e0e0e0',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white',
+        background: 'linear-gradient(135deg, #acebdbc9 0%, #c6ececff 100%)',
+        color: 'black',
         position: 'relative',
         overflow: 'hidden'
       }}>
@@ -89,12 +89,12 @@ const StatsCards: React.FC<{ stats: WalletStats }> = ({ stats }) => (
             }} />
           </Box>
           <Box display="flex" alignItems="center" mb={1}>
-            <ArrowUpIcon sx={{ fontSize: 16, mr: 0.5, color: 'white' }} />
-            <Typography variant="body2" sx={{ color: 'white' }}>
+            <ArrowUpIcon sx={{ fontSize: 16, mr: 0.5, color: 'black' }} />
+            <Typography variant="body2" sx={{ color: 'black' }}>
               +₦{stats.PendingPayoutChange.toLocaleString()} Month
             </Typography>
           </Box>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+          <Typography variant="body2" sx={{ color: 'rgba(24, 23, 23, 0.8)' }}>
             Cleaned funds ready for payout
           </Typography>
         </CardContent>
@@ -106,8 +106,8 @@ const StatsCards: React.FC<{ stats: WalletStats }> = ({ stats }) => (
       <Card sx={{ 
         borderRadius: 3, 
         border: '1px solid #e0e0e0',
-        background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-        color: 'white',
+        background: 'linear-gradient(135deg, #f8d6deff 0%, #f3dfe2ff 100%)',
+        color: 'black',
         position: 'relative',
         overflow: 'hidden'
       }}>
@@ -130,12 +130,12 @@ const StatsCards: React.FC<{ stats: WalletStats }> = ({ stats }) => (
             }} />
           </Box>
           <Box display="flex" alignItems="center" mb={1}>
-            <ArrowUpIcon sx={{ fontSize: 16, mr: 0.5, color: 'white' }} />
-            <Typography variant="body2" sx={{ color: 'white' }}>
+            <ArrowUpIcon sx={{ fontSize: 16, mr: 0.5, color: 'black' }} />
+            <Typography variant="body2" sx={{ color: 'black' }}>
               +₦{stats.upcomingChange.toLocaleString()} this month
             </Typography>
           </Box>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+          <Typography variant="body2" sx={{ color: 'rgba(24, 23, 23, 0.8)' }}>
             Funds held until guest checkout
           </Typography>
         </CardContent>
@@ -147,8 +147,8 @@ const StatsCards: React.FC<{ stats: WalletStats }> = ({ stats }) => (
       <Card sx={{ 
         borderRadius: 3, 
         border: '1px solid #e0e0e0',
-        background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-        color: 'white',
+        background: 'linear-gradient(135deg, #abecdcc9 0%, #c6ececff 100%)',
+        color: 'black',
         position: 'relative',
         overflow: 'hidden'
       }}>
@@ -171,12 +171,12 @@ const StatsCards: React.FC<{ stats: WalletStats }> = ({ stats }) => (
             }} />
           </Box>
           <Box display="flex" alignItems="center" mb={1}>
-            <ArrowUpIcon sx={{ fontSize: 16, mr: 0.5, color: 'white' }} />
-            <Typography variant="body2" sx={{ color: 'white' }}>
+            <ArrowUpIcon sx={{ fontSize: 16, mr: 0.5, color: 'black' }} />
+            <Typography variant="body2" sx={{ color: 'black' }}>
               +{stats.totalEarningsChange}% this month
             </Typography>
           </Box>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+          <Typography variant="body2" sx={{ color: 'rgba(26, 25, 25, 0.8)' }}>
             Total commissions this month
           </Typography>
         </CardContent>
@@ -188,8 +188,8 @@ const StatsCards: React.FC<{ stats: WalletStats }> = ({ stats }) => (
       <Card sx={{ 
         borderRadius: 3, 
         border: '1px solid #e0e0e0',
-        background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-        color: 'white',
+        background: 'linear-gradient(135deg, #98a79dff 0%, #b9c2c0ff 100%)',
+        color: 'black',
         position: 'relative',
         overflow: 'hidden'
       }}>
@@ -212,12 +212,12 @@ const StatsCards: React.FC<{ stats: WalletStats }> = ({ stats }) => (
             }} />
           </Box>
           <Box display="flex" alignItems="center" mb={1}>
-            <ArrowUpIcon sx={{ fontSize: 16, mr: 0.5, color: 'white' }} />
-            <Typography variant="body2" sx={{ color: 'white' }}>
+            <ArrowUpIcon sx={{ fontSize: 16, mr: 0.5, color: 'black' }} />
+            <Typography variant="body2" sx={{ color: 'black' }}>
               +{stats.activePropertiesChange} this month
             </Typography>
           </Box>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+          <Typography variant="body2" sx={{ color: 'rgba(24, 24, 24, 0.8)' }}>
             Properties generating income
           </Typography>
         </CardContent>

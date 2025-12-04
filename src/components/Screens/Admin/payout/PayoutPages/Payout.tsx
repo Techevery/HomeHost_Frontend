@@ -113,90 +113,90 @@ const Payout = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Total Payout Processed */}
-        <div className="bg-[#4EC368] rounded-[12px] p-6 shadow-sm relative overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl p-6 border border-blue-200 relative overflow-hidden">
           <div className="absolute top-4 right-4 opacity-20">
-            <MdAccountBalanceWallet className="w-8 h-8 text-white" />
+            <MdAccountBalanceWallet className="w-8 h-8 text-black" />
           </div>
-          <h3 className="text-white text-sm font-medium mb-2">Total Payout Processed</h3>
+          <h3 className="text-black text-sm font-medium mb-2">Total Payout Processed</h3>
           <div className="flex items-baseline justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
+              <h2 className="text-2xl font-bold text-black mb-2">
                 {formatCurrency(stats.totalPayout)}
               </h2>
               <div className="flex items-center">
-                <span className={`text-white/90 text-sm font-medium px-2 py-1 rounded ${
+                <span className={`text-black/90 text-sm font-medium px-2 py-1 rounded ${
                   percentageChanges.totalPayout >= 0 ? 'bg-green-500/30' : 'bg-red-500/30'
                 }`}>
                   {percentageChanges.totalPayout >= 0 ? '+' : ''}{percentageChanges.totalPayout.toFixed(1)}%
                 </span>
-                <span className="text-white/80 text-sm ml-2">All time</span>
+                <span className="text-black/80 text-sm ml-2">All time</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Pending Approvals */}
-        <div className="bg-[#4977E7] rounded-[12px] p-6 shadow-sm relative overflow-hidden">
+        <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-2xl p-6 border border-orange-200 relative overflow-hidden">
           <div className="absolute top-4 right-4 opacity-20">
-            <MdPendingActions className="w-8 h-8 text-white" />
+            <MdPendingActions className="w-8 h-8 text-black" />
           </div>
-          <h3 className="text-white text-sm font-medium mb-2">Pending Approvals</h3>
+          <h3 className="text-black text-sm font-medium mb-2">Pending Approvals</h3>
           <div className="flex items-baseline justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
+              <h2 className="text-2xl font-bold text-black mb-2">
                 {formatCurrency(stats.totalPendingPayout)}
               </h2>
               <div className="flex items-center">
-                <span className="bg-blue-500/30 text-white/90 text-sm font-medium px-2 py-1 rounded">
+                <span className="bg-blue-500/30 text-black/90 text-sm font-medium px-2 py-1 rounded">
                   {stats.totalPendingPayout > 0 ? 'Pending' : 'Clear'}
                 </span>
-                <span className="text-white/80 text-sm ml-2">Awaiting review</span>
+                <span className="text-black/80 text-sm ml-2">Awaiting review</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Active Agents */}
-        <div className="bg-[#9E71CE] rounded-[12px] p-6 shadow-sm relative overflow-hidden">
+        <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-2xl p-6 border border-purple-200 relative overflow-hidden">
           <div className="absolute top-4 right-4 opacity-20">
-            <MdPeople className="w-8 h-8 text-white" />
+            <MdPeople className="w-8 h-8 text-black" />
           </div>
-          <h3 className="text-white text-sm font-medium mb-2">Verified Agents</h3>
+          <h3 className="text-black text-sm font-medium mb-2">Verified Agents</h3>
           <div className="flex items-baseline justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
+              <h2 className="text-2xl font-bold text-black mb-2">
                 {formatNumber(stats.totalVerifiedAgents)}
               </h2>
               <div className="flex items-center">
-                <span className={`text-white/90 text-sm font-medium px-2 py-1 rounded ${
+                <span className={`text-black/90 text-sm font-medium px-2 py-1 rounded ${
                   percentageChanges.verifiedAgents >= 0 ? 'bg-purple-500/30' : 'bg-red-500/30'
                 }`}>
                   {percentageChanges.verifiedAgents >= 0 ? '+' : ''}{percentageChanges.verifiedAgents.toFixed(1)}%
                 </span>
-                <span className="text-white/80 text-sm ml-2">Active agents</span>
+                <span className="text-black/80 text-sm ml-2">Active agents</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Platform Revenue */}
-        <div className="bg-[#86D1B3] rounded-[12px] p-6 shadow-sm relative overflow-hidden">
+        <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-2xl p-6 border border-green-200 relative overflow-hidden">
           <div className="absolute top-4 right-4 opacity-20">
-            <MdTrendingUp className="w-8 h-8 text-white" />
+            <MdTrendingUp className="w-8 h-8 text-black" />
           </div>
-          <h3 className="text-white text-sm font-medium mb-2">Platform Revenue</h3>
+          <h3 className="text-black text-sm font-medium mb-2">Platform Revenue</h3>
           <div className="flex items-baseline justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
+              <h2 className="text-2xl font-bold text-black mb-2">
                 {formatCurrency(stats.totalRevenue)}
               </h2>
               <div className="flex items-center">
-                <span className={`text-white/90 text-sm font-medium px-2 py-1 rounded ${
+                <span className={`text-black/90 text-sm font-medium px-2 py-1 rounded ${
                   percentageChanges.platformRevenue >= 0 ? 'bg-green-500/30' : 'bg-red-500/30'
                 }`}>
                   {percentageChanges.platformRevenue >= 0 ? '+' : ''}{percentageChanges.platformRevenue.toFixed(1)}%
                 </span>
-                <span className="text-white/80 text-sm ml-2">Total revenue</span>
+                <span className="text-black/80 text-sm ml-2">Total revenue</span>
               </div>
             </div>
           </div>

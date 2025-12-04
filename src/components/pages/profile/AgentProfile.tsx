@@ -38,13 +38,14 @@ import {
 import useAgentStore from "../../../stores/agentstore";
 import { PropertyCard, Property } from "../../pages/agent/PropertyCard";
 
-// Import Modal Components
+
 import ViewPropertiesModal from "../../pages/profile/agent/modals/ViewPropertiesModal";
 import PropertyDetailModal from "../../pages/profile/agent/modals/PropertyDetailModal";
 import EditProfileModal from "../../pages/profile/agent/modals/EditProfileModal";
+import WalletDashboard from "../../../components/pages/profile/agent/modals/wallet/WalletDashboard"; 
+import BookingViewModal from "../../pages/profile/agent/modals/BookingViewModal"
 
-// Import Wallet Dashboard
-import WalletDashboard from "../../../components/pages/profile/agent/modals/wallet/WalletDashboard"; // Adjust path as needed
+
 
 interface ProfileFormData {
   name: string;
@@ -440,6 +441,15 @@ const AgentProfile = () => {
     }
   };
 
+
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+
+
+const handleViewBookingClick = () => {
+  setBookingModalOpen(true);
+};
+
+
   const transformPropertyData = (property: any): Property => {
     console.log("Transforming property data:", property);
     
@@ -803,11 +813,21 @@ const AgentProfile = () => {
                   <Button
                     variant="outlined"
                     startIcon={<WalletIcon />}
+                    onClick={handleViewBookingClick}
                     fullWidth
                     
                   >
                     View Booking
                   </Button>
+
+
+          <BookingViewModal
+  open={bookingModalOpen}
+  onClose={() => setBookingModalOpen(false)}
+/>
+
+          
+
 
                   <Button
                     variant="outlined"
