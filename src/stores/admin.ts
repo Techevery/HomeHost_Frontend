@@ -926,7 +926,7 @@ updateApartment: async (
           }
 
           const response = await axios.get(
-            `${API_BASE_URL}/api/v1/wallet/successful-payout`,
+            `${API_BASE_URL}/api/v1/wallet/sucesful-payout`,
             {
               params: { page, pageSize },
               headers: {

@@ -6,7 +6,7 @@ import { useLocation } from "react-router-dom";
 import { MdFilterList, MdSearch, MdClose } from 'react-icons/md';
 import useAdminStore from '../../../../../stores/admin';
 
-// Define payout status enum locally since we're not using the wallet store
+
 enum PayoutStatus {
   PENDING = 'PENDING',
   SUCCESS = 'SUCCESS',
@@ -27,7 +27,7 @@ const PayoutTable = () => {
 
   // Use the admin store
   const { 
-      getPayoutRequests,
+    getSuccessfulPayouts,
     isLoading, 
     error, 
     clearError 
@@ -43,7 +43,7 @@ const PayoutTable = () => {
 
   const fetchPayouts = async () => {
     try {
-      const response = await  getPayoutRequests();
+      const response = await    getSuccessfulPayouts();
       // Handle different response structures
       if (response.data) {
         setPayouts(response.data);
