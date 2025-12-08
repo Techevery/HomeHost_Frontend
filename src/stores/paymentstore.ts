@@ -74,9 +74,7 @@ const initialState: PaymentState = {
 const API_BASE_URL =
   process.env.REACT_APP_DEV_BASE_URL || "https://homeyhost.ng/api";
 
-// Enhanced error handler utility
 const handleApiError = (error: any, defaultMessage: string): string => {
-  console.error("API Error:", error);
 
   if (error.response) {
     const status = error.response.status;
@@ -157,21 +155,20 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
               if (agentInfo && typeof agentInfo === 'object' && agentInfo.id) {
                 finalAgentId = agentInfo.id;
                 authToken = token;
-                console.log("Using authenticated agent ID:", finalAgentId);
               } else {
-                console.warn("Agent is authenticated but agentInfo is missing id:", agentInfo);
+                
               }
             }
           } catch (error) {
-            console.warn("Could not load agent store:", error);
+            
           }
 
-          // If no agentId from auth, use the provided agentId
+        
           if (!finalAgentId) {
             if (agentId) {
               finalAgentId = agentId;
             } else {
-              // Try to get from localStorage as fallback
+             
               try {
                 const storedAgent = localStorage.getItem('agent-storage');
                 if (storedAgent) {
@@ -181,7 +178,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
                   }
                 }
               } catch (storageError) {
-                console.warn("Could not get agent from storage:", storageError);
+               
               }
             }
           }
@@ -235,7 +232,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             fullName: fullName || "",
           };
 
-          console.log("Payment data:", paymentData);
+          
 
           const headers: any = {
             "Content-Type": "application/json",
@@ -254,7 +251,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             },
           );
 
-          console.log("Payment initiation response:", response.data);
+     
 
           const result = response.data.data;
 
@@ -297,7 +294,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             message: "Payment initialized successfully",
           };
         } catch (error: any) {
-          console.error("Payment initiation error:", error);
+       
 
           const errorMessage = handleApiError(
             error,
@@ -323,7 +320,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
           const agentStoreModule = await import("./agentstore");
           const agentStore = agentStoreModule.default;
 
-          // Add small delay for store initialization
+     
           await new Promise(resolve => setTimeout(resolve, 100));
 
           const { token, isAuthenticated } = agentStore.getState();
@@ -342,7 +339,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             };
           }
 
-          console.log("Verifying payment with reference:", reference);
+        
 
           const response = await axios.post(
             `${API_BASE_URL}/api/v1/payment/verify`,
@@ -356,7 +353,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             },
           );
 
-          console.log("Payment verification response:", response.data);
+       
 
           const result = response.data.data;
 
@@ -391,7 +388,7 @@ const usePaymentStore = create<PaymentState & PaymentActions>()(
             message: "Payment verified successfully",
           };
         } catch (error: any) {
-          console.error("Payment verification error:", error);
+       
 
           const errorMessage = handleApiError(
             error,

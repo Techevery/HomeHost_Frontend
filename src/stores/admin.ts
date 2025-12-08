@@ -34,7 +34,7 @@ interface ApartmentData {
   agentPercentage: number;
 }
 
-// Update data interface with optional fields
+
 interface UpdateApartmentData {
   name?: string;
   address?: string;
@@ -47,7 +47,7 @@ interface UpdateApartmentData {
   imagesToDelete?: string[]; 
 }
 
-// Offline booking interface
+
 interface OfflineBookingData {
   apartmentId: string;
   startDate: string[];
@@ -95,12 +95,12 @@ interface AdminActions {
     files?: File[]
   ) => Promise<any>;
   offlineBooking: (bookingData: OfflineBookingData) => Promise<any>;
-  // New methods for agent profile modal
+ 
   getAgentDetails: (agentId: string) => Promise<any>;
   getAgentPayouts: (agentId: string) => Promise<any>;
   getAgentProperties: (agentId: string) => Promise<any>;
   getAgentDashboard: (agentId: string) => Promise<any>;
-  // New methods for wallet and payouts
+ 
   getSuccessfulPayouts: (page?: number, pageSize?: number) => Promise<any>;
   getPayoutRequests: (page?: number, pageSize?: number) => Promise<any>;
 }
@@ -166,14 +166,14 @@ const useAdminStore = create<AdminState & AdminActions>()(
             isLoading: false,
           });
 
-          // Store token in localStorage
+       
           try {
             localStorage.setItem("token", token);
           } catch (storageError) {
             console.error("Storage error:", storageError);
           }
 
-          // Automatically fetch complete admin profile after successful login
+          
           try {
             await get().fetchAdminProfile();
           } catch (profileError) {
@@ -181,7 +181,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
               "Failed to fetch complete admin profile, but login was successful:",
               profileError,
             );
-            // Don't throw error here as login was successful
+           
           }
         } catch (error: any) {
           const errorMessage =

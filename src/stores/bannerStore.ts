@@ -42,7 +42,7 @@ const getAuthToken = (): string | null => {
 
 
 const handleApiError = (error: any): string => {
-  console.error('API Error:', error);
+
   
 
   if (error.response?.status === 401) {
@@ -220,7 +220,7 @@ const useBannerStore = create<BannerState & BannerActions>((set, get) => ({
         },
       });
 
-      // Refresh banners list after update
+    
       const { fetchBanners } = get();
       await fetchBanners();
 

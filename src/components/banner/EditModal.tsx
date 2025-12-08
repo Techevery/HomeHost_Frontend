@@ -44,7 +44,6 @@ const EditModal: React.FC<EditModalProps> = ({
           <p className="text-gray-600 mb-6">
             {message}
           </p>
-
           <div className="flex justify-end space-x-3">
             <button
               onClick={onClose}

@@ -266,165 +266,186 @@ const useBookingStore = create<BookingState & BookingActions>()(
       },
 
       // NEW: Fetch booking requests
-      fetchBookingRequests: async () => {
-        set({ loading: true, error: null });
-        try {
-          const token = localStorage.getItem("token");
-          if (!token) {
-            throw new Error("Authentication token not found");
-          }
+   // In bookingStore.ts, update the fetchBookingRequests function:
 
-          const response = await axios.get(`${API_BASE_URL}/api/v1/booking/request`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
+fetchBookingRequests: async () => {
+  set({ loading: true, error: null });
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("Authentication token not found");
+    }
 
-          const bookingsData = response.data.data || response.data || [];
-
-          const processedRequests = bookingsData.map((booking: any) => ({
-            id: booking.id,
-            apartment_id: booking.apartment?.id || "",
-            availability: true, // Booking requests are typically available
-            status: "pending",
-            created_at: booking.created_at || new Date().toISOString(),
-            transaction_id: booking.transaction?.id || "",
-            booking_period_id: booking.id,
-            transaction: booking.transaction
-              ? {
-                  id: booking.transaction.id,
-                  reference: booking.transaction.reference || "",
-                  status: booking.transaction.status || "pending",
-                  amount: booking.transaction.amount || 0,
-                  email: booking.transaction.email || "",
-                  phone_number: booking.transaction.phone_number || "",
-                  booking_start_date: booking.transaction.booking_start_date,
-                  booking_end_date: booking.transaction.booking_end_date,
-                  duration_days: booking.transaction.duration_days,
-                  created_at: booking.transaction.created_at,
-                  metadata: booking.transaction.metadata,
-                }
-              : undefined,
-            apartment: booking.apartment
-              ? {
-                  id: booking.apartment.id || "",
-                  name: booking.apartment.name || "Unknown Apartment",
-                  address: booking.apartment.address || "",
-                }
-              : undefined,
-            booking_period: {
-              id: booking.id,
-              start_date: booking.start_date || "",
-              end_date: booking.end_date || "",
-              duration_days: booking.duration_days || 0,
-              isEdited: booking.isEdited || false,
-              isDeleted: booking.isDeleted || false,
-              expired: booking.expired || false,
-            },
-            booking_start_date: booking.start_date || "",
-            booking_end_date: booking.end_date || "",
-            duration_days: booking.duration_days || 0,
-            guest_name: booking.transaction?.metadata?.fullName || "",
-            guest_phone: booking.transaction?.phone_number || "",
-            guest_email: booking.transaction?.email || "",
-          }));
-
-          set({ bookingRequests: processedRequests });
-        } catch (error: any) {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.response?.data?.error ||
-            "Failed to fetch booking requests";
-          set({
-            error: errorMessage,
-          });
-          toast.error(errorMessage);
-        } finally {
-          set({ loading: false });
-        }
+    const response = await axios.get(`${API_BASE_URL}/api/v1/booking/request`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
       },
+    });
 
-      // NEW: Fetch expired bookings
-      fetchExpiredBookings: async () => {
-        set({ loading: true, error: null });
-        try {
-          const token = localStorage.getItem("token");
-          if (!token) {
-            throw new Error("Authentication token not found");
+    const bookingsData = response.data || [];
+
+    const processedRequests = bookingsData.map((bookingPeriod: any) => ({
+      id: bookingPeriod.id,
+      apartment_id: bookingPeriod.apartment_id || bookingPeriod.apartment?.id || "",
+      availability: true,
+      status: bookingPeriod.status || "pending", // Use bookingPeriod.status directly
+      created_at: bookingPeriod.created_at || new Date().toISOString(),
+      transaction_id: bookingPeriod.transaction_id || bookingPeriod.transaction?.id || "",
+      booking_period_id: bookingPeriod.id,
+      transaction: bookingPeriod.transaction
+        ? {
+            id: bookingPeriod.transaction.id,
+            reference: bookingPeriod.transaction.reference || "",
+            status: bookingPeriod.transaction.status || "pending",
+            amount: bookingPeriod.transaction.amount || 0,
+            email: bookingPeriod.transaction.email || "",
+            phone_number: bookingPeriod.transaction.phone_number || "",
+            booking_start_date: bookingPeriod.transaction.booking_start_date,
+            booking_end_date: bookingPeriod.transaction.booking_end_date,
+            duration_days: bookingPeriod.transaction.duration_days,
+            created_at: bookingPeriod.transaction.created_at,
+            metadata: bookingPeriod.transaction.metadata,
+            agent: bookingPeriod.transaction.agent, // Agent is already included
           }
-
-          const response = await axios.get(`${API_BASE_URL}/api/v1/booking/expire-bookings`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-
-          console.log("Expired bookings response:", response.data);
-
-          const bookingsData = response.data.data || response.data || [];
-
-          const processedExpiredBookings = bookingsData.map((booking: any) => ({
-            id: booking.id,
-            apartment_id: booking.apartment_id || "",
-            availability: false,
-            status: "expired",
-            created_at: booking.created_at || new Date().toISOString(),
-            transaction_id: booking.transaction?.id || "",
-            booking_period_id: booking.id,
-            transaction: booking.transaction
-              ? {
-                  id: booking.transaction.id,
-                  reference: booking.transaction.reference || "",
-                  status: booking.transaction.status || "expired",
-                  amount: booking.transaction.amount || 0,
-                  email: booking.transaction.email || "",
-                  phone_number: booking.transaction.phone_number || "",
-                  booking_start_date: booking.transaction.booking_start_date,
-                  booking_end_date: booking.transaction.booking_end_date,
-                  duration_days: booking.transaction.duration_days,
-                  created_at: booking.transaction.created_at,
-                  metadata: booking.transaction.metadata,
-                }
-              : undefined,
-            apartment: booking.apartment
-              ? {
-                  id: booking.apartment.id || "",
-                  name: booking.apartment.name || "Unknown Apartment",
-                  address: booking.apartment.address || "",
-                }
-              : undefined,
-            booking_period: {
-              id: booking.id,
-              start_date: booking.start_date || "",
-              end_date: booking.end_date || "",
-              duration_days: booking.duration_days || 0,
-              isEdited: booking.isEdited || false,
-              isDeleted: booking.isDeleted || false,
-              expired: true,
-            },
-            booking_start_date: booking.start_date || "",
-            booking_end_date: booking.end_date || "",
-            duration_days: booking.duration_days || 0,
-            guest_name: booking.transaction?.metadata?.fullName || "",
-            guest_phone: booking.transaction?.phone_number || "",
-            guest_email: booking.transaction?.email || "",
-          }));
-
-          set({ expiredBookings: processedExpiredBookings });
-        } catch (error: any) {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.response?.data?.error ||
-            "Failed to fetch expired bookings";
-          set({
-            error: errorMessage,
-          });
-          toast.error(errorMessage);
-        } finally {
-          set({ loading: false });
-        }
+        : undefined,
+      apartment: bookingPeriod.apartment
+        ? {
+            id: bookingPeriod.apartment.id || "",
+            name: bookingPeriod.apartment.name || "Unknown Apartment",
+            address: bookingPeriod.apartment.address || "",
+            type: bookingPeriod.apartment.type || "",
+            servicing: bookingPeriod.apartment.servicing || "",
+            agent: bookingPeriod.transaction?.agent?.name || "", // Get agent name from transaction
+          }
+        : undefined,
+      booking_period: {
+        id: bookingPeriod.id,
+        start_date: bookingPeriod.start_date || "",
+        end_date: bookingPeriod.end_date || "",
+        duration_days: bookingPeriod.duration_days || 0,
+        isEdited: bookingPeriod.isEdited || false,
+        isDeleted: bookingPeriod.isDeleted || false,
+        expired: bookingPeriod.expired || false,
       },
+      booking_start_date: bookingPeriod.start_date || "",
+      booking_end_date: bookingPeriod.end_date || "",
+      duration_days: bookingPeriod.duration_days || 0,
+      guest_name: bookingPeriod.transaction?.metadata?.fullName || "",
+      guest_phone: bookingPeriod.transaction?.phone_number || "",
+      guest_email: bookingPeriod.transaction?.email || "",
+    }));
 
+    set({ bookingRequests: processedRequests });
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      "Failed to fetch booking requests";
+    set({
+      error: errorMessage,
+    });
+    toast.error(errorMessage);
+  } finally {
+    set({ loading: false });
+  }
+},
+
+     fetchExpiredBookings: async () => {
+  set({ loading: true, error: null });
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("Authentication token not found");
+    }
+
+    const response = await axios.get(`${API_BASE_URL}/api/v1/booking/expire-bookings`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log("Expired bookings response:", response.data);
+
+    // Handle the new response format
+    const bookingsData = response.data.data || response.data || [];
+    
+    const processedExpiredBookings = bookingsData.map((bookingPeriod: any) => {
+      // Extract data from the new structure
+      const transaction = bookingPeriod.transaction || {};
+      const apartment = bookingPeriod.apartment || {};
+      const metadata = transaction.metadata || {};
+      
+      return {
+        id: bookingPeriod.id,
+        apartment_id: bookingPeriod.apartment_id || apartment.id || "",
+        availability: false,
+        // Determine status based on isDeleted and expired fields
+        status: bookingPeriod.isDeleted ? "deleted" : 
+               bookingPeriod.expired ? "expired" : 
+               "unknown",
+        created_at: bookingPeriod.created_at || new Date().toISOString(),
+        transaction_id: bookingPeriod.transaction_id || transaction.id || "",
+        booking_period_id: bookingPeriod.id,
+        transaction: {
+          id: transaction.id || "",
+          reference: transaction.reference || "",
+          status: transaction.status || (bookingPeriod.isDeleted ? "cancelled" : "successful"),
+          amount: transaction.amount || 0,
+          email: transaction.email || "",
+          phone_number: transaction.phone_number || metadata.phoneNumber || "",
+          apartment_id: transaction.apartment_id || "",
+          agent_id: transaction.agent?.id || "",
+          booking_start_date: transaction.booking_start_date || bookingPeriod.start_date,
+          booking_end_date: transaction.booking_end_date || bookingPeriod.end_date,
+          duration_days: transaction.duration_days || bookingPeriod.duration_days,
+          created_at: transaction.created_at || bookingPeriod.created_at,
+          metadata: metadata,
+          agent: transaction.agent || {},
+        },
+        apartment: {
+          id: apartment.id || "",
+          name: apartment.name || "Unknown Apartment",
+          address: apartment.address || "",
+          type: apartment.type || "",
+          servicing: apartment.servicing || "",
+          price: apartment.price || 0,
+          agent: transaction.agent?.name || apartment.agent || "",
+        },
+        booking_period: {
+          id: bookingPeriod.id,
+          start_date: bookingPeriod.start_date || "",
+          end_date: bookingPeriod.end_date || "",
+          duration_days: bookingPeriod.duration_days || 0,
+          isEdited: bookingPeriod.isEdited || false,
+          isDeleted: bookingPeriod.isDeleted || false,
+          expired: bookingPeriod.expired || false,
+          new_start_date: bookingPeriod.new_start_date || null,
+          new_end_date: bookingPeriod.new_end_date || null,
+        },
+        booking_start_date: bookingPeriod.start_date || "",
+        booking_end_date: bookingPeriod.end_date || "",
+        duration_days: bookingPeriod.duration_days || 0,
+        guest_name: metadata.fullName || "",
+        guest_phone: transaction.phone_number || metadata.phoneNumber || "",
+        guest_email: transaction.email || "",
+        amount: transaction.amount?.toString() || "0",
+      };
+    });
+
+    set({ expiredBookings: processedExpiredBookings });
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      "Failed to fetch expired bookings";
+    set({
+      error: errorMessage,
+    });
+    toast.error(errorMessage);
+  } finally {
+    set({ loading: false });
+  }
+},
    
       fetchDeletedBookings: async () => {
         set({ loading: true, error: null });

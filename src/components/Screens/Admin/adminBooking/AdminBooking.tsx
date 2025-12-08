@@ -88,7 +88,7 @@ const AdminBooking = () => {
     error, 
     editBookingDates, 
     deleteBooking, 
-    fetchBookings,
+    // fetchBookings,
     fetchBookingRequests,
     fetchExpiredBookings,
     fetchBookingDates,
@@ -117,35 +117,34 @@ const AdminBooking = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
-  // Use ref for search input to maintain focus
+
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch data based on active tab
+
   useEffect(() => {
     const fetchData = async () => {
-      console.log("🔄 Fetching data for tab:", activeTab);
+     
       if (activeTab === 0) {
-        console.log("📊 Before fetching expired bookings:", expiredBookings.length);
+       
         await fetchExpiredBookings();
-        console.log("📊 After fetching expired bookings:", expiredBookings.length);
+
       } else if (activeTab === 1) {
-        console.log("📊 Before fetching booking requests:", bookingRequests.length);
+       
         await fetchBookingRequests();
-        console.log("📊 After fetching booking requests:", bookingRequests.length);
+       
       }
     };
     
     fetchData();
   }, [activeTab, fetchExpiredBookings, fetchBookingRequests]);
 
-  // Focus search input when filter is shown or tab changes
   useEffect(() => {
     if (showStatusFilter && searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, [showStatusFilter]);
 
-  // Focus search input when tab changes
+  
   useEffect(() => {
     if (searchInputRef.current) {
       searchInputRef.current.focus();
@@ -237,36 +236,54 @@ const AdminBooking = () => {
     }
   };
 
-  const getStatusText = (status: string = "") => {
-    const statusLower = status.toLowerCase();
-    switch (statusLower) {
-      case "successful":
-      case "completed":
-        return "Successful";
-      case "failed":
-      case "cancelled":
-        return "Failed";
-      case "booked":
-      case "pending":
-        return "Upcoming";
-      case "upcoming":
-        return "Upcoming";
-      case "ongoing":
-        return "Currently Hosting"; 
-      case "deleted":
-        return "Deleted";
-      default:
-        return status || "Unknown";
-    }
-  };
-
+ const getStatusText = (status: string = "", isDeleted?: boolean, expired?: boolean) => {
+  
+  if (isDeleted) {
+    return "Deleted";
+  }
+  if (expired) {
+    return "Successful"; 
+  }
+  
+  const statusLower = status.toLowerCase();
+  switch (statusLower) {
+    case "successful":
+    case "completed":
+      return "Successful";
+    case "failed":
+    case "cancelled":
+      return "Failed";
+    case "booked":
+    case "pending":
+      return "Upcoming";
+    case "upcoming":
+      return "Upcoming";
+    case "ongoing":
+      return "Currently Hosting"; 
+    case "deleted":
+      return "Deleted";
+    case "expired":
+      return "Successful"; // Expired = successful past bookings
+    default:
+      return status || "Unknown";
+  }
+};
   const getCustomerName = (booking: any) => {
     return booking?.transaction?.metadata?.fullName || booking.guest_name || "N/A";
   };
 
-  const getPhoneNumber = (booking: any) => {
-    return booking?.transaction?.phone_number || booking.guest_phone || booking.phone_number || "N/A";
-  };
+const getPhoneNumber = (booking: any) => {
+ 
+  if (booking.transaction?.phone_number) {
+    return booking.transaction.phone_number;
+  }
+ 
+  if (booking.transaction?.metadata?.phoneNumber) {
+    return booking.transaction.metadata.phoneNumber;
+  }
+ 
+  return booking.guest_phone || booking.phone_number || "N/A";
+};
 
   const getNextOfKin = (booking: any) => {
     const metadata = booking?.transaction?.metadata;
@@ -295,135 +312,141 @@ const AdminBooking = () => {
     };
   };
 
-  const getApartmentAgent = (booking: any) => {
-    if (booking.apartment?.agent) {
-      return booking.apartment.agent;
-    }
-    if (booking.transaction?.agent?.name) {
-      return booking.transaction.agent.name;
-    }
-    if (typeof booking.apartment === 'string') {
-      return booking.apartment;
-    }
-    return "N/A";
+ const getApartmentAgent = (booking: any) => {
+  // First try to get from apartment.agent (string)
+  if (booking.apartment?.agent) {
+    return booking.apartment.agent;
+  }
+  // Then try from transaction.agent (object with name property)
+  if (booking.transaction?.agent?.name) {
+    return booking.transaction.agent.name;
+  }
+  // Fallback to apartment name if it's a string
+  if (typeof booking.apartment === 'string') {
+    return booking.apartment;
+  }
+  return "N/A";
+};
+
+ const getFilteredCounts = useMemo(() => {
+  const counts = {
+    successful: 0,
+    failed: 0,
+    deleted: 0,
+    upcoming: 0,
+    CurrentlyHosting: 0,
   };
 
-  const getFilteredCounts = useMemo(() => {
-    const counts = {
-      successful: 0,
-      failed: 0,
-      deleted: 0,
-      upcoming: 0,
-      CurrentlyHosting: 0,
-    };
+  let sourceData: BookingType[] = [];
+  if (activeTab === 0) {
+    sourceData = expiredBookings;
+  } else if (activeTab === 1) {
+    sourceData = bookingRequests;
+  }
 
-    let sourceData: BookingType[] = [];
-    if (activeTab === 0) {
-      sourceData = expiredBookings;
-    } else if (activeTab === 1) {
-      sourceData = bookingRequests;
+  if (!sourceData.length) return counts;
+
+  sourceData.forEach(booking => {
+    const status = booking.status?.toLowerCase() || "";
+    const isDeleted = (booking.booking_period as any)?.isDeleted || false;
+    const expired = (booking.booking_period as any)?.expired || false;
+    
+    if (isDeleted) {
+      counts.deleted++;
+    } else if (expired) {
+      // Expired bookings that are not deleted are considered successful
+      counts.successful++;
+    } else if (status.includes("success") || status.includes("complete")) {
+      counts.successful++;
+    } else if (status.includes("fail") || status.includes("cancel")) {
+      counts.failed++;
+    } else if (status.includes("upcoming") || status.includes("pending") || status.includes("booked")) {
+      counts.upcoming++;
+    } else if (status.includes("ongoing")) {
+      counts.CurrentlyHosting++;
     }
+  });
+  
+  return counts;
+}, [expiredBookings, bookingRequests, activeTab]);
 
-    if (!sourceData.length) return counts;
+ const createTableData = useCallback(() => {
+  let sourceData: BookingType[] = [];
+  if (activeTab === 0) {
+    sourceData = expiredBookings;
+  } else if (activeTab === 1) {
+    sourceData = bookingRequests;
+  }
 
-    sourceData.forEach(booking => {
-      const status = booking.status?.toLowerCase() || "";
-      const isDeleted = (booking.booking_period as any)?.isDeleted || false;
-      
-      if (isDeleted) {
-        counts.deleted++;
-      } else if (status.includes("success") || status.includes("complete")) {
-        counts.successful++;
-      } else if (status.includes("fail") || status.includes("cancel")) {
-        counts.failed++;
-      } else if (status.includes("upcoming") || status.includes("booked") || status.includes("pending")) {
-        counts.upcoming++;
-      } else if (status.includes("ongoing")) {
-        counts.CurrentlyHosting++;
-      }
-    });
+  if (!sourceData.length) return [];
 
-    return counts;
-  }, [expiredBookings, bookingRequests, activeTab]);
-
-  // Create table data from appropriate source
-  const createTableData = useCallback(() => {
-    let sourceData: BookingType[] = [];
-    if (activeTab === 0) {
-      sourceData = expiredBookings;
-    } else if (activeTab === 1) {
-      sourceData = bookingRequests;
+  const getFilteredBookings = () => {
+    switch (activeTab) {
+      case 0:
+        return sourceData.filter(booking => {
+          const isDeleted = (booking.booking_period as any)?.isDeleted || false;
+          const expired = (booking.booking_period as any)?.expired || false;
+          
+          // For expired bookings tab, show both expired (successful) and deleted bookings
+          return expired || isDeleted;
+        });
+      case 1:
+        return sourceData.filter(booking => {
+          const isDeleted = (booking.booking_period as any)?.isDeleted || false;
+          
+          // For booking requests, exclude deleted bookings
+          return !isDeleted;
+        });
+      default:
+        return sourceData;
     }
+  };
 
-    if (!sourceData.length) return [];
+  const filteredBookings = getFilteredBookings();
 
-    const getFilteredBookings = () => {
-      switch (activeTab) {
-        case 0:
-          return sourceData.filter(booking => {
-            const status = booking.status?.toLowerCase() || "";
-            const isDeleted = (booking.booking_period as any)?.isDeleted || false;
-            
-            return status.includes("success") || 
-                   status.includes("complete") || 
-                   status.includes("fail") || 
-                   status.includes("cancel") ||
-                   isDeleted ||
-                   status.includes("delete");
-          });
-        case 1:
-          return sourceData.filter(booking => {
-            const status = booking.status?.toLowerCase() || "";
-            const isDeleted = (booking.booking_period as any)?.isDeleted || false;
-            
-            return (status.includes("pending") || 
-                    status.includes("booked") || 
-                    status.includes("upcoming")) &&
-                   !isDeleted;
-          });
-        default:
-          return sourceData;
-      }
+  return filteredBookings.map((booking): TableRowData => {
+    const isDeleted = (booking.booking_period as any)?.isDeleted || false;
+    const expired = (booking.booking_period as any)?.expired || false;
+    const apartmentName = typeof booking.apartment === 'object' ? booking.apartment?.name : booking.apartment || "N/A";
+    
+    // Determine status based on isDeleted and expired
+    let status = booking.status || "unknown";
+    if (isDeleted) {
+      status = "deleted";
+    } else if (expired) {
+      status = "successful";
+    }
+    
+    return {
+      id: booking.id,
+      customer: getCustomerName(booking),
+      apartment_booked: apartmentName,
+      date: formatDate(booking.created_at || ""),
+      phone_number: getPhoneNumber(booking),
+      check_in: formatDate(booking.booking_start_date || (booking.booking_period as any)?.start_date || ""),
+      check_out: formatDate(booking.booking_end_date || (booking.booking_period as any)?.end_date || ""),
+      apartment_agent: getApartmentAgent(booking),
+      status: status.toLowerCase(),
+      displayStatus: getStatusText(status, isDeleted, expired),
+      transaction_status: booking.transaction?.status || "N/A",
+      amount: booking.amount || booking.transaction?.amount || "N/A",
+      note: `1B = New ${Math.floor(Math.random() * 100)}, (${booking.duration_days || 4} days)`,
+      originalBooking: booking,
+      isDeleted: isDeleted,
+      isEditable: !isDeleted && (activeTab === 1 || status.toLowerCase().includes("pending") || status.toLowerCase().includes("upcoming") || status.toLowerCase().includes("booked")),
     };
+  });
+}, [expiredBookings, bookingRequests, activeTab]);
 
-    const filteredBookings = getFilteredBookings();
 
-    return filteredBookings.map((booking): TableRowData => {
-      const status = booking.status || "Unknown";
-      const isDeleted = (booking.booking_period as any)?.isDeleted || false;
-      const apartmentName = typeof booking.apartment === 'object' ? booking.apartment?.name : booking.apartment || "N/A";
-      
-      return {
-        id: booking.id,
-        customer: getCustomerName(booking),
-        apartment_booked: apartmentName,
-        date: formatDate(booking.created_at || ""),
-        phone_number: getPhoneNumber(booking),
-        check_in: formatDate(booking.booking_start_date || (booking.booking_period as any)?.start_date || ""),
-        check_out: formatDate(booking.booking_end_date || (booking.booking_period as any)?.end_date || ""),
-        apartment_agent: getApartmentAgent(booking),
-        status: isDeleted ? "deleted" : status,
-        displayStatus: isDeleted ? "Deleted" : getStatusText(status),
-        transaction_status: booking.transaction?.status || "N/A",
-        amount: booking.amount || booking.transaction?.amount || "N/A",
-        note: `1B = New ${Math.floor(Math.random() * 100)}, (${booking.duration_days || 4} days)`,
-        originalBooking: booking,
-        isDeleted: isDeleted,
-        isEditable: !isDeleted && (activeTab === 1 || status.toLowerCase().includes("pending") || status.toLowerCase().includes("upcoming") || status.toLowerCase().includes("booked")),
-      };
-    });
-  }, [expiredBookings, bookingRequests, activeTab]);
-
-  // Enhanced search function that searches all relevant fields
   const searchResults = useMemo(() => {
     if (!searchText.trim()) return null;
     
     const searchLower = searchText.toLowerCase().trim();
     const tableData = createTableData();
-    
-    // Create search index with all searchable fields
+  
     const searchableFields = tableData.map(row => {
-      // Create a comprehensive search string from all searchable fields
+    
       const searchString = [
         row.customer,
         row.apartment_booked,
@@ -436,21 +459,21 @@ const AdminBooking = () => {
         row.check_out,
         row.date,
         row.note,
-        // Also search in the original booking data if available
+       
         row.originalBooking?.transaction?.reference || '',
         row.originalBooking?.transaction?.email || '',
         row.originalBooking?.guest_name || '',
         row.originalBooking?.guest_phone || '',
-        // Search in apartment details
+    
         typeof row.originalBooking?.apartment === 'object' ? row.originalBooking?.apartment?.address || '' : '',
         typeof row.originalBooking?.apartment === 'object' ? row.originalBooking?.apartment?.type || '' : '',
-        // Search in metadata
+      
         row.originalBooking?.transaction?.metadata?.fullName || '',
         row.originalBooking?.transaction?.metadata?.nextofKinName || '',
         row.originalBooking?.transaction?.metadata?.nextofKinNumber || ''
       ]
-        .filter(Boolean) // Remove empty strings
-        .join(' ') // Join with space
+        .filter(Boolean) 
+        .join(' ') 
         .toLowerCase();
       
       return {
@@ -459,20 +482,20 @@ const AdminBooking = () => {
       };
     });
     
-    // Filter rows that match the search
+   
     const matchedIds = searchableFields
       .filter(field => field.searchText.includes(searchLower))
       .map(field => field.id);
     
-    // Return a Set for O(1) lookup
+   
     return new Set(matchedIds);
   }, [searchText, createTableData]);
 
-  // Update filtered data based on status filter and search
+
   const updateFilteredData = useCallback(() => {
     let tableData = createTableData();
     
-    // Apply status filter
+  
     if (statusFilter !== 'ALL') {
       tableData = tableData.filter(row => {
         const status = row.status.toLowerCase();
@@ -495,7 +518,7 @@ const AdminBooking = () => {
       });
     }
 
-    // Apply search filter using cached results
+  
     if (searchResults && searchText.trim()) {
       tableData = tableData.filter(row => searchResults.has(row.id));
     }
@@ -503,7 +526,7 @@ const AdminBooking = () => {
     setFilteredData(tableData);
   }, [createTableData, statusFilter, searchText, searchResults]);
 
-  // Update filtered data when dependencies change
+
   useEffect(() => {
     updateFilteredData();
   }, [updateFilteredData]);
@@ -1598,4 +1621,4 @@ const AdminBooking = () => {
   ); 
 };
 
-export default AdminBooking;
+export default AdminBooking; 

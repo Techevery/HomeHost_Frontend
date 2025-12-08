@@ -30,7 +30,7 @@ interface Payout {
       name: string;
     };
   };
-  amount?: number; // Added as payout has amount field based on service
+  amount?: number; 
 }
 
 interface ConfirmPayoutData {
@@ -86,7 +86,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
           }
 
           const response = await axios.get(
-            `${API_BASE_URL}/api/v1/wallet`, // Fixed double slash
+            `${API_BASE_URL}/api/v1/wallet`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -149,7 +149,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
 
           set({ isProcessingPayout: false });
 
-          // Refresh payouts after confirmation
+       
           try {
             await get().getAllPayouts();
           } catch (refreshError) {
@@ -195,7 +195,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
 
           set({ isProcessingPayout: false });
 
-          // Refresh payouts after rejection
+         
           try {
             await get().getAllPayouts();
           } catch (refreshError) {
@@ -285,7 +285,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
         }
       },
 
-      // Helper methods for filtering payouts
+   
       getPayoutsByStatus: (status: PayoutStatus) => {
         const { payouts } = get();
         return payouts.filter(payout => payout.status === status);
@@ -319,7 +319,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
   ),
 );
 
-// Export helper functions
+
 export const getPayoutsByStatus = (status: PayoutStatus) => 
   useWalletStore.getState().payouts.filter(payout => payout.status === status);
 

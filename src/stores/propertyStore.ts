@@ -30,26 +30,26 @@ interface PropertyState {
 }
 
 interface PropertyActions {
-  // Fetch operations
+ 
   fetchProperties: (page?: number, limit?: number) => Promise<void>;
   fetchPropertyById: (id: string) => Promise<void>;
 
-  // Create operations
+ 
   createProperty: (formData: FormData) => Promise<void>;
 
-  // Update operations
+
   updateProperty: (
     id: string,
     propertyData: FormData | Partial<Property>,
   ) => Promise<void>;
 
-  // Delete operations
+ 
   deleteProperty: (id: string) => Promise<void>;
 
-  // Search operations
+ 
   searchProperties: (query: string) => Promise<Property[]>;
 
-  // Utility operations
+
   clearError: () => void;
   clearCurrentProperty: () => void;
   updatePropertiesList: (updatedProperty: Property) => void;
@@ -137,7 +137,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         }
       },
 
-      // Fetch single property by ID
+   
       fetchPropertyById: async (id: string) => {
         set({ loading: true, error: null });
         try {
@@ -187,7 +187,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         }
       },
 
-      // Create new property
+    
       createProperty: async (formData: FormData) => {
         set({ loading: true, error: null });
         try {
@@ -196,7 +196,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
             throw new Error("Authentication token not found");
           }
 
-          // Ensure numeric values are properly formatted
+        
           const price = formData.get("price");
           const agentPercentage = formData.get("agentPercentage");
           const bedroom = formData.get("bedroom");
@@ -206,7 +206,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
             formData.set("agentPercentage", agentPercentage.toString());
           if (bedroom) formData.set("bedroom", bedroom.toString());
 
-          // Add location field if it exists
+         
           const location = formData.get("location");
           if (!location) {
             formData.set("location", "");
@@ -240,7 +240,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
             agentPercentage: newProperty.agentPercentage?.toString() || "0",
           };
 
-          // Add to local state
+      
           set((state) => ({
             properties: [processedProperty, ...state.properties],
           }));
@@ -348,7 +348,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         }
       },
 
-      // Delete property - Updated to match backend endpoint
+     
       deleteProperty: async (id: string) => {
         set({ loading: true, error: null });
         try {
@@ -366,7 +366,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
             },
           );
 
-          // Remove from local state
+       
           set((state) => ({
             properties: state.properties.filter(
               (property) => property.id !== id,
@@ -389,7 +389,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         }
       },
 
-      // Search properties
+    
       searchProperties: async (query: string) => {
         set({ loading: true, error: null });
         try {
@@ -420,7 +420,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
             propertiesData = response.data;
           }
 
-          // Ensure proper data structure
+        
           const processedProperties = propertiesData.map((property) => ({
             ...property,
             amenities: Array.isArray(property.amenities)
@@ -451,7 +451,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         }
       },
 
-      // Utility function to update properties list
+    
       updatePropertiesList: (updatedProperty: Property) => {
         set((state) => ({
           properties: state.properties.map((property) =>
@@ -460,7 +460,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         }));
       },
 
-      // Utility function to remove property from list
+     
       removePropertyFromList: (propertyId: string) => {
         set((state) => ({
           properties: state.properties.filter(
@@ -469,12 +469,12 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         }));
       },
 
-      // Clear error state
+     
       clearError: () => {
         set({ error: null });
       },
 
-      // Clear current property
+   
       clearCurrentProperty: () => {
         set({ currentProperty: null });
       },
