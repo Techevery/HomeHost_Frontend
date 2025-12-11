@@ -64,12 +64,19 @@ const ViewDetailsModal: React.FC<ViewDetailsModalProps> = ({
     }
   };
 
+  const getStatusDisplay = (status: string | undefined) => {
+    if (!status) return "Unknown";
+    const statusUpper = status.toUpperCase();
+    if (statusUpper === "COMPLETED") return "AVAILABLE";
+    return statusUpper;
+  };
+
   const getStatusColor = (status: string | undefined) => {
     if (!status) return "default";
-    const statusLower = status.toLowerCase();
-    if (statusLower === "available") return "success";
-    if (statusLower === "rented") return "error";
-    if (statusLower === "maintenance") return "warning";
+    const statusUpper = status.toUpperCase();
+    if (statusUpper === "AVAILABLE" || statusUpper === "COMPLETED") return "success";
+    if (statusUpper === "RENTED") return "error";
+    if (statusUpper === "MAINTENANCE") return "warning";
     return "default";
   };
 
@@ -142,7 +149,7 @@ const ViewDetailsModal: React.FC<ViewDetailsModalProps> = ({
                   gap: 1,
                 }}>
                 <Chip
-                  label={safeString(property.status).toUpperCase()}
+                  label={getStatusDisplay(property.status)}
                   color={getStatusColor(property.status)}
                   sx={{
                     fontWeight: "bold",

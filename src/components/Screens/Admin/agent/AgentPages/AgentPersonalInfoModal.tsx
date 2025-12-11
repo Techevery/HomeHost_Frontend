@@ -20,11 +20,11 @@ import {
   Close,
   Person,
   Fingerprint,
-  // Email,
-  // Phone,
   AccountBalanceWallet,
   VerifiedUser,
   CheckCircle,
+  Email,
+  Phone,
 } from "@mui/icons-material";
 import useAdminStore from "../../../../../stores/admin";
 
@@ -69,10 +69,9 @@ const AgentPersonalInfoModal: React.FC<AgentPersonalInfoModalProps> = ({ open, a
 
   const personalInfo = {
     profilePicture: null,
-    frontId: "uploaded",
-    backId: "uploaded",
-    frontIdStatus: true,
-    backIdStatus: true,
+    // Document verification - simplified to just one document status
+    documentStatus: "verified", // Can be: "verified", "pending", "rejected", "not_uploaded"
+    documentVerifiedAt: "2025-11-15", // Date when document was verified
     account: agent?.account || 'N/A',
     email: agent?.email,
     phone: agent?.phone_number || 'N/A',
@@ -107,6 +106,49 @@ const AgentPersonalInfoModal: React.FC<AgentPersonalInfoModalProps> = ({ open, a
         return 'default';
     }
   };
+
+  const getDocumentStatusDisplay = () => {
+    switch (personalInfo.documentStatus) {
+      case "verified":
+        return {
+          text: "Document Verified",
+          icon: <CheckCircle sx={{ fontSize: 48 }} />,
+          color: "success.main",
+          bgColor: "success.light",
+          chipLabel: "Verified",
+          chipColor: "success" as const,
+        };
+      case "pending":
+        return {
+          text: "Document Under Review",
+          icon: null,
+          color: "warning.main",
+          bgColor: "warning.light",
+          chipLabel: "Pending Review",
+          chipColor: "warning" as const,
+        };
+      case "rejected":
+        return {
+          text: "Document Rejected",
+          icon: null,
+          color: "error.main",
+          bgColor: "error.light",
+          chipLabel: "Rejected",
+          chipColor: "error" as const,
+        };
+      default: // "not_uploaded"
+        return {
+          text: "No Document Uploaded",
+          icon: null,
+          color: "grey.500",
+          bgColor: "grey.100",
+          chipLabel: "Not Uploaded",
+          chipColor: "default" as const,
+        };
+    }
+  };
+
+  const docStatus = getDocumentStatusDisplay();
 
   return (
     <Dialog
@@ -224,7 +266,8 @@ const AgentPersonalInfoModal: React.FC<AgentPersonalInfoModalProps> = ({ open, a
                     </Box>
                     <Box display="flex" justifyContent="space-between">
                       <Typography variant="body2" color="text.secondary">
-                        Email Address:
+                        <Email fontSize="small" sx={{ mr: 0.5 }} />
+                        Email:
                       </Typography>
                       <Typography variant="body2" fontWeight="medium">
                         {personalInfo.email}
@@ -232,7 +275,8 @@ const AgentPersonalInfoModal: React.FC<AgentPersonalInfoModalProps> = ({ open, a
                     </Box>
                     <Box display="flex" justifyContent="space-between">
                       <Typography variant="body2" color="text.secondary">
-                        Phone Number:
+                        <Phone fontSize="small" sx={{ mr: 0.5 }} />
+                        Phone:
                       </Typography>
                       <Typography variant="body2" fontWeight="medium">
                         {personalInfo.phone}
@@ -311,7 +355,7 @@ const AgentPersonalInfoModal: React.FC<AgentPersonalInfoModalProps> = ({ open, a
               </Card>
             </Grid>
 
-            {/* Document Verification */}
+            {/* Document Verification - Simplified */}
             <Grid item xs={12} md={6}>
               <Card>
                 <CardContent>
@@ -319,36 +363,60 @@ const AgentPersonalInfoModal: React.FC<AgentPersonalInfoModalProps> = ({ open, a
                     <VerifiedUser sx={{ fontSize: 18, mr: 1 }} />
                     Document Verification
                   </Typography>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12}>
-                      <Box
-                        sx={{
-                          border: '2px solid',
-                          borderColor: 'success.main',
-                          borderRadius: 2,
-                          p: 3,
-                          textAlign: 'center',
-                          bgcolor: 'success.light',
-                          color: 'white'
+                  <Box
+                    sx={{
+                      border: '2px solid',
+                      borderColor: docStatus.color,
+                      borderRadius: 2,
+                      p: 3,
+                      textAlign: 'center',
+                      bgcolor: docStatus.bgColor,
+                      color: personalInfo.documentStatus === "verified" ? 'white' : 'text.primary',
+                      mt: 2
+                    }}
+                  >
+                    <Box>
+                      {docStatus.icon}
+                      <Typography variant="body1" fontWeight="medium" mt={1}>
+                        {docStatus.text}
+                      </Typography>
+                      {personalInfo.documentStatus === "verified" && (
+                        <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.9 }}>
+                          Verified on: {personalInfo.documentVerifiedAt}
+                        </Typography>
+                      )}
+                      <Chip
+                        icon={personalInfo.documentStatus === "verified" ? <CheckCircle /> : undefined}
+                        label={docStatus.chipLabel}
+                        color={docStatus.chipColor}
+                        size="small"
+                        sx={{ 
+                          mt: 1, 
+                          color: personalInfo.documentStatus === "verified" ? 'white' : 'inherit',
+                          borderColor: personalInfo.documentStatus === "verified" ? 'white' : 'inherit'
                         }}
-                      >
-                        <Box>
-                          <CheckCircle sx={{ fontSize: 48 }} />
-                          <Typography variant="body1" fontWeight="medium" mt={1}>
-                            ID Uploaded and Verified
-                          </Typography>
-                          <Chip
-                            icon={<CheckCircle />}
-                            label="Verified"
-                            color="success"
-                            size="small"
-                            sx={{ mt: 1, color: 'white', borderColor: 'white' }}
-                            variant="outlined"
-                          />
-                        </Box>
-                      </Box>
-                    </Grid>
-                  </Grid>
+                        variant="outlined"
+                      />
+                    </Box>
+                  </Box>
+                  
+                  {/* Additional Info if Document is Rejected */}
+                  {personalInfo.documentStatus === "rejected" && (
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'error.50', borderRadius: 1 }}>
+                      <Typography variant="body2" color="error.main" fontWeight="medium">
+                        Document was rejected. Please ask the agent to upload a valid ID document.
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {/* Additional Info if No Document */}
+                  {personalInfo.documentStatus === "not_uploaded" && (
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        No document has been uploaded yet.
+                      </Typography>
+                    </Box>
+                  )}
                 </CardContent>
               </Card>
             </Grid>

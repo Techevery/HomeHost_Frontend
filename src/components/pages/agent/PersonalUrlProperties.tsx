@@ -12,6 +12,7 @@ import { ErrorMessage, Field, Form, Formik } from "formik";
 import * as Yup from "yup";
 
 interface PropertyAgent {
+  contact: string;
   id: string;
   name: string;
   email: string;
@@ -329,6 +330,7 @@ const PropertyDetailView: React.FC<{
 
 
   const displayAgent = agentData;
+  console.log({displayAgent})
 
   const getRegistrationTime = (createdAt: string) => {
     if (!createdAt) return "Unknown";
@@ -399,12 +401,12 @@ const PropertyDetailView: React.FC<{
                 {property.name}
               </h4>
 
-              <div className="flex flex-col gap-4 flex-1">
+              <div className="flex flex-col gap-4 flex-1 ">
           
 
                 {displayAgent && (
                   <>
-                    <div className="flex gap-3 items-center">
+                    <div className="flex gap-3 items-center ">
                       <img
                         src={displayAgent.image || "/images/Group 1505.svg"}
                         alt="Agent"
@@ -426,7 +428,7 @@ const PropertyDetailView: React.FC<{
                     <div className="flex gap-4 items-center">
                       <span className="font-semibold">Agent Phone Number:</span>
                       <h6 className="text-lg text-gray-700">
-                        {displayAgent.phone_number || "Phone not available"}
+                        {displayAgent.contact || displayAgent.phone_number || "Phone not available"}
                       </h6>
                     </div>
 

@@ -4,8 +4,9 @@ import { Paper } from "@material-ui/core";
 import { ThemeProvider, createTheme } from "@mui/material";
 import MaterialTable from "material-table";
 import { useLocation } from 'react-router-dom';
-import { MdClose, MdCheck, MdCancel, MdCloudUpload, MdFilterList, MdSearch } from 'react-icons/md';
+import { MdClose, MdCheck, MdCancel, MdCloudUpload, MdFilterList, MdSearch, MdAttachMoney, MdAdd } from 'react-icons/md';
 import useWalletStore, { PayoutStatus } from '../../../../../stores/payoutStore';
+import { ToastContainer, toast } from "react-toastify";
 
 interface RowData {
   id: string;
@@ -18,12 +19,25 @@ interface RowData {
   date: string;
   status: string;
   originalStatus: PayoutStatus;
+  grossAmount: number;
+  agentAmount: number;
+  fee: number;
+  charges: number;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+}
+
+interface ChargeData {
+  description: string;
+  amount: number;
 }
 
 const PayoutRequestTable = () => {
     const [selectedRow, setSelectedRow] = useState<RowData | null>(null);
     const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+    const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
     const [approveRemark, setApproveRemark] = useState('');
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -31,16 +45,24 @@ const PayoutRequestTable = () => {
     const [filteredData, setFilteredData] = useState<RowData[]>([]);
     const [showStatusFilter, setShowStatusFilter] = useState(false);
     const [searchText, setSearchText] = useState('');
+    const [isFullScreenPreviewOpen, setIsFullScreenPreviewOpen] = useState(false);
+    
+    // Add charge modal states
+    const [chargeDescription, setChargeDescription] = useState('');
+    const [chargeAmount, setChargeAmount] = useState<string>('');
+    const [charges, setCharges] = useState<ChargeData[]>([]);
+    const [totalCharges, setTotalCharges] = useState<number>(0);
 
-    // Use the wallet store
     const { 
       payouts, 
       isLoading, 
       error, 
       isProcessingPayout, 
+      isProcessingCharges, 
       getAllPayouts, 
       confirmPayout,
       rejectPayout,
+      createCharges, 
       clearError 
     } = useWalletStore();
 
@@ -48,26 +70,26 @@ const PayoutRequestTable = () => {
     const { pathname } = url;
     const pathnames = pathname.split("/").filter((x) => x);
     
-    // Fetch payouts on component mount
     useEffect(() => {
       getAllPayouts();
     }, [getAllPayouts]);
 
-    // Transform payout data to RowData format with correct API response mapping
     const transformPayoutToRowData = (payout: any): RowData => {
       const transaction = payout.transaction || {};
       const agent = payout.agent || {};
       
-      // Use payout amount directly from payout object
+      // Get payout amount with fallback - use payout.amount directly from backend
       const payoutAmount = payout.amount || 0;
       const grossAmount = transaction.amount || payoutAmount;
       const agentPercentage = transaction.agentPercentage || 0;
       
-      // Calculate agent amount if percentage is available, otherwise use payout amount
-      const agentAmount = agentPercentage > 0 ? grossAmount * (agentPercentage / 100) : payoutAmount;
-      const fee = agentAmount;
+      // Calculate agent amount - use payout.amount from backend as it's already calculated
+      const agentAmount = payoutAmount;
+      const fee = payoutAmount;
+      
+      // Get charges from payout data
+      const charges = payout.charges || 0;
 
-      // Format calculation string - show agentPercentage and mockup price if available
       let calculation = '';
       
       if (agentPercentage > 0) {
@@ -77,21 +99,26 @@ const PayoutRequestTable = () => {
       if (transaction.mockupPrice && transaction.mockupPrice > 0) {
         calculation += `Markup\n(₦${transaction.mockupPrice}/day)\n₦${transaction.mockupPrice} x 4 days`;
       } else if (calculation.endsWith('\n\n')) {
-        calculation = calculation.slice(0, -2); // Remove extra newlines if no mockup price
+        calculation = calculation.slice(0, -2); 
       }
 
-      // If neither percentage nor mockup price is available, show basic calculation
+      // If no calculation method, show amount directly
       if (!calculation) {
         calculation = `Amount\n₦${grossAmount.toLocaleString()}`;
       }
 
-      // Format amount string
-      const amount = `₦${agentAmount.toLocaleString()}\nGross: ₦${grossAmount.toLocaleString()}\nFee: ₦${fee.toLocaleString()}`;
+      // Format amount display with charges
+      const netFee = fee - charges;
+      const amount = `₦${agentAmount.toLocaleString()}\nGross: ₦${grossAmount.toLocaleString()}\nFee: ₦${netFee.toLocaleString()}${charges > 0 ? ` (-₦${charges.toLocaleString()})` : ''}`;
 
-      // Format bank details using actual API response fields
-      const bankDetails = `${payout.bankName || 'Bank not specified'}\n${payout.accountNumber || 'Account not specified'}\n${payout.accountName || 'Name not available'}`;
+      // Bank details - using payout data directly (not from agent object)
+      const bankName = payout.bankName || 'Bank not specified';
+      const accountNumber = payout.accountNumber || 'Account not specified';
+      const accountName = payout.accountName || agent.name || 'Name not available';
+      
+      const bankDetails = `${bankName}\n${accountNumber}\n${accountName}`;
 
-      // Format date using createdAt from API response
+      // Date formatting
       const createdDate = new Date(payout.createdAt).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -109,22 +136,33 @@ const PayoutRequestTable = () => {
       };
 
       return {
+
+
+        
         id: payout.id,
         agent: agent.name || 'Unknown Agent',
         property: transaction.apartment?.name || 'Unknown Property',
-        booking: `REF-${payout.reference?.slice(-8).toUpperCase() || payout.id.slice(-8).toUpperCase()}`,
+        booking: payout.reference ? `REF-${payout.reference}` : `REF-${payout.id.slice(-8).toUpperCase()}`,
         calculation,
         amount,
         bank: bankDetails,
         date,
         status: statusMap[payout.status as PayoutStatus] || 'Pending',
-        originalStatus: payout.status
+        originalStatus: payout.status as PayoutStatus,
+        grossAmount,
+        agentAmount,
+        fee,
+        charges,
+        bankName: payout.bankName,
+        accountNumber: payout.accountNumber,
+        accountName: payout.accountName || agent.name
       };
     };
 
+
+    
     const data: RowData[] = payouts.map(transformPayoutToRowData);
 
-    // Apply both status filter and search filter
     useEffect(() => {
       let result = data;
 
@@ -153,6 +191,7 @@ const PayoutRequestTable = () => {
         setSelectedRow(rowData);
         setIsApproveModalOpen(true);
         setApproveRemark('');
+        setUploadedFile(null);
     };
 
     const handleRejectClick = (rowData: RowData) => {
@@ -161,31 +200,60 @@ const PayoutRequestTable = () => {
         setRejectReason('');
     };
 
+    const handleAddChargeClick = (rowData: RowData) => {
+      setSelectedRow(rowData);
+      setChargeDescription('');
+      setChargeAmount('');
+      setCharges([]);
+      setTotalCharges(0);
+      setIsChargeModalOpen(true);
+    };
+
     const handleCloseModals = () => {
         setIsApproveModalOpen(false);
         setIsRejectModalOpen(false);
+        setIsChargeModalOpen(false); 
         setSelectedRow(null);
         setRejectReason('');
         setApproveRemark('');
         setUploadedFile(null);
+        setChargeDescription('');
+        setChargeAmount('');
+        setCharges([]);
+        setTotalCharges(0);
         clearError();
     };
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
+            // Check file size (10MB limit)
+            if (file.size > 10 * 1024 * 1024) {
+              toast.error('File size must be less than 10MB');
+                return;
+            }
+            
+            // Check file type
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            if (!validTypes.includes(file.type)) {
+                toast.error('Invalid file type. Please upload JPG, PNG, PDF, or DOC files.');
+                return;
+            }
+            
             setUploadedFile(file);
         }
     };
 
+
+    
     const handleApproveSubmit = async () => {
         if (!selectedRow) return;
 
         try {
             const files = uploadedFile ? [uploadedFile] : [];
             
-            // Use the remark from input field
-            const remark = approveRemark.trim() || `Payout approved for ${selectedRow.agent}. Amount: ${selectedRow.amount.split('\n')[0]}`;
+            // Create remark or use user input
+            const remark = approveRemark.trim() || `Payout approved for ${selectedRow.agent}. Amount: ₦${selectedRow.agentAmount.toLocaleString()}`;
             
             await confirmPayout({
                 payoutId: selectedRow.id,
@@ -193,19 +261,20 @@ const PayoutRequestTable = () => {
                 files
             });
 
-            console.log('Payout approved successfully:', selectedRow);
+          
             handleCloseModals();
             
             // Refresh the payouts list
             await getAllPayouts();
             
         } catch (error) {
-            console.error('Failed to approve payout:', error);
+         
+            toast.error('Failed to approve payout. Please try again.');
         }
     };
 
     const handleRejectSubmit = async () => {
-        if (!selectedRow) return;
+        if (!selectedRow || !rejectReason.trim()) return;
 
         try {
             await rejectPayout({
@@ -213,15 +282,74 @@ const PayoutRequestTable = () => {
                 reason: rejectReason
             });
 
-            console.log('Payout rejected successfully:', selectedRow);
+           
             handleCloseModals();
             
             // Refresh the payouts list
             await getAllPayouts();
             
         } catch (error) {
-            console.error('Failed to reject payout:', error);
+           
+            toast.error('Failed to reject payout. Please try again.');
         }
+    };
+    
+    const handleAddCharge = () => {
+      if (!chargeDescription.trim() || !chargeAmount.trim()) {
+        toast.error('Please enter both description and amount');
+        return;
+      }
+
+      const amount = parseFloat(chargeAmount);
+      if (isNaN(amount) || amount <= 0) {
+        toast.error('Please enter a valid positive amount');
+        return;
+      }
+
+      const newCharge: ChargeData = {
+        description: chargeDescription.trim(),
+        amount
+      };
+
+      setCharges([...charges, newCharge]);
+      setTotalCharges(totalCharges + amount);
+      
+      // Clear form
+      setChargeDescription('');
+      setChargeAmount('');
+    };
+
+    const handleRemoveCharge = (index: number) => {
+      const removedCharge = charges[index];
+      const newCharges = charges.filter((_, i) => i !== index);
+      setCharges(newCharges);
+      setTotalCharges(totalCharges - removedCharge.amount);
+    };
+    
+    const handleSubmitCharges = async () => {
+      if (!selectedRow || charges.length === 0) {
+        toast.error('Please add at least one charge');
+        return;
+      }
+
+      try {
+        // Create all charges
+        for (const charge of charges) {
+          await createCharges({
+            description: `${selectedRow.agent} - ${charge.description}`,
+            amount: charge.amount
+          });
+        }
+
+       
+        toast.success('Charges added successfully!');
+        
+        handleCloseModals();
+        
+      } catch (error) {
+      
+        toast.success('Failed to create charges. Please try again.');
+      }
     };
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -232,12 +360,12 @@ const PayoutRequestTable = () => {
         setSearchText('');
     };
 
-    // Status filter options - removed PENDING from filter options but kept in data
+    // Status filter options
     const statusFilterOptions = [
       { value: 'ALL' as const, label: 'All Status', count: data.length },
+      { value: PayoutStatus.PENDING, label: 'Pending', count: data.filter(row => row.originalStatus === PayoutStatus.PENDING).length },
       { value: PayoutStatus.SUCCESS, label: 'Approved', count: data.filter(row => row.originalStatus === PayoutStatus.SUCCESS).length },
-      { value: PayoutStatus.FAILED, label: 'Rejected', count: data.filter(row => row.originalStatus === PayoutStatus.FAILED).length },
-      { value: PayoutStatus.CANCELLED, label: 'Cancelled', count: data.filter(row => row.originalStatus === PayoutStatus.CANCELLED).length },
+      { value: PayoutStatus.CANCELLED, label: 'Rejected', count: data.filter(row => row.originalStatus === PayoutStatus.CANCELLED).length },
     ];
 
     const COLUMNS = [
@@ -285,7 +413,11 @@ const PayoutRequestTable = () => {
         render: (rowData: RowData) => (
           <div className="whitespace-pre-line text-sm font-semibold">
             {rowData.amount.split('\n').map((line: string, index: number) => (
-              <div key={index} className={index === 0 ? 'font-bold text-base' : 'text-sm text-gray-600'}>
+              <div key={index} className={
+                index === 0 ? 'font-bold text-base' : 
+                index === 1 ? 'text-sm text-gray-600' : 
+                rowData.charges > 0 ? 'text-sm text-red-600' : 'text-sm text-gray-600'
+              }>
                 {line}
               </div>
             ))}
@@ -321,38 +453,52 @@ const PayoutRequestTable = () => {
         ),
       },
       {
-        title: "ACTIONS",
+        title: "STATUS & ACTIONS",
         field: "status" as const,
         cellStyle: { textAlign: 'center' as const },
         render: (rowData: RowData) => (
           <div className="flex flex-col gap-2">
-            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-              rowData.status === 'Approved' ? 'bg-green-100 text-green-800' :
-              rowData.status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-              
+            {/* Status Badge */}
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${rowData.status === 'Approved' ? 'bg-green-100 text-green-800' :
+              rowData.status === 'Rejected' ? 'bg-red-100 text-red-800' : 
+              'bg-yellow-100 text-yellow-800'
             }`}>
-        
+              {/* {rowData.status} */}
             </div>
             
-              <div className="flex gap-2">
+            {/* Action Buttons - Only show for pending payouts */}
+            {rowData.originalStatus === PayoutStatus.PENDING && (
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleApproveClick(rowData)}
+                    disabled={isProcessingPayout}
+                    className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    <MdCheck className="w-4 h-4" />
+                    {isProcessingPayout ? 'Processing...' : 'Approve'}
+                  </button>
+                  <button 
+                    onClick={() => handleRejectClick(rowData)}
+                    disabled={isProcessingPayout}
+                    className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    <MdCancel className="w-4 h-4" />
+                    {isProcessingPayout ? 'Processing...' : 'Reject'}
+                  </button>
+                </div>
+                
+                {/* Add Charge Button - Only for pending payouts */}
                 <button 
-                  onClick={() => handleApproveClick(rowData)}
-                  disabled={isProcessingPayout}
-                  className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  onClick={() => handleAddChargeClick(rowData)}
+                  disabled={isProcessingCharges}
+                  className="flex items-center justify-center gap-1 bg-purple-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  <MdCheck className="w-4 h-4" />
-                  {isProcessingPayout ? 'Processing...' : 'Approve'}
-                </button>
-                <button 
-                  onClick={() => handleRejectClick(rowData)}
-                  disabled={isProcessingPayout}
-                  className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  <MdCancel className="w-4 h-4" />
-                  {isProcessingPayout ? 'Processing...' : 'Reject'}
+                
+                  {isProcessingCharges ? 'Processing...' : 'Add Charge'}
                 </button>
               </div>
-          
+            )}
           </div>
         ),
       },
@@ -365,16 +511,16 @@ const PayoutRequestTable = () => {
     });
 
     // Show loading state
-    if (isLoading) {
+    if (isLoading && payouts.length === 0) {
       return (
-        <div className="bg-white rounded-[20px] p-6 flex items-center justify-center">
+        <div className="bg-white rounded-[20px] p-6 flex items-center justify-center h-64">
           <div className="text-gray-600">Loading payouts...</div>
         </div>
       );
     }
 
     // Show error state
-    if (error) {
+    if (error && payouts.length === 0) {
       return (
         <div className="bg-white rounded-[20px] p-6">
           <div className="text-red-600 mb-4">Error: {error}</div>
@@ -388,8 +534,38 @@ const PayoutRequestTable = () => {
       );
     }
 
+    // Show empty state
+    if (payouts.length === 0 && !isLoading) {
+      return (
+        <div className="bg-white rounded-[20px] p-6 text-center">
+          <div className="text-gray-600 text-lg mb-4">No payout requests found</div>
+          <button 
+            onClick={getAllPayouts}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+      );
+    }
+
     return (
+      
       <div className="bg-white rounded-[20px] p-6">
+      
+              <ToastContainer
+                position="top-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+              />
+  
         {/* Error Banner */}
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -415,22 +591,22 @@ const PayoutRequestTable = () => {
                 <button
                   key={option.value}
                   onClick={() => setStatusFilter(option.value)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    statusFilter === option.value
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${statusFilter === option.value
                       ? option.value === 'ALL' 
                         ? 'bg-blue-600 text-white'
+                        : option.value === PayoutStatus.PENDING
+                        ? 'bg-yellow-600 text-white'
                         : option.value === PayoutStatus.SUCCESS
                         ? 'bg-green-600 text-white'
                         : 'bg-red-600 text-white'
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   {option.label} 
-                  <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
-                    statusFilter === option.value 
+                  <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${statusFilter === option.value 
                       ? 'bg-white bg-opacity-20' 
                       : 'bg-gray-100'
-                  }`}>
+                    }`}>
                     {option.count}
                   </span>
                 </button>
@@ -439,17 +615,17 @@ const PayoutRequestTable = () => {
           </div>
         )}
 
-        {/* Approve Modal */}
-        {isApproveModalOpen && (
+        {/* Charge Modal */}
+        {isChargeModalOpen && selectedRow && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
               {/* Modal Header */}
               <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h3 className="text-xl font-bold text-gray-800">Approve Payout</h3>
+                <h3 className="text-xl font-bold text-gray-800">Add Charges</h3>
                 <button 
                   onClick={handleCloseModals}
                   className="text-gray-500 hover:text-gray-700 transition-colors"
-                  disabled={isProcessingPayout}
+                  disabled={isProcessingCharges}
                 >
                   <MdClose className="w-6 h-6" />
                 </button>
@@ -457,91 +633,120 @@ const PayoutRequestTable = () => {
 
               {/* Modal Body */}
               <div className="p-6">
-                {selectedRow && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold mb-4">Payout Information</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-gray-600">Agent Name</p>
+                      <p className="font-medium">{selectedRow.agent}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Property</p>
+                      <p className="font-medium">{selectedRow.property}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Booking Reference</p>
+                      <p className="font-medium">{selectedRow.booking}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Original Fee</p>
+                      <p className="font-medium">₦{selectedRow.fee.toLocaleString()}</p>
+                    </div>
+                   
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        Charges will be recorded separately and may affect future payouts
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Add Charge Form */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold mb-4">Add New Charge</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Description
+                      </label>
+                      <input
+                        type="text"
+                        value={chargeDescription}
+                        onChange={(e) => setChargeDescription(e.target.value)}
+                        placeholder="e.g., Service fee, Processing fee, etc."
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50"
+                        disabled={isProcessingCharges}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Amount (₦)
+                      </label>
+                      <input
+                        type="number"
+                        value={chargeAmount}
+                        onChange={(e) => setChargeAmount(e.target.value)}
+                        placeholder="Enter amount"
+                        min="0"
+                        step="0.01"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50"
+                        disabled={isProcessingCharges}
+                      />
+                    </div>
+                    <button
+                      onClick={handleAddCharge}
+                      disabled={!chargeDescription.trim() || !chargeAmount.trim() || isProcessingCharges}
+                      className="flex items-center justify-center gap-2 w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      <MdAdd className="w-5 h-5" />
+                      Add Charge
+                    </button>
+                  </div>
+                </div>
+
+                {/* Charges List */}
+                {charges.length > 0 && (
                   <div className="mb-6">
-                    <h4 className="text-lg font-semibold mb-4">Payout Information</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm text-gray-600">Agent Name</p>
-                        <p className="font-medium">{selectedRow.agent}</p>
+                    <h4 className="text-lg font-semibold mb-4">Charges List</h4>
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      {charges.map((charge, index) => (
+                        <div key={index} className="flex items-center justify-between p-4 border-b border-gray-200 last:border-b-0 hover:bg-gray-50">
+                          <div>
+                            <p className="font-medium text-gray-800">{charge.description}</p>
+                            <p className="text-sm text-gray-600">₦{charge.amount.toLocaleString()}</p>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveCharge(index)}
+                            className="text-red-600 hover:text-red-800 p-1"
+                            disabled={isProcessingCharges}
+                          >
+                            <MdClose className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Total Charges */}
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-gray-800">Total New Charges:</span>
+                        <span className="font-bold text-xl text-red-600">₦{totalCharges.toLocaleString()}</span>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Property</p>
-                        <p className="font-medium">{selectedRow.property}</p>
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
+                        <span className="font-semibold text-gray-800">Existing Charges:</span>
+                        <span className="font-medium text-red-600">₦{selectedRow.charges.toLocaleString()}</span>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Booking Reference</p>
-                        <p className="font-medium">{selectedRow.booking}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Amount</p>
-                        <p className="font-medium">{selectedRow.amount.split('\n')[0]}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Account Number</p>
-                        <p className="font-medium">{selectedRow.bank.split('\n')[1]}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Bank Name</p>
-                        <p className="font-medium">{selectedRow.bank.split('\n')[0]}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Account Name</p>
-                        <p className="font-medium">{selectedRow.bank.split('\n')[2]}</p>
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
+                        <span className="font-bold text-gray-800">Total Charges:</span>
+                        <span className="font-bold text-2xl text-red-600">₦{(selectedRow.charges + totalCharges).toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Remark Input Section */}
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold mb-4">Remark</h4>
-                  <textarea
-                    value={approveRemark}
-                    onChange={(e) => setApproveRemark(e.target.value)}
-                    placeholder="Enter approval remark (optional)"
-                    className="w-full h-24 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50"
-                    disabled={isProcessingPayout}
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    This remark will be included in the approval notification.
-                  </p>
-                </div>
-
-                {/* Document Upload Section */}
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold mb-4">Upload Document</h4>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                    <input
-                      type="file"
-                      id="document-upload"
-                      className="hidden"
-                      accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
-                      onChange={handleFileUpload}
-                      disabled={isProcessingPayout}
-                    />
-                    <label htmlFor="document-upload" className="cursor-pointer">
-                      <MdCloudUpload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-600 mb-2">
-                        {uploadedFile ? 'File selected: ' + uploadedFile.name : 'Click to upload document'}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Supports JPG, PNG, PDF, DOC (Max: 10MB)
-                      </p>
-                    </label>
-                  </div>
-                  {uploadedFile && (
-                    <div className="mt-3 p-3 bg-green-50 rounded-lg">
-                      <p className="text-green-700 text-sm">
-                        ✓ {uploadedFile.name} ready for upload
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-blue-800 text-sm">
-                    Please upload the payment receipt or relevant document before approving this payout.
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <p className="text-purple-800 text-sm">
+                    Charges will be recorded against this agent. They will be notified and these charges may affect future payouts.
                   </p>
                 </div>
               </div>
@@ -550,29 +755,294 @@ const PayoutRequestTable = () => {
               <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
                 <button
                   onClick={handleCloseModals}
-                  disabled={isProcessingPayout}
+                  disabled={isProcessingCharges}
                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleApproveSubmit}
-                  disabled={!uploadedFile || isProcessingPayout}
-                  className={`px-6 py-2 rounded-lg text-white transition-colors ${
-                    uploadedFile && !isProcessingPayout
-                      ? 'bg-green-600 hover:bg-green-700' 
+                  onClick={handleSubmitCharges}
+                  disabled={charges.length === 0 || isProcessingCharges}
+                  className={`px-6 py-2 rounded-lg text-white transition-colors ${charges.length > 0 && !isProcessingCharges
+                      ? 'bg-purple-600 hover:bg-purple-700' 
                       : 'bg-gray-400 cursor-not-allowed'
-                  }`}
+                    }`}
                 >
-                  {isProcessingPayout ? 'Processing...' : 'Submit & Approve'}
+                  {isProcessingCharges ? 'Processing...' : `Create Charges (₦${totalCharges.toLocaleString()})`}
                 </button>
               </div>
             </div>
           </div>
         )}
 
+  {isApproveModalOpen && selectedRow && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    {/* Increased width from max-w-md to max-w-2xl (from 28rem to 42rem) */}
+    <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* Modal Header */}
+      <div className="flex justify-between items-center p-6 border-b border-gray-200">
+        <h3 className="text-xl font-bold text-gray-800">Approve Payout</h3>
+        <button 
+          onClick={handleCloseModals}
+          className="text-gray-500 hover:text-gray-700 transition-colors"
+          disabled={isProcessingPayout}
+        >
+          <MdClose className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Modal Body - Two column layout for better use of space */}
+      <div className="p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Left Column - Payout Information */}
+          <div>
+            <h4 className="text-lg font-semibold mb-4">Payout Information</h4>
+            <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Agent Name</p>
+                  <p className="font-medium text-gray-800">{selectedRow.agent}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Property</p>
+                  <p className="font-medium text-gray-800">{selectedRow.property}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Booking Reference</p>
+                  <p className="font-medium text-gray-800">{selectedRow.booking}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Amount to Pay</p>
+                  <p className="font-medium text-green-600">₦{selectedRow.agentAmount.toLocaleString()}</p>
+                </div>
+              </div>
+              
+              <div className="pt-4 border-t border-gray-200">
+                <h5 className="text-sm font-semibold text-gray-700 mb-3">Bank Details</h5>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Account Number</p>
+                    <p className="font-medium text-gray-800">{selectedRow.accountNumber || 'Not available'}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Bank Name</p>
+                      <p className="font-medium text-gray-800">{selectedRow.bankName || 'Not available'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Account Name</p>
+                      <p className="font-medium text-gray-800">{selectedRow.accountName || 'Not available'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Remark and Upload */}
+          <div>
+            {/* Remark Input Section */}
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold mb-4">Approval Remark</h4>
+              <textarea
+                value={approveRemark}
+                onChange={(e) => setApproveRemark(e.target.value)}
+                placeholder="Enter approval remark... This will be included in the notification to the agent."
+                className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50"
+                disabled={isProcessingPayout}
+              />
+            </div>
+
+            {/* Document Upload Section */}
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Upload Payment Proof</h4>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                <input
+                  type="file"
+                  id="document-upload"
+                  className="hidden"
+                  accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                  onChange={handleFileUpload}
+                  disabled={isProcessingPayout}
+                />
+                <label htmlFor="document-upload" className="cursor-pointer flex flex-col items-center">
+                  <MdCloudUpload className="w-10 h-10 text-gray-400 mb-2" />
+                  <p className="text-gray-600 text-sm mb-1">
+                    {uploadedFile ? 'File selected: ' + uploadedFile.name : 'Click to upload payment proof'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Supports JPG, PNG, PDF, DOC (Max: 10MB)
+                  </p>
+                </label>
+              </div>
+              
+              {/* Image/File Preview */}
+              {uploadedFile && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    {uploadedFile.type.startsWith('image/') ? (
+                      <div className="relative">
+                        <div 
+                          className="w-full h-48 cursor-pointer overflow-hidden bg-gray-100"
+                          onClick={() => setIsFullScreenPreviewOpen(true)}
+                        >
+                          <img 
+                            src={URL.createObjectURL(uploadedFile)} 
+                            alt="Preview" 
+                            className="w-full h-full object-contain hover:scale-105 transition-transform duration-200"
+                          />
+                        </div>
+                        <div className="absolute top-2 right-2 flex gap-2">
+                          <button
+                            onClick={() => setIsFullScreenPreviewOpen(true)}
+                            className="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors shadow-md"
+                            type="button"
+                            title="View full screen"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => setUploadedFile(null)}
+                            className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-md"
+                            type="button"
+                            title="Remove file"
+                          >
+                            <MdClose className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-4 bg-gray-50">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 flex items-center justify-center bg-blue-100 rounded-lg mr-3">
+                            <span className="text-blue-600 font-bold">
+                              {uploadedFile.name.split('.').pop()?.toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-800 text-sm">{uploadedFile.name}</p>
+                            <p className="text-xs text-gray-600">
+                              {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setUploadedFile(null)}
+                          className="text-red-500 hover:text-red-700 p-1"
+                          type="button"
+                        >
+                          <MdClose className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-2 flex items-center text-green-600 text-sm">
+                    <MdCheck className="w-4 h-4 mr-1" />
+                    File ready for upload
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="text-green-800 text-sm">
+            Approving this payout will notify the agent and mark this transaction as completed. The payment proof will be attached to the notification.
+          </p>
+        </div>
+      </div>
+
+      {/* Modal Footer */}
+      <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+        <button
+          onClick={handleCloseModals}
+          disabled={isProcessingPayout}
+          className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleApproveSubmit}
+          disabled={isProcessingPayout}
+          className={`px-6 py-2 rounded-lg text-white transition-colors ${!isProcessingPayout
+              ? 'bg-green-600 hover:bg-green-700' 
+              : 'bg-gray-400 cursor-not-allowed'
+            }`}
+        >
+          {isProcessingPayout ? 'Processing...' : 'Approve Payout'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Full Screen Image Preview Modal */}
+{isFullScreenPreviewOpen && uploadedFile && uploadedFile.type.startsWith('image/') && (
+  <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4">
+    <div className="relative w-full h-full flex items-center justify-center">
+      <button
+        onClick={() => setIsFullScreenPreviewOpen(false)}
+        className="absolute top-4 right-4 bg-white text-gray-800 p-3 rounded-full hover:bg-gray-100 transition-colors z-10 shadow-lg"
+        type="button"
+      >
+        <MdClose className="w-6 h-6" />
+      </button>
+      
+      <div className="max-w-full max-h-full overflow-auto">
+        <img 
+          src={URL.createObjectURL(uploadedFile)} 
+          alt="Full screen preview" 
+          className="max-w-full max-h-full object-contain"
+        />
+      </div>
+      
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
+        <p className="text-sm">
+          {uploadedFile.name} • {(uploadedFile.size / 1024).toFixed(1)} KB
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Full Screen Image Preview Modal */}
+{isFullScreenPreviewOpen && uploadedFile && uploadedFile.type.startsWith('image/') && (
+  <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4">
+    <div className="relative w-full h-full flex items-center justify-center">
+      <button
+        onClick={() => setIsFullScreenPreviewOpen(false)}
+        className="absolute top-4 right-4 bg-white text-gray-800 p-3 rounded-full hover:bg-gray-100 transition-colors z-10 shadow-lg"
+        type="button"
+      >
+        <MdClose className="w-6 h-6" />
+      </button>
+      
+      <div className="max-w-full max-h-full overflow-auto">
+        <img 
+          src={URL.createObjectURL(uploadedFile)} 
+          alt="Full screen preview" 
+          className="max-w-full max-h-full object-contain"
+        />
+      </div>
+      
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
+        <p className="text-sm">
+          {uploadedFile.name} • {(uploadedFile.size / 1024).toFixed(1)} KB
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+
         {/* Reject Modal */}
-        {isRejectModalOpen && (
+        {isRejectModalOpen && selectedRow && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
               {/* Modal Header */}
@@ -589,28 +1059,27 @@ const PayoutRequestTable = () => {
 
               {/* Modal Body */}
               <div className="p-6">
-                {selectedRow && (
-                  <div className="mb-6">
-                    <h4 className="text-lg font-semibold mb-4">Payout Information</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm text-gray-600">Agent Name</p>
-                        <p className="font-medium">{selectedRow.agent}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Property</p>
-                        <p className="font-medium">{selectedRow.property}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Amount</p>
-                        <p className="font-medium">{selectedRow.amount.split('\n')[0]}</p>
-                      </div>
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold mb-4">Payout Information</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-gray-600">Agent Name</p>
+                      <p className="font-medium">{selectedRow.agent}</p>
                     </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Property</p>
+                      <p className="font-medium">{selectedRow.property}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Amount</p>
+                      <p className="font-medium">₦{selectedRow.agentAmount.toLocaleString()}</p>
+                    </div>
+                   
                   </div>
-                )}
+                </div>
 
                 <div className="mb-6">
-                  <h4 className="text-lg font-semibold mb-4">Reason for Rejection</h4>
+                  <h4 className="text-lg font-semibold mb-4">Reason for Rejection *</h4>
                   <textarea
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
@@ -619,6 +1088,9 @@ const PayoutRequestTable = () => {
                     required
                     disabled={isProcessingPayout}
                   />
+                  <p className="text-sm text-gray-500 mt-1">
+                    This reason will be sent to the agent.
+                  </p>
                 </div>
 
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -640,11 +1112,10 @@ const PayoutRequestTable = () => {
                 <button
                   onClick={handleRejectSubmit}
                   disabled={!rejectReason.trim() || isProcessingPayout}
-                  className={`px-6 py-2 rounded-lg text-white transition-colors ${
-                    rejectReason.trim() && !isProcessingPayout
+                  className={`px-6 py-2 rounded-lg text-white transition-colors ${rejectReason.trim() && !isProcessingPayout
                       ? 'bg-red-600 hover:bg-red-700' 
                       : 'bg-gray-400 cursor-not-allowed'
-                  }`}
+                    }`}
                 >
                   {isProcessingPayout ? 'Processing...' : 'Confirm Rejection'}
                 </button>
@@ -701,11 +1172,10 @@ const PayoutRequestTable = () => {
                       {/* Filter Button */}
                       <button
                         onClick={() => setShowStatusFilter(!showStatusFilter)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          showStatusFilter || statusFilter !== 'ALL'
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showStatusFilter || statusFilter !== 'ALL'
                             ? 'bg-blue-600 text-white' 
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                          }`}
                       >
                         <MdFilterList className="w-4 h-4" />
                         Filter

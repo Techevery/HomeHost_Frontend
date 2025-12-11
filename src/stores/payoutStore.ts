@@ -3,10 +3,10 @@ import { persist } from "zustand/middleware";
 import axios from "axios";
 
 export enum PayoutStatus {
-  PENDING = "PENDING",
-  SUCCESS = "SUCCESS",
-  FAILED = "FAILED",
-  CANCELLED = "CANCELLED" // Added to match backend
+  PENDING = "pending",
+  SUCCESS = "success",
+  CANCELLED = "cancelled",
+  FAILED = "failed"
 }
 
 interface Payout {
@@ -14,7 +14,7 @@ interface Payout {
   status: PayoutStatus;
   proof: string | null;
   remark: string | null;
-  reason?: string | null; // Added for reject payout
+  reason?: string | null;
   createdAt: string;
   updatedAt: string;
   agent: {
@@ -26,11 +26,21 @@ interface Payout {
     amount: number;
     agentPercentage: number;
     mockupPrice: number;
+    booking_end_date: string | null;
+    booking_start_date: string | null;
+    duration_days: number | null;
+    date_paid: string | null;
     apartment: {
       name: string;
     };
   };
-  amount?: number; 
+  amount?: number;
+  // Add bank details and charges
+  accountNumber?: string;
+  accountName?: string;
+  bankName?: string;
+  charges?: number;
+  reference?: string;
 }
 
 interface ConfirmPayoutData {
@@ -44,30 +54,77 @@ interface RejectPayoutData {
   reason: string;
 }
 
+interface CreateChargesData {
+  description: string;
+  amount: number;
+}
+
+interface UpdateChargeStatusData {
+  chargeId: string;
+  status: "active" | "inactive";
+}
+
+interface AgentTransactionResponse {
+  success: boolean;
+  message: string;
+  data: {
+    payouts: Payout[];
+    totals: {
+      totalEarnings: number;
+      totalPending: number;
+      totalSuccess: number;
+    };
+  };
+}
+
+interface AgentPayoutByIdResponse {
+  success: boolean;
+  message: string;
+  data: {
+    summary: {
+      totalEarning: number;
+      totalPending: number;
+      totalSuccess: number;
+    };
+    payout: Payout;
+  };
+}
+
 interface WalletState {
   payouts: Payout[];
+  successfulPayouts: Payout[];
+  agentTransactions: Payout[];
   isLoading: boolean;
   error: string | null;
   isProcessingPayout: boolean;
+  isProcessingCharges: boolean;
+  payoutStatistics: any | null;
 }
 
 interface WalletActions {
   getAllPayouts: () => Promise<Payout[]>;
   confirmPayout: (confirmData: ConfirmPayoutData) => Promise<any>;
   rejectPayout: (rejectData: RejectPayoutData) => Promise<any>;
-  getAgentTransactions: () => Promise<Payout[]>;
+  getAgentTransactions: (status?: "pending" | "success") => Promise<AgentTransactionResponse>;
+  getAgentPayoutById: (payoutId: string, status?: "pending" | "success") => Promise<AgentPayoutByIdResponse>;
   getPayoutStatistics: () => Promise<any>;
+  getSuccesfulPayout: () => Promise<Payout[]>;
+  createCharges: (chargesData: CreateChargesData) => Promise<any>;
+  updateChargeStatus: (updateData: UpdateChargeStatusData) => Promise<any>;
   clearError: () => void;
   clearPayouts: () => void;
+  clearAgentTransactions: () => void;
 }
-
-
 
 const initialState: WalletState = {
   payouts: [],
+  successfulPayouts: [],
+  agentTransactions: [],
   isLoading: false,
   error: null,
   isProcessingPayout: false,
+  isProcessingCharges: false,
+  payoutStatistics: null,
 };
 
 const API_BASE_URL = process.env.REACT_APP_DEV_BASE_URL || "https://homeyhost.ng/api";
@@ -85,6 +142,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
             throw new Error("Authentication token not found");
           }
 
+          // This endpoint gets pending payouts only (based on backend service)
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/wallet`,
             {
@@ -95,7 +153,6 @@ const useWalletStore = create<WalletState & WalletActions>()(
           );
 
           const payouts = response.data || [];
-          console.log("Payouts fetched:", payouts);
           
           set({
             payouts,
@@ -131,9 +188,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
           formData.append("remark", confirmData.remark);
 
           if (confirmData.files && confirmData.files.length > 0) {
-            confirmData.files.forEach(file => {
-              formData.append("image", file);
-            });
+            formData.append("image", confirmData.files[0]);
           }
 
           const response = await axios.post(
@@ -149,9 +204,12 @@ const useWalletStore = create<WalletState & WalletActions>()(
 
           set({ isProcessingPayout: false });
 
-       
+          // Refresh both pending and successful payouts
           try {
-            await get().getAllPayouts();
+            await Promise.all([
+              get().getAllPayouts(),
+              get().getSuccesfulPayout(),
+            ]);
           } catch (refreshError) {
             console.warn("Failed to refresh payouts after confirmation:", refreshError);
           }
@@ -183,7 +241,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
             `${API_BASE_URL}/api/v1/wallet/reject-payout`,
             {
               payoutId: rejectData.payoutId,
-              reason: rejectData.reason,
+              reasson: rejectData.reason, // Note: backend expects 'reasson' (typo)
             },
             {
               headers: {
@@ -195,7 +253,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
 
           set({ isProcessingPayout: false });
 
-         
+          // Refresh pending payouts after rejection
           try {
             await get().getAllPayouts();
           } catch (refreshError) {
@@ -217,7 +275,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
         }
       },
 
-      getAgentTransactions: async () => {
+      getAgentTransactions: async (status?: "pending" | "success") => {
         set({ isLoading: true, error: null });
         try {
           const token = localStorage.getItem("token");
@@ -225,23 +283,66 @@ const useWalletStore = create<WalletState & WalletActions>()(
             throw new Error("Authentication token not found");
           }
 
+          const params = status ? { status } : {};
+          
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/wallet/agent-transactions`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
               },
+              params,
             },
           );
 
-          const transactions = response.data || [];
-          set({ isLoading: false });
-          return transactions;
+          const data = response.data.data || response.data;
+          set({ 
+            agentTransactions: data.payouts || [],
+            isLoading: false 
+          });
+          
+          return response.data;
         } catch (error: any) {
           const errorMessage =
             error.response?.data?.message ||
             error.message ||
             "Failed to fetch agent transactions";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      getAgentPayoutById: async (payoutId: string, status?: "pending" | "success") => {
+        set({ isLoading: true, error: null });
+        try {
+          const token = localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const params = status ? { status } : {};
+          
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/wallet/agent/${payoutId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              params,
+            },
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to fetch agent payout by ID";
 
           set({
             error: errorMessage,
@@ -269,7 +370,10 @@ const useWalletStore = create<WalletState & WalletActions>()(
           );
 
           const stats = response.data || {};
-          set({ isLoading: false });
+          set({ 
+            payoutStatistics: stats,
+            isLoading: false 
+          });
           return stats;
         } catch (error: any) {
           const errorMessage =
@@ -285,20 +389,113 @@ const useWalletStore = create<WalletState & WalletActions>()(
         }
       },
 
-   
-      getPayoutsByStatus: (status: PayoutStatus) => {
-        const { payouts } = get();
-        return payouts.filter(payout => payout.status === status);
+      getSuccesfulPayout: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const token = localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/wallet/successful-payout`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          const successfulPayouts = response.data || [];
+          set({ 
+            successfulPayouts,
+            isLoading: false 
+          });
+          return successfulPayouts;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to fetch successful payouts";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw error;
+        }
       },
 
-      getPayoutById: (payoutId: string) => {
-        const { payouts } = get();
-        return payouts.find(payout => payout.id === payoutId);
+      createCharges: async (chargesData: CreateChargesData) => {
+        set({ isProcessingCharges: true, error: null });
+        try {
+          const token = localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.post(
+            `${API_BASE_URL}/api/v1/wallet/charge`,
+            chargesData,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            },
+          );
+
+          set({ isProcessingCharges: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to create charges";
+
+          set({
+            error: errorMessage,
+            isProcessingCharges: false,
+          });
+          throw error;
+        }
       },
 
-      getPayoutsByAgent: (agentId: string) => {
-        const { payouts } = get();
-        return payouts.filter(payout => payout.agent.id === agentId);
+      updateChargeStatus: async (updateData: UpdateChargeStatusData) => {
+        set({ isProcessingCharges: true, error: null });
+        try {
+          const token = localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.patch(
+            `${API_BASE_URL}/api/v1/wallet/charge-approve/${updateData.chargeId}`,
+            { status: updateData.status },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            },
+          );
+
+          set({ isProcessingCharges: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to update charge status";
+
+          set({
+            error: errorMessage,
+            isProcessingCharges: false,
+          });
+          throw error;
+        }
       },
 
       clearError: () => {
@@ -306,20 +503,27 @@ const useWalletStore = create<WalletState & WalletActions>()(
       },
 
       clearPayouts: () => {
-        set({ payouts: [] });
+        set({ payouts: [], successfulPayouts: [] });
+      },
+
+      clearAgentTransactions: () => {
+        set({ agentTransactions: [] });
       },
     }),
     {
       name: "wallet-storage",
       partialize: (state) => ({
         payouts: state.payouts,
+        successfulPayouts: state.successfulPayouts,
+        agentTransactions: state.agentTransactions,
+        payoutStatistics: state.payoutStatistics,
       }),
       version: 1,
     },
   ),
 );
 
-
+// Helper selectors
 export const getPayoutsByStatus = (status: PayoutStatus) => 
   useWalletStore.getState().payouts.filter(payout => payout.status === status);
 

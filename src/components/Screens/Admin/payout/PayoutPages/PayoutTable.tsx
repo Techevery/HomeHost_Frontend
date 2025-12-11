@@ -5,6 +5,7 @@ import MaterialTable, { MTableToolbar } from "material-table";
 import { useLocation } from "react-router-dom";
 import { MdFilterList, MdSearch, MdClose } from 'react-icons/md';
 import useAdminStore from '../../../../../stores/admin';
+import { ToastContainer, toast } from "react-toastify";
 
 
 enum PayoutStatus {
@@ -55,7 +56,7 @@ const PayoutTable = () => {
         setPayouts([]);
       }
     } catch (err) {
-      console.error("Failed to fetch payouts:", err);
+   
       setPayouts([]);
     }
   };
@@ -70,12 +71,14 @@ const PayoutTable = () => {
     const grossAmount = transaction.amount || payout.amount || 0;
     const agentPercentage = transaction.agentPercentage || 0;
     const mockupPrice = transaction.mockupPrice || 0;
+    const charges = payout.charges || 0; // Get charges from payout
     
     let agentAmount = 0;
     let calculationType = "";
     let calculationDetail = "";
     let amountDetail = "";
     let fee = 0;
+    let netFee = 0; // Fee after subtracting charges
 
     // Determine calculation type and calculate accordingly
     if (mockupPrice > 0) {
@@ -101,8 +104,27 @@ const PayoutTable = () => {
       fee = agentAmount;
     }
 
-    // Format period (you might want to get this from booking dates)
-    const period = "Nov 19: Nov 22 (4 days)"; // Placeholder
+    // Calculate net fee (fee - charges)
+    netFee = Math.max(0, fee - charges);
+
+    // Format period from booking dates
+    let period = "N/A";
+    if (transaction.booking_start_date && transaction.booking_end_date) {
+      const startDate = new Date(transaction.booking_start_date);
+      const endDate = new Date(transaction.booking_end_date);
+      const durationDays = transaction.duration_days || 
+        Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+      
+      const startFormatted = startDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      });
+      const endFormatted = endDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      });
+      period = `${startFormatted} - ${endFormatted} (${durationDays} days)`;
+    }
 
     // Format dates
     const createdDate = new Date(payout.createdAt).toLocaleDateString('en-US', {
@@ -110,11 +132,14 @@ const PayoutTable = () => {
       day: 'numeric',
       year: 'numeric'
     });
-    const updatedDate = new Date(payout.createdAt).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
+    
+    // Get payment date from transaction
+    const paymentDate = transaction.date_paid ? 
+      new Date(transaction.date_paid).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }) : createdDate;
 
     // Map status from API to display status
     const statusMap: Record<string, string> = {
@@ -156,16 +181,13 @@ const PayoutTable = () => {
       }),
       uploaded_by: "Admin",
       transaction_id: payout.transactionId || `TXN-${payout.id?.slice(-8)?.toUpperCase() || 'N/A'}`,
-      payment_date: new Date(payout.createdAt).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      })
+      payment_date: paymentDate
     } : null;
 
     return {
       id: payout.id,
       agent: agent.name || payout.accountName || 'Unknown Agent',
+      agent_id: agent.id || payout.agentId || 'N/A',
       property: apartment.name || 'Unknown Property',
       booking: payout.reference || `BK-${payout.id?.slice(-4)?.toUpperCase() || 'N/A'}`,
       period,
@@ -175,10 +197,13 @@ const PayoutTable = () => {
       amount: `₦${agentAmount.toLocaleString()}`,
       gross: `₦${grossAmount.toLocaleString()}`,
       fee: `₦${fee.toLocaleString()}`,
+      net_fee: `₦${netFee.toLocaleString()}`,
+      charges: `₦${charges.toLocaleString()}`,
       bank: payout.bankName || "Unknown Bank",
       account_number: payout.accountNumber || "---",
       date: createdDate,
-      submitted_date: `Submitted ${updatedDate}`,
+      payment_date: paymentDate,
+      submitted_date: `Submitted ${createdDate}`,
       status: resolvedStatus,
       originalStatus: payout.status, // Store original status for filtering
       originalPayout: payout, // Store original payout data for modal
@@ -192,7 +217,20 @@ const PayoutTable = () => {
       reference: payout.reference,
       proof: payout.proof,
       remark: payout.remark,
-      reason: payout.reason
+      reason: payout.reason,
+      transaction_id: payout.transactionId,
+      transaction_status: transaction.status,
+      duration_days: transaction.duration_days,
+      booking_start_date: transaction.booking_start_date,
+      booking_end_date: transaction.booking_end_date,
+      date_paid: transaction.date_paid,
+      agent_percentage: agentPercentage,
+      markup_price: mockupPrice,
+      raw_amount: agentAmount,
+      raw_fee: fee,
+      raw_net_fee: netFee,
+      raw_charges: charges,
+      raw_gross: grossAmount
     };
   };
 
@@ -264,10 +302,9 @@ const PayoutTable = () => {
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-        
-        console.log("Downloaded receipt:", selectedPayout.receipt.file_name);
+     
       } catch (error) {
-        console.error("Error downloading receipt:", error);
+        toast.error("Error downloading receipt:");
         // Fallback: open in new tab if download fails
         window.open(selectedPayout.receipt.file_url, '_blank');
       }
@@ -290,9 +327,11 @@ const PayoutTable = () => {
       =============
       
       Agent: ${selectedPayout.agent}
+      Agent ID: ${selectedPayout.agent_id}
       Property: ${selectedPayout.property}
       Booking ID: ${selectedPayout.booking}
       Period: ${selectedPayout.period}
+      Duration: ${selectedPayout.duration_days} days
       
       CALCULATION DETAILS:
       -------------------
@@ -305,19 +344,25 @@ const PayoutTable = () => {
       Agent Amount: ${selectedPayout.amount}
       Gross Amount: ${selectedPayout.gross}
       Platform Fee: ${selectedPayout.fee}
+      Charges: ${selectedPayout.charges}
+      Net Fee (Fee - Charges): ${selectedPayout.net_fee}
       
       BANK DETAILS:
       -------------
       Bank: ${selectedPayout.bank}
       Account: ${selectedPayout.account_number}
       Account Name: ${selectedPayout.account_name}
+
+      
       
       DATES:
       ------
       Created: ${selectedPayout.date}
+      Payment Date: ${selectedPayout.payment_date}
       ${selectedPayout.submitted_date}
       
       STATUS: ${selectedPayout.status}
+      Transaction Status: ${selectedPayout.transaction_status}
       
       ${selectedPayout.admin_notes ? `ADMIN NOTES:\n${selectedPayout.admin_notes}` : ''}
       ${selectedPayout.rejection_reason ? `REJECTION REASON:\n${selectedPayout.rejection_reason}` : ''}
@@ -381,10 +426,12 @@ const PayoutTable = () => {
       cellStyle: { paddingLeft: "2%" },
       headerStyle: { paddingLeft: "2%" },
       render: (rowData: any) => (
-        <div className="min-w-[120px]">
+        <div className="min-w-[150px]">
           <div className="font-semibold text-[#002221]">{rowData.amount}</div>
           <div className="text-sm text-[#958F8F]">Gross: {rowData.gross}</div>
           <div className="text-sm text-[#958F8F]">Fee: {rowData.fee}</div>
+          <div className="text-sm text-[#958F8F]">Charges: {rowData.charges}</div>
+          <div className="text-sm font-medium text-[#002221]">Net Fee: {rowData.net_fee}</div>
         </div>
       ),
     },
@@ -395,6 +442,7 @@ const PayoutTable = () => {
       headerStyle: { paddingLeft: "2%" },
       render: (rowData: any) => (
         <div className="min-w-[120px]">
+           <div className="font-medium text-[#002221]">{rowData.account_name}</div>
           <div className="font-medium text-[#002221]">{rowData.bank}</div>
           <div className="text-sm text-[#958F8F]">{rowData.account_number}</div>
         </div>
@@ -408,7 +456,7 @@ const PayoutTable = () => {
       render: (rowData: any) => (
         <div className="min-w-[120px]">
           <div className="font-medium text-[#002221]">{rowData.date}</div>
-          <div className="text-sm text-[#958F8F]">{rowData.submitted_date}</div>
+          <div className="text-sm text-[#958F8F]">Paid: {rowData.payment_date}</div>
         </div>
       ),
     },
@@ -485,6 +533,20 @@ const PayoutTable = () => {
 
   return (
     <div>
+
+
+      <ToastContainer
+                      position="top-right"
+                      autoClose={5000}
+                      hideProgressBar={false}
+                      newestOnTop={false}
+                      closeOnClick
+                      rtl={false}
+                      pauseOnFocusLoss
+                      draggable
+                      pauseOnHover
+                      theme="light"
+                    />
       {/* Error Banner */}
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -738,12 +800,20 @@ const PayoutTable = () => {
                             <span className="font-medium text-[#002221]">{selectedPayout.agent}</span>
                           </div>
                           <div className="flex justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-[#958F8F]">Agent ID:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.agent_id}</span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-gray-100">
                             <span className="text-sm text-[#958F8F]">Property:</span>
                             <span className="font-medium text-[#002221]">{selectedPayout.property}</span>
                           </div>
                           <div className="flex justify-between py-2 border-b border-gray-100">
                             <span className="text-sm text-[#958F8F]">Booking Period:</span>
                             <span className="font-medium text-[#002221]">{selectedPayout.period}</span>
+                          </div>
+                          <div className="flex justify-between py-2">
+                            <span className="text-sm text-[#958F8F]">Duration:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.duration_days} days</span>
                           </div>
                         </div>
                       </div>
@@ -792,9 +862,17 @@ const PayoutTable = () => {
                             <span className="text-sm text-[#958F8F]">Gross Amount:</span>
                             <span className="font-medium text-[#002221]">{selectedPayout.gross}</span>
                           </div>
-                          <div className="flex justify-between py-2">
+                          <div className="flex justify-between py-2 border-b border-gray-100">
                             <span className="text-sm text-[#958F8F]">Platform Fee:</span>
                             <span className="font-medium text-[#002221]">{selectedPayout.fee}</span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-[#958F8F]">Charges:</span>
+                            <span className="font-medium text-[#002221]">{selectedPayout.charges}</span>
+                          </div>
+                          <div className="flex justify-between py-2 bg-blue-50 px-3 py-2 rounded">
+                            <span className="text-sm font-medium text-blue-700">Net Fee (Fee - Charges):</span>
+                            <span className="font-bold text-blue-800 text-lg">{selectedPayout.net_fee}</span>
                           </div>
                         </div>
                       </div>
@@ -939,9 +1017,13 @@ const PayoutTable = () => {
                         <span className="text-sm text-[#958F8F]">Created Date:</span>
                         <span className="font-medium text-[#002221]">{selectedPayout.date}</span>
                       </div>
+                      <div className="flex justify-between py-2 border-b border-gray-100">
+                        <span className="text-sm text-[#958F8F]">Payment Date:</span>
+                        <span className="font-medium text-[#002221]">{selectedPayout.payment_date}</span>
+                      </div>
                       <div className="flex justify-between py-2">
-                        <span className="text-sm text-[#958F8F]">Last Updated:</span>
-                        <span className="font-medium text-[#002221]">{selectedPayout.submitted_date}</span>
+                        <span className="text-sm text-[#958F8F]">Transaction Status:</span>
+                        <span className="font-medium text-[#002221]">{selectedPayout.transaction_status}</span>
                       </div>
                     </div>
                   </div>
