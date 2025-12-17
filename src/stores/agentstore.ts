@@ -1,4 +1,3 @@
-
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
@@ -121,6 +120,130 @@ interface UnlistedPropertiesResponse {
   message: string;
 }
 
+// Payout related interfaces
+interface Payout {
+  id: string;
+  agentId: string;
+  transactionId?: string;
+  amount: number;
+  status: "pending" | "success" | "cancelled";
+  proof?: string;
+  remark?: string;
+  reason?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  agent?: {
+    id: string;
+    name: string;
+  };
+  transaction?: {
+    status: string;
+    amount: number;
+    agentPercentage: number;
+    mockupPrice?: number;
+    booking_end_date: Date;
+    booking_start_date: Date;
+    duration_days: number;
+    date_paid?: Date;
+    apartment?: {
+      name: string;
+    };
+    bookingPeriods?: BookingPeriod[];
+  };
+}
+
+interface BookingPeriod {
+  id: string;
+  start_date: Date;
+  end_date: Date;
+  duration_days: number;
+  isDeleted: boolean;
+  expired: boolean;
+  apartment?: {
+    id: string;
+    name: string;
+    address: string;
+  };
+}
+
+interface AgentTransaction {
+  id: string;
+  email: string;
+  phone_number: string;
+  amount: number;
+  status: string;
+  booking_start_date: Date;
+  booking_end_date: Date;
+  duration_days: number;
+  agentPercentage: number;
+  metadata?: any;
+  reference?: string;
+  agent?: {
+    id: string;
+    name: string;
+  };
+}
+
+interface AgentBooking {
+  id: string;
+  apartment_id: string;
+  availability: boolean;
+  status: string;
+  created_at: Date;
+  transaction_id: string;
+  transaction?: AgentTransaction;
+  apartment?: {
+    name: string;
+    address: string;
+    type: string;
+    servicing: string;
+  };
+  booking_period?: {
+    start_date: Date;
+    end_date: Date;
+    duration_days: number;
+    id: string;
+  }[];
+}
+
+interface AgentTransactionsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    payouts: Payout[];
+    totals: {
+      totalEarnings: number;
+      totalPending: number;
+      totalSuccess: number;
+    };
+  };
+}
+
+interface AgentPayoutByIdResponse {
+  success: boolean;
+  message: string;
+  data: {
+    summary: {
+      totalEarning: number;
+      totalPending: number;
+      totalSuccess: number;
+    };
+    payout: Payout;
+  };
+}
+
+interface AgentBookingsResponse {
+  success: boolean;
+  data: AgentBooking[];
+  message?: string;
+}
+
+interface AgentPayoutResponse {
+  success: boolean;
+  data: Payout[];
+  message?: string;
+}
+
 interface AgentState {
   token: string | null;
   agentInfo: AgentInfo | null;
@@ -151,25 +274,37 @@ interface AgentState {
   unlistedPropertiesError: string | null;
   unlistedPropertiesCursor: string | null;
   hasMoreUnlistedProperties: boolean;
+  
+  // New state for payouts and bookings
+  agentPayouts: Payout[];
+  agentTransactions: Payout[];
+  agentBookings: AgentBooking[];
+  transactionsLoading: boolean;
+  bookingsLoading: boolean;
+  payoutStatistics: {
+    totalEarnings: number;
+    totalPending: number;
+    totalSuccess: number;
+  };
 }
 
 interface AgentActions {
-
+  // Authentication
   login: (email: string, password: string, remember: boolean) => Promise<void>;
   registerAgent: (formData: FormData) => Promise<boolean>;
   logout: () => void;
   setRememberMe: (remember: boolean) => void;
   clearError: () => void;
   
-
+  // Profile
   fetchAgentProfile: () => Promise<void>;
   updateAgentProfile: (updatedData: any) => Promise<void>;
   
-
+  // Password
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
   
-
+  // Properties
   enlistApartment: (
     apartmentId: string,
     markedUpPrice?: number,
@@ -185,11 +320,11 @@ interface AgentActions {
   clearProperties: () => void;
   fetchPublicProperties: (page?: number, limit?: number) => Promise<void>;
   
-
+  // Unlisted Properties
   fetchUnlistedProperties: (limit?: number, cursor?: string) => Promise<UnlistedPropertiesResponse>;
   clearUnlistedProperties: () => void;
   
- 
+  // Agents Management (for admin)
   fetchAgents: (page?: number, limit?: number) => Promise<void>;
   updateAgentVerification: (
     agentId: string,
@@ -198,13 +333,21 @@ interface AgentActions {
   ) => Promise<void>;
   updateAgentStatus: (agentId: string, status: string) => Promise<void>;
   
-
+  // Banners
   createBanner: (name: string, description: string, files: File[]) => Promise<{ success: boolean; message: string; data?: AgentBanner }>;
   fetchBanner: () => Promise<void>;
   fetchBannersBySlug: (slug: string, page?: number, limit?: number) => Promise<void>;
   updateBanner: (bannerId: string, name?: string, description?: string, files?: File[]) => Promise<{ success: boolean; message: string; data?: AgentBanner }>;
   deleteBanner: (bannerId: string) => Promise<{ success: boolean; message: string }>;
   clearBanners: () => void;
+  
+  // NEW: Payout and Booking methods
+  fetchAgentTransactions: (status?: "pending" | "success") => Promise<AgentTransactionsResponse>;
+  fetchAgentPayoutById: (payoutId: string, status?: "pending" | "success") => Promise<AgentPayoutByIdResponse>;
+  fetchAgentBookings: () => Promise<AgentBookingsResponse>;
+  fetchAgentPayouts: () => Promise<AgentPayoutResponse>;
+  clearAgentTransactions: () => void;
+  clearAgentBookings: () => void;
 }
 
 const initialState: AgentState = {
@@ -237,11 +380,22 @@ const initialState: AgentState = {
   unlistedPropertiesError: null,
   unlistedPropertiesCursor: null,
   hasMoreUnlistedProperties: false,
+  
+  // New initial state
+  agentPayouts: [],
+  agentTransactions: [],
+  agentBookings: [],
+  transactionsLoading: false,
+  bookingsLoading: false,
+  payoutStatistics: {
+    totalEarnings: 0,
+    totalPending: 0,
+    totalSuccess: 0
+  }
 };
 
 const API_BASE_URL =
   process.env.REACT_APP_DEV_BASE_URL || "https://homeyhost.ng/api";
-
 
 const getAmenitiesArray = (amenities: any): string[] => {
   if (Array.isArray(amenities)) {
@@ -258,10 +412,7 @@ const getAmenitiesArray = (amenities: any): string[] => {
   return [];
 };
 
-
 const handleApiError = (error: any, defaultMessage: string): string => {
-
-
   if (error.response) {
     const status = error.response.status;
     const serverMessage =
@@ -304,7 +455,6 @@ const handleApiError = (error: any, defaultMessage: string): string => {
     return defaultMessage;
   }
 };
-
 
 const validateAuth = (
   token: string | null,
@@ -423,8 +573,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             },
           );
 
-       
-
           const { data } = response.data;
 
           if (response.status === 201 && data) {
@@ -457,14 +605,11 @@ const useAgentStore = create<AgentState & AgentActions>()(
               isAuthenticated: true,
             });
 
-          
             return true;
           } else {
-           
             return false;
           }
         } catch (error: any) {
-       
           const errorMessage = handleApiError(
             error,
             "Registration failed. Please try again.",
@@ -508,8 +653,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
           if (!data) {
             throw new Error("Invalid profile data received.");
           }
-
-       
 
           set({
             agentInfo: {
@@ -663,7 +806,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
         try {
           const { token, agentInfo, isAuthenticated } = get();
 
-
           const authValidation = validateAuth(token, isAuthenticated);
           if (!authValidation.valid) {
             return {
@@ -724,8 +866,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             };
           }
 
-         
-
           const requestData: any = {
             apartmentId: apartmentId.trim(),
             agentId: agentInfo?.id,
@@ -736,8 +876,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
           } else if (hasAgentPercentage) {
             requestData.agentPercentage = agentPercentage;
           }
-
-       
 
           const response = await axios.post(
             `${API_BASE_URL}/api/v1/agent/enlist-property`,
@@ -750,8 +888,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
               timeout: 15000,
             },
           );
-
-         
 
           let successMessage = "Apartment added to listing successfully";
           let pricingInfo = null;
@@ -778,11 +914,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
             data: pricingInfo,
           };
         } catch (error: any) {
-         
-
           if (error.response) {
-           
-
             if (error.response.status === 403) {
               const errorMessage = "Only verified agents can add properties";
               set({ error: errorMessage });
@@ -801,7 +933,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
               return { success: false, message: errorMessage };
             }
           } else if (error.request) {
-           
+            // Network error
           }
 
           const errorMessage = handleApiError(
@@ -838,12 +970,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             };
           }
 
-          console.log("🔍 Remove Property Debug:", {
-            agentId: get().agentInfo?.id,
-            apartmentId,
-            token: token ? `${token.substring(0, 20)}...` : "NO TOKEN",
-          });
-
           const response = await axios.delete(
             `${API_BASE_URL}/api/v1/agent/remove-apartment/${apartmentId}`,
             {
@@ -856,8 +982,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             },
           );
 
-        
-
           const currentProperties = get().enlistedProperties;
           const updatedProperties = currentProperties.filter(
             (property) => property.apartmentId !== apartmentId,
@@ -868,17 +992,9 @@ const useAgentStore = create<AgentState & AgentActions>()(
             totalProperties: Math.max(0, get().totalProperties - 1),
           });
 
-         
           return { success: true, message: "Apartment removed from listing successfully" };
         } catch (error: any) {
-         
-
           if (error.response) {
-            console.error("Error response:", {
-              status: error.response.status,
-              data: error.response.data,
-            });
-
             if (error.response.status === 403) {
               const errorMessage = "Access denied. You do not have permission for this action.";
               set({ error: errorMessage });
@@ -972,8 +1088,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             throw new Error("Slug is required.");
           }
 
-     
-
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/agent/${slug}/properties`,
             {
@@ -981,8 +1095,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
               timeout: 15000,
             },
           );
-
-       
 
           const { data } = response.data;
 
@@ -1002,7 +1114,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             agent: data.agent || null,
           };
         } catch (error: any) {
-       
           const errorMessage = handleApiError(
             error,
             "Failed to fetch properties by slug.",
@@ -1025,7 +1136,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
         });
       },
 
-   
       fetchUnlistedProperties: async (limit = 10, cursor = "") => {
         set({ unlistedPropertiesLoading: true, unlistedPropertiesError: null });
         try {
@@ -1040,8 +1150,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             params.cursor = cursor;
           }
 
-      
-
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/agent/unlisted-apartment`,
             {
@@ -1052,8 +1160,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
               timeout: 15000,
             },
           );
-
-    
 
           const result = response.data;
 
@@ -1095,7 +1201,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             message: result.message || "Unlisted properties fetched successfully",
           };
         } catch (error: any) {
-        
           const errorMessage = handleApiError(
             error,
             "Failed to fetch unlisted properties.",
@@ -1267,8 +1372,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             },
           );
 
-       
-
           const result = response.data;
 
           if (!result) {
@@ -1417,8 +1520,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             throw new Error(authValidation.message);
           }
 
-         
-
           const response = await axios.get(
             `${API_BASE_URL}/api/v1/agent/banner`,
             {
@@ -1429,8 +1530,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             },
           );
 
-  
-
           const { result } = response.data;
 
           if (!result) {
@@ -1439,15 +1538,12 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
           const banners = Array.isArray(result) ? result : [];
 
-         
-
           set({
             agentBanners: banners,
             totalBanners: banners.length,
             hasMoreBanners: false,
           });
         } catch (error: any) {
-         
           const errorMessage = handleApiError(
             error,
             "Failed to fetch agent banners.",
@@ -1477,8 +1573,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
               },
             );
 
-         
-
             const { data } = response.data;
 
             if (!data) {
@@ -1486,7 +1580,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             }
 
             const banners = data.banners || data || [];
-           
 
             set({
               agentBanners: banners,
@@ -1496,8 +1589,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             });
 
           } catch (bannerError: any) {
-            
-            
             const response = await axios.get(
               `${API_BASE_URL}/api/v1/agent/${slug}/properties`,
               {
@@ -1506,8 +1597,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
               },
             );
 
-       
-
             const { data } = response.data;
 
             if (!data) {
@@ -1515,7 +1604,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
             }
 
             const banners = data.banners || [];
-          
 
             set({
               agentBanners: banners,
@@ -1526,7 +1614,6 @@ const useAgentStore = create<AgentState & AgentActions>()(
           }
 
         } catch (error: any) {
-        
           const errorMessage = handleApiError(
             error,
             "Failed to fetch agent banners.",
@@ -1675,7 +1762,234 @@ const useAgentStore = create<AgentState & AgentActions>()(
         });
       },
 
-    
+      // ========== NEW: PAYOUT AND BOOKING METHODS ==========
+
+      fetchAgentTransactions: async (status?: "pending" | "success") => {
+        set({ transactionsLoading: true, error: null });
+        try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
+          const params: any = {};
+          if (status) {
+            params.status = status;
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/wallet/agent-transactions`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              params,
+              timeout: 15000,
+            },
+          );
+
+          const result = response.data;
+          
+          if (!result.success) {
+            throw new Error(result.message || "Failed to fetch transactions");
+          }
+
+          const payouts = result.data?.payouts || [];
+          const totals = result.data?.totals || {
+            totalEarnings: 0,
+            totalPending: 0,
+            totalSuccess: 0
+          };
+
+          set({
+            agentTransactions: payouts,
+            payoutStatistics: totals,
+            transactionsLoading: false,
+          });
+
+          return result as AgentTransactionsResponse;
+        } catch (error: any) {
+          const errorMessage = handleApiError(
+            error,
+            "Failed to fetch agent transactions.",
+          );
+          set({
+            error: errorMessage,
+            transactionsLoading: false,
+          });
+          throw new Error(errorMessage);
+        }
+      },
+
+      fetchAgentPayoutById: async (payoutId: string, status?: "pending" | "success") => {
+        set({ transactionsLoading: true, error: null });
+        try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
+          if (!payoutId) {
+            throw new Error("Payout ID is required.");
+          }
+
+          const params: any = {};
+          if (status) {
+            params.status = status;
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/wallet/agent/${payoutId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              params,
+              timeout: 15000,
+            },
+          );
+
+          const result = response.data;
+          
+          if (!result.success) {
+            throw new Error(result.message || "Failed to fetch payout details");
+          }
+
+          set({ transactionsLoading: false });
+          return result as AgentPayoutByIdResponse;
+        } catch (error: any) {
+          const errorMessage = handleApiError(
+            error,
+            "Failed to fetch payout details.",
+          );
+          set({
+            error: errorMessage,
+            transactionsLoading: false,
+          });
+          throw new Error(errorMessage);
+        }
+      },
+
+      fetchAgentBookings: async () => {
+        set({ bookingsLoading: true, error: null });
+        try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/booking/agent-booking`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              timeout: 15000,
+            },
+          );
+
+          let result = response.data;
+          
+          if (response.status === 200 && Array.isArray(result)) {
+            result = { success: true, data: result };
+          }
+
+          if (!result.success && !Array.isArray(result)) {
+            throw new Error(result.message || "Failed to fetch agent bookings");
+          }
+
+          const bookings = Array.isArray(result) ? result : (result.data || []);
+          
+          set({
+            agentBookings: bookings,
+            bookingsLoading: false,
+          });
+
+          return { success: true, data: bookings } as AgentBookingsResponse;
+        } catch (error: any) {
+          const errorMessage = handleApiError(
+            error,
+            "Failed to fetch agent bookings.",
+          );
+          set({
+            error: errorMessage,
+            bookingsLoading: false,
+          });
+          throw new Error(errorMessage);
+        }
+      },
+
+      fetchAgentPayouts: async () => {
+        set({ transactionsLoading: true, error: null });
+        try {
+          const { token, isAuthenticated } = get();
+          const authValidation = validateAuth(token, isAuthenticated);
+          if (!authValidation.valid) {
+            throw new Error(authValidation.message);
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/wallet/agent-payout`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              timeout: 15000,
+            },
+          );
+
+          let result = response.data;
+          
+          if (response.status === 200 && Array.isArray(result)) {
+            result = { success: true, data: result };
+          }
+
+          if (!result.success && !Array.isArray(result)) {
+            throw new Error(result.message || "Failed to fetch agent payouts");
+          }
+
+          const payouts = Array.isArray(result) ? result : (result.data || []);
+          
+          set({
+            agentPayouts: payouts,
+            transactionsLoading: false,
+          });
+
+          return { success: true, data: payouts } as AgentPayoutResponse;
+        } catch (error: any) {
+          const errorMessage = handleApiError(
+            error,
+            "Failed to fetch agent payouts.",
+          );
+          set({
+            error: errorMessage,
+            transactionsLoading: false,
+          });
+          throw new Error(errorMessage);
+        }
+      },
+
+      clearAgentTransactions: () => {
+        set({
+          agentTransactions: [],
+          agentPayouts: [],
+          payoutStatistics: {
+            totalEarnings: 0,
+            totalPending: 0,
+            totalSuccess: 0
+          }
+        });
+      },
+
+      clearAgentBookings: () => {
+        set({
+          agentBookings: [],
+        });
+      },
+
       setRememberMe: (remember) => {
         set({ rememberMe: remember });
       },

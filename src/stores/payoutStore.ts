@@ -90,10 +90,19 @@ interface AgentPayoutByIdResponse {
   };
 }
 
+// Add interface for agent payout response (based on wallet.service.ts)
+interface AgentPayoutResponse {
+  success?: boolean;
+  message?: string;
+  // The service returns an array of payouts directly
+  data?: Payout[];
+}
+
 interface WalletState {
   payouts: Payout[];
   successfulPayouts: Payout[];
   agentTransactions: Payout[];
+  agentPayouts: Payout[]; // Add agentPayouts to state
   isLoading: boolean;
   error: string | null;
   isProcessingPayout: boolean;
@@ -111,15 +120,19 @@ interface WalletActions {
   getSuccesfulPayout: () => Promise<Payout[]>;
   createCharges: (chargesData: CreateChargesData) => Promise<any>;
   updateChargeStatus: (updateData: UpdateChargeStatusData) => Promise<any>;
+  // Add agent payout method
+  getAgentPayout: () => Promise<AgentPayoutResponse>;
   clearError: () => void;
   clearPayouts: () => void;
   clearAgentTransactions: () => void;
+  clearAgentPayouts: () => void; // Add clear method for agent payouts
 }
 
 const initialState: WalletState = {
   payouts: [],
   successfulPayouts: [],
   agentTransactions: [],
+  agentPayouts: [], // Initialize agentPayouts array
   isLoading: false,
   error: null,
   isProcessingPayout: false,
@@ -426,6 +439,69 @@ const useWalletStore = create<WalletState & WalletActions>()(
         }
       },
 
+      // NEW: Get agent payouts (all payouts for the authenticated agent)
+      getAgentPayout: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const token = localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
+
+          const response = await axios.get(
+            `${API_BASE_URL}/api/v1/wallet/agent-payout`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          // Handle different response formats
+          let agentPayouts: Payout[] = [];
+          
+          if (response.data && Array.isArray(response.data)) {
+            // Direct array response from service
+            agentPayouts = response.data;
+          } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+            // Wrapped response format
+            agentPayouts = response.data.data;
+          } else if (response.data && response.data.success !== undefined) {
+            // Full API response format
+            agentPayouts = response.data.data || [];
+          }
+
+          set({ 
+            agentPayouts,
+            isLoading: false 
+          });
+
+          return {
+            success: true,
+            message: "Agent payouts fetched successfully",
+            data: agentPayouts
+          };
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to fetch agent payouts";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          
+          // Return error response
+          return {
+            success: false,
+            message: errorMessage,
+            data: []
+          };
+        }
+      },
+
       createCharges: async (chargesData: CreateChargesData) => {
         set({ isProcessingCharges: true, error: null });
         try {
@@ -509,6 +585,10 @@ const useWalletStore = create<WalletState & WalletActions>()(
       clearAgentTransactions: () => {
         set({ agentTransactions: [] });
       },
+
+      clearAgentPayouts: () => {
+        set({ agentPayouts: [] });
+      },
     }),
     {
       name: "wallet-storage",
@@ -516,6 +596,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
         payouts: state.payouts,
         successfulPayouts: state.successfulPayouts,
         agentTransactions: state.agentTransactions,
+        agentPayouts: state.agentPayouts, // Include agentPayouts in persistence
         payoutStatistics: state.payoutStatistics,
       }),
       version: 1,
@@ -532,5 +613,9 @@ export const getPayoutById = (payoutId: string) =>
 
 export const getPayoutsByAgent = (agentId: string) => 
   useWalletStore.getState().payouts.filter(payout => payout.agent.id === agentId);
+
+// New helper for agent payouts
+export const getAgentPayoutsByStatus = (status: PayoutStatus) => 
+  useWalletStore.getState().agentPayouts.filter(payout => payout.status === status);
 
 export default useWalletStore;

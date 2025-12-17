@@ -707,7 +707,7 @@ const ApartmentsList: React.FC = () => {
                       variant="body2"
                       color="rgba(255,255,255,0.8)"
                       sx={{ ml: 0.5 }}>
-                      /month
+                      {/* /month */}
                     </Typography>
                   </Typography>
                   <Typography

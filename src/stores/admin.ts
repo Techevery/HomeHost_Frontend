@@ -139,7 +139,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
             responseData.data || responseData.user || responseData.admin;
 
           if (!token) {
-            throw new Error("No token received from server");
+            throw new Error("No Access received from server");
           }
 
           // Set store state with initial login data
@@ -235,7 +235,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           const token = get().token || localStorage.getItem("token");
 
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login. Please log in again.");
           }
 
           const response = await axios.get(
@@ -287,7 +287,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login. Please log in again.");
           }
 
           const isFormData = updatedData instanceof FormData;
@@ -326,7 +326,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login. Please log in again.");
           }
 
           const response = await axios.put(
@@ -356,7 +356,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login. Please log in again.");
           }
 
           const response = await axios.patch(
@@ -386,7 +386,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login. Please log in again.");
           }
 
           const response = await axios.delete(
@@ -424,7 +424,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
 
           if (!token) {
             throw new Error(
-              "Authentication token not found. Please log in again.",
+              "user not login. Please log in again.",
             );
           }
 
@@ -459,7 +459,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login, please login again");
           }
 
           const response = await axios.get(
@@ -488,7 +488,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login, please login again");
           }
 
           const response = await axios.get(
@@ -517,7 +517,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login, please login again");
           }
 
           const response = await axios.get(
@@ -545,7 +545,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login, please login again");
           }
 
           const response = await axios.post(
@@ -575,7 +575,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login, please login again");
           }
 
           const response = await axios.delete(
@@ -603,7 +603,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login, please login again");
           }
 
           const response = await axios.get(
@@ -636,7 +636,7 @@ updateApartment: async (
   try {
     const token = get().token || localStorage.getItem("token");
     if (!token) {
-      throw new Error("Authentication token not found");
+      throw new Error("user not login, please login again");
     }
 
     const formData = new FormData();
@@ -708,7 +708,7 @@ updateApartment: async (
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login, please login again");
           }
 
           const formData = new FormData();
@@ -753,7 +753,7 @@ updateApartment: async (
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login, please login again");
           }
 
           const response = await axios.post(
@@ -789,7 +789,7 @@ updateApartment: async (
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("user not login, please login again");
           }
 
           const response = await axios.get(

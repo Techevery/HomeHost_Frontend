@@ -338,7 +338,7 @@ const ViewDetailsModal: React.FC<ViewDetailsModalProps> = ({
                     component="span"
                     variant="h6"
                     color="text.secondary">
-                    /month
+                    {/* /month */}
                   </Typography>
                 </Typography>
                 <Divider sx={{ my: 2 }} />

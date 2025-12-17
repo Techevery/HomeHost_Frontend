@@ -418,7 +418,7 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             <TextField
               fullWidth
               type="number"
-              label="Monthly Price (₦) *"
+              label="Daily Price (₦) *"
               value={formData.price}
               onChange={handleInputChange("price")}
               error={!!errors.price}

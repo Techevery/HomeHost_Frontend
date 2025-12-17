@@ -16,7 +16,7 @@ import {
   createTheme
 } from "@mui/material";
 import MaterialTable, { Column } from "material-table";
-import useBookingStore from "../../../../../stores/bookingStore";
+import useAgentStore from "../../../../../stores/agentstore"; // Updated import
 import CloseIcon from '@mui/icons-material/Close';
 import { MdFilterList, MdSearch, MdClose } from 'react-icons/md';
 
@@ -76,13 +76,14 @@ interface TableRowData {
 
 const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) => {
   const {
-    bookings,
-    loading,
+    agentBookings,
+    bookingsLoading,
     error,
-    fetchBookings
-  } = useBookingStore();
+    fetchAgentBookings,
+    clearError
+  } = useAgentStore();
   
-  type BookingType = typeof bookings[0];
+  type BookingType = typeof agentBookings[0];
   const [selectedBooking, setSelectedBooking] = useState<BookingType | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -97,14 +98,14 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
 
   useEffect(() => {
     if (open) {
-      fetchBookings();
+      fetchAgentBookings();
     }
-  }, [open, fetchBookings]);
+  }, [open, fetchAgentBookings]);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | Date) => {
     if (!dateString) return "N/A";
     try {
-      const date = new Date(dateString);
+      const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       if (isNaN(date.getTime())) return "N/A";
       return date.toLocaleDateString("en-US", {
         day: "numeric",
@@ -133,6 +134,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
     switch (statusLower) {
       case "successful":
       case "completed":
+      case "success":
         return "#1ED75A";
       case "failed":
       case "cancelled":
@@ -155,6 +157,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
     switch (statusLower) {
       case "successful":
       case "completed":
+      case "success":
         return "Successful";
       case "failed":
       case "cancelled":
@@ -174,7 +177,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
   };
 
   const getCustomerName = (booking: any) => {
-    return booking?.transaction?.metadata?.fullName || booking.guest_name || "N/A";
+    return booking?.transaction?.email || booking.guest_name || "N/A";
   };
 
   const getPhoneNumber = (booking: any) => {
@@ -203,20 +206,18 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
 
   const getApartmentDetails = (booking: any) => {
     const metadata = booking?.transaction?.metadata;
+    const duration = booking.duration_days || booking.transaction?.duration_days || 4;
     return {
-      note: metadata?.note || `1B = New ${Math.floor(Math.random() * 100)}, (${booking.duration_days || 4} days)`
+      note: metadata?.note || `Booking (${duration} days)`
     };
   };
 
   const getApartmentAgent = (booking: any) => {
-    if (booking.apartment?.agent) {
-      return booking.apartment.agent;
+    if (booking.agentInfo?.name) {
+      return booking.agentInfo.name;
     }
     if (booking.transaction?.agent?.name) {
       return booking.transaction.agent.name;
-    }
-    if (typeof booking.apartment === 'string') {
-      return booking.apartment;
     }
     return "N/A";
   };
@@ -230,15 +231,12 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
       pending: 0,
     };
 
-    if (!bookings.length) return counts;
+    if (!agentBookings.length) return counts;
 
-    bookings.forEach(booking => {
+    agentBookings.forEach(booking => {
       const status = booking.status?.toLowerCase() || "";
-      const isDeleted = (booking.booking_period as any)?.isDeleted || false;
       
-      if (isDeleted) {
-        counts.deleted++;
-      } else if (status.includes("success") || status.includes("complete")) {
+      if (status.includes("success") || status.includes("complete")) {
         counts.successful++;
       } else if (status.includes("fail") || status.includes("cancel")) {
         counts.failed++;
@@ -250,38 +248,31 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
     });
 
     return counts;
-  }, [bookings]);
+  }, [agentBookings]);
 
-  // Create table data from bookings with memoization
+  // Create table data from agentBookings with memoization
   const createTableData = useCallback(() => {
-    if (!bookings.length) return [];
+    if (!agentBookings.length) return [];
 
     const getFilteredBookings = () => {
       switch (activeTab) {
         case 0:
-          return bookings.filter(booking => {
+          return agentBookings.filter(booking => {
             const status = booking.status?.toLowerCase() || "";
-            const isDeleted = (booking.booking_period as any)?.isDeleted || false;
-            
             return status.includes("success") || 
                    status.includes("complete") || 
                    status.includes("fail") || 
-                   status.includes("cancel") ||
-                   isDeleted ||
-                   status.includes("delete");
+                   status.includes("cancel");
           });
         case 1:
-          return bookings.filter(booking => {
+          return agentBookings.filter(booking => {
             const status = booking.status?.toLowerCase() || "";
-            const isDeleted = (booking.booking_period as any)?.isDeleted || false;
-            
             return (status.includes("pending") || 
                     status.includes("booked") || 
-                    status.includes("upcoming")) &&
-                   !isDeleted;
+                    status.includes("upcoming"));
           });
         default:
-          return bookings;
+          return agentBookings;
       }
     };
 
@@ -289,8 +280,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
 
     return filteredBookings.map((booking): TableRowData => {
       const status = booking.status || "Unknown";
-      const isDeleted = (booking.booking_period as any)?.isDeleted || false;
-      const apartmentName = typeof booking.apartment === 'object' ? booking.apartment?.name : booking.apartment || "N/A";
+      const apartmentName = booking.apartment?.name || "N/A";
       const bookingDetails = getApartmentDetails(booking);
       
       return {
@@ -299,20 +289,20 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
         apartment_booked: apartmentName,
         date: formatDate(booking.created_at || ""),
         phone_number: getPhoneNumber(booking),
-        check_in: formatDate(booking.booking_start_date || (booking.booking_period as any)?.start_date || ""),
-        check_out: formatDate(booking.booking_end_date || (booking.booking_period as any)?.end_date || ""),
+        check_in: formatDate(booking.transaction?.booking_start_date || ""),
+        check_out: formatDate(booking.transaction?.booking_end_date || ""),
         apartment_agent: getApartmentAgent(booking),
-        status: isDeleted ? "deleted" : status,
-        displayStatus: isDeleted ? "Deleted" : getStatusText(status),
+        status: status,
+        displayStatus: getStatusText(status),
         transaction_status: booking.transaction?.status || "N/A",
-        amount: booking.amount || booking.transaction?.amount || "N/A",
+        amount: booking.transaction?.amount ||  "N/A",
         note: bookingDetails.note,
         originalBooking: booking,
-        isDeleted: isDeleted,
+        isDeleted: false,
         isEditable: false,
       };
     });
-  }, [bookings, activeTab]);
+  }, [agentBookings, activeTab]);
 
   // Cache the search results using useMemo
   const searchResults = useMemo(() => {
@@ -386,7 +376,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
   };
 
   const handleRowClick = (event: any, rowData: any) => {
-    const originalBooking = bookings.find(booking => booking.id === rowData.id);
+    const originalBooking = agentBookings.find(booking => booking.id === rowData.id);
     setSelectedBooking(originalBooking || null);
     setDetailModalOpen(true);
   };
@@ -418,12 +408,12 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
       ).length 
     },
     { 
-      value: BookingStatus.DELETED, 
-      label: 'Deleted', 
+      value: BookingStatus.FAILED, 
+      label: 'Failed', 
       count: filteredData.filter(row => 
-        row.status.toLowerCase().includes("delete") ||
-        row.displayStatus.toLowerCase().includes("delete") ||
-        row.isDeleted
+        row.status.toLowerCase().includes("fail") || 
+        row.status.toLowerCase().includes("cancel") ||
+        row.displayStatus.toLowerCase().includes("fail")
       ).length 
     },
   ];
@@ -586,7 +576,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
     palette: {},
   });
 
-  if (loading && open) {
+  if (bookingsLoading && open) {
     return (
       <Modal
         open={open}
@@ -615,7 +605,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4">
             <div className="flex justify-between items-center">
               <Typography variant="h5" className="font-bold text-black text-xl">
-                Booking Management
+                Agent Booking Management
               </Typography>
               <IconButton onClick={onClose} size="small">
                 <CloseIcon />
@@ -625,7 +615,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-lg">Loading bookings...</p>
+              <p className="mt-4 text-lg">Loading agent bookings...</p>
             </div>
           </div>
         </Box>
@@ -662,7 +652,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4">
             <div className="flex justify-between items-center">
               <Typography variant="h5" className="font-bold text-black text-xl">
-                Booking Management
+                Agent Booking Management
               </Typography>
               <IconButton onClick={onClose} size="small">
                 <CloseIcon />
@@ -674,7 +664,10 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
               <div className="text-red-500 text-xl mb-4">Error</div>
               <p className="text-gray-700">{error}</p>
               <button
-                onClick={fetchBookings}
+                onClick={() => {
+                  clearError();
+                  fetchAgentBookings();
+                }}
                 className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
                 Retry
               </button>
@@ -716,7 +709,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4">
             <div className="flex justify-between items-center">
               <Typography variant="h5" className="font-bold text-black text-xl">
-                Booking Management
+                Agent Booking Management
               </Typography>
               <IconButton onClick={onClose} size="small">
                 <CloseIcon />
@@ -737,7 +730,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                 <Tab 
                   label={
                     <span className="font-bold text-base">
-                      Booking Details
+                      Agent Booking Details
                     </span>
                   }
                   className={`min-w-0 mr-6 ${activeTab === 0 ? 'text-blue-600' : 'text-gray-500'}`}
@@ -745,7 +738,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                 <Tab 
                   label={
                     <span className="font-bold text-base">
-                      Booking Request
+                      Agent Booking Request
                     </span>
                   }
                   className={`min-w-0 ${activeTab === 1 ? 'text-blue-600' : 'text-gray-500'}`}
@@ -759,7 +752,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                   </div>
                   {activeTab === 0 ? (
                     <div className="bg-[#6B7280] rounded-[12px] text-white px-8 sm:px-14 py-3 text-sm sm:text-base">
-                      Deleted ({getFilteredCounts.deleted})
+                      Failed ({getFilteredCounts.failed})
                     </div>
                   ) : (
                     <div className="bg-[#4EC368] rounded-[12px] text-white px-8 sm:px-14 py-3 text-sm sm:text-base">
@@ -786,8 +779,8 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                               ? 'bg-blue-600 text-white'
                               : option.value === BookingStatus.SUCCESSFUL
                               ? 'bg-green-600 text-white'
-                              : option.value === BookingStatus.DELETED
-                              ? 'bg-gray-600 text-white'
+                              : option.value === BookingStatus.FAILED
+                              ? 'bg-red-600 text-white'
                               : 'bg-yellow-600 text-white'
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                         }`}
@@ -830,7 +823,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                                       <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                                       <input
                                         type="text"
-                                        placeholder="Search bookings..."
+                                        placeholder="Search agent bookings..." 
                                         value={searchText}
                                         onChange={handleSearchChange}
                                         className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
@@ -928,7 +921,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                                       <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                                       <input
                                         type="text"
-                                        placeholder="Search booking requests..."
+                                        placeholder="Search agent booking requests..." 
                                         value={searchText}
                                         onChange={handleSearchChange}
                                         className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
@@ -1039,7 +1032,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4">
             <div className="flex justify-between items-center">
               <Typography variant="h5" className="font-bold text-black text-xl">
-                Booking Details
+                Agent Booking Details
               </Typography>
               <IconButton onClick={handleCloseDetailModal} size="small">
                 <CloseIcon />
@@ -1119,7 +1112,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                         Check in
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {formatDate(selectedBooking.booking_start_date || (selectedBooking.booking_period as any)?.start_date || "")}
+                        {formatDate(selectedBooking.transaction?.booking_start_date || "")}
                       </Typography>
                     </div>
                   </div>
@@ -1130,7 +1123,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                         Duration
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {selectedBooking.duration_days || (selectedBooking.booking_period as any)?.duration_days || 0} days
+                        {selectedBooking.transaction?.duration_days || 0} days
                       </Typography>
                     </div>
                     
@@ -1139,7 +1132,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                         Check out
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {formatDate(selectedBooking.booking_end_date || (selectedBooking.booking_period as any)?.end_date || "")}
+                        {formatDate(selectedBooking.transaction?.booking_end_date || "")}
                       </Typography>
                     </div>
                   </div>
@@ -1158,7 +1151,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                         Apartment Name
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {typeof selectedBooking.apartment === 'object' ? selectedBooking.apartment?.name : selectedBooking.apartment || "N/A"}
+                        {selectedBooking.apartment?.name || "N/A"}
                       </Typography>
                     </div>
                     
@@ -1167,7 +1160,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                         Type
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {typeof selectedBooking.apartment === 'object' ? selectedBooking.apartment?.type : "N/A"}
+                        {selectedBooking.apartment?.type || "N/A"}
                       </Typography>
                     </div>
                   </div>
@@ -1178,7 +1171,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                         Address
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {typeof selectedBooking.apartment === 'object' ? selectedBooking.apartment?.address : "N/A"}
+                        {selectedBooking.apartment?.address || "N/A"}
                       </Typography>
                     </div>
                     
@@ -1187,7 +1180,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                         Amenities
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {typeof selectedBooking.apartment === 'object' ? selectedBooking.apartment?.servicing : "N/A"}
+                        {selectedBooking.apartment?.servicing || "N/A"}
                       </Typography>
                     </div>
                   </div>
@@ -1224,7 +1217,9 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                         Total Amount
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {formatCurrency(selectedBooking.amount || selectedBooking.transaction?.amount)}
+                        {formatCurrency(selectedBooking.transaction?.amount 
+
+                        )}
                       </Typography>
                     </div>
                   </div>
@@ -1244,7 +1239,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                         Transaction status
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {selectedBooking.status || "N/A"}
+                        {selectedBooking.transaction?.status || "N/A"}
                       </Typography>
                     </div>
                     
@@ -1253,7 +1248,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                         Payment Date
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {selectedBooking.booking_start_date ? formatDate(selectedBooking.booking_start_date || (selectedBooking.booking_period as any)?.start_date || "") : "N/A"}
+                        {formatDate(selectedBooking.transaction?.booking_start_date || "")}
                       </Typography>
                     </div>
                   </div>
