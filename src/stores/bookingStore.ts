@@ -1125,7 +1125,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
       throw new Error("Authentication token not found");
     }
 
-    const requestUrl = `${API_BASE_URL}/booking/delete-booking/${bookingId}`;
+    const requestUrl = `${API_BASE_URL}/api/v1/booking/delete-booking/${bookingId}`;
     
   
 
