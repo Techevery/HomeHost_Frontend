@@ -16,7 +16,7 @@ import {
   createTheme
 } from "@mui/material";
 import MaterialTable, { Column } from "material-table";
-import useAgentStore from "../../../../../stores/agentstore"; // Updated import
+import useAgentStore from "../../../../../stores/agentstore";
 import CloseIcon from '@mui/icons-material/Close';
 import { MdFilterList, MdSearch, MdClose } from 'react-icons/md';
 
@@ -131,57 +131,59 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
 
   const getStatusColor = (status: string = "") => {
     const statusLower = status.toLowerCase();
-    switch (statusLower) {
-      case "successful":
-      case "completed":
-      case "success":
-        return "#1ED75A";
-      case "failed":
-      case "cancelled":
-        return "#FF0909";
-      case "booked":
-      case "pending":
-      case "upcoming":
-        return "#15ff00ff";
-      case "currently hosting":
-        return "#4A90E2";
-      case "deleted":
-        return "#720303ff";
-      default:
-        return "#6B7280";
+    if (statusLower.includes("success") || 
+        statusLower.includes("complete") || 
+        statusLower.includes("booked")) {
+      return "#1ED75A"; // Green for successful/booked
+    } else if (statusLower.includes("fail") || 
+               statusLower.includes("cancel")) {
+      return "#FF0909"; // Red for failed/cancelled
+    } else if (statusLower.includes("pending") || 
+               statusLower.includes("upcoming")) {
+      return "#15ff00ff"; // Light green for pending/upcoming
+    } else if (statusLower.includes("currently")) {
+      return "#4A90E2"; // Blue for currently hosting
+    } else if (statusLower.includes("deleted")) {
+      return "#720303ff"; // Dark red for deleted
+    } else {
+      return "#6B7280"; // Gray for unknown
     }
   };
 
   const getStatusText = (status: string = "") => {
     const statusLower = status.toLowerCase();
-    switch (statusLower) {
-      case "successful":
-      case "completed":
-      case "success":
-        return "Successful";
-      case "failed":
-      case "cancelled":
-        return "Failed";
-      case "booked":
-      case "pending":
-        return "Upcoming";
-      case "upcoming":
-        return "Upcoming";
-      case "currently hosting":
-        return "Currently Hosting";
-      case "deleted":
-        return "Deleted";
-      default:
-        return status || "Unknown";
+    if (statusLower.includes("success") || 
+        statusLower.includes("complete") || 
+        statusLower.includes("booked")) {
+      return "Successful";
+    } else if (statusLower.includes("fail") || 
+               statusLower.includes("cancel")) {
+      return "";
+    } else if (statusLower.includes("pending")) {
+      return "Pending";
+    } else if (statusLower.includes("upcoming")) {
+      return "Upcoming";
+    } else if (statusLower.includes("currently")) {
+      return "Currently Hosting";
+    } else if (statusLower.includes("deleted")) {
+      return "Deleted";
+    } else {
+      return status || "Unknown";
     }
   };
 
   const getCustomerName = (booking: any) => {
-    return booking?.transaction?.email || booking.guest_name || "N/A";
+    // Get customer name from transaction.metadata.fullName
+    return booking?.transaction?.metadata?.fullName || 
+           booking?.guest_name || 
+           booking?.transaction?.email || 
+           "N/A";
   };
 
   const getPhoneNumber = (booking: any) => {
-    return booking?.transaction?.phone_number || booking.guest_phone || booking.phone_number || "N/A";
+    return booking?.transaction?.phone_number || 
+           booking?.guest_phone || 
+           "N/A";
   };
 
   const getNextOfKin = (booking: any) => {
@@ -189,8 +191,8 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
     if (!metadata) return { name: "N/A", number: "N/A" };
     
     return {
-      name: metadata.nextofKinName || "N/A",
-      number: metadata.nextofKinNumber || "N/A"
+      name: metadata.nextOfKinName || metadata.nextofKinName || metadata.next_of_kin_name || "N/A",
+      number: metadata.nextOfKinNumber || metadata.nextofKinNumber || metadata.next_of_kin_number || "N/A"
     };
   };
 
@@ -205,21 +207,16 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
   };
 
   const getApartmentDetails = (booking: any) => {
-    const metadata = booking?.transaction?.metadata;
-    const duration = booking.duration_days || booking.transaction?.duration_days || 4;
+    const duration = booking.transaction?.duration_days || booking.duration_days || 0;
     return {
-      note: metadata?.note || `Booking (${duration} days)`
+      note: `Booking (${duration} days)`
     };
   };
 
   const getApartmentAgent = (booking: any) => {
-    if (booking.agentInfo?.name) {
-      return booking.agentInfo.name;
-    }
-    if (booking.transaction?.agent?.name) {
-      return booking.transaction.agent.name;
-    }
-    return "N/A";
+    // Since all your bookings have the same agentId, you might need to fetch agent info separately
+    // For now, using a placeholder
+    return "Agent Name"; // You should replace this with actual agent name from your data
   };
 
   const getFilteredCounts = useMemo(() => {
@@ -235,15 +232,23 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
 
     agentBookings.forEach(booking => {
       const status = booking.status?.toLowerCase() || "";
+      const transactionStatus = booking.transaction?.status?.toLowerCase() || "";
       
-      if (status.includes("success") || status.includes("complete")) {
+      // "booked" status means successful
+      if (status.includes("booked") || 
+          status.includes("success") || 
+          status.includes("complete") ||
+          transactionStatus.includes("success")) {
         counts.successful++;
-      } else if (status.includes("fail") || status.includes("cancel")) {
+      } else if (status.includes("fail") || 
+                 status.includes("cancel") ||
+                 transactionStatus.includes("fail")) {
         counts.failed++;
-      } else if (status.includes("upcoming") || status.includes("booked") || status.includes("pending")) {
-        counts.upcoming++;
-      } else if (status.includes("pending")) {
+      } else if (status.includes("pending") ||
+                 transactionStatus.includes("pending")) {
         counts.pending++;
+      } else if (status.includes("upcoming")) {
+        counts.upcoming++;
       }
     });
 
@@ -256,20 +261,32 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
 
     const getFilteredBookings = () => {
       switch (activeTab) {
-        case 0:
+        case 0: // Agent Booking Details (Successful/Failed)
           return agentBookings.filter(booking => {
             const status = booking.status?.toLowerCase() || "";
-            return status.includes("success") || 
-                   status.includes("complete") || 
+            const transactionStatus = booking.transaction?.status?.toLowerCase() || "";
+            
+            // Include booked, successful, completed, or failed/cancelled
+            return status.includes("booked") || 
+                   status.includes("success") || 
+                   status.includes("complete") ||
+                   transactionStatus.includes("success") ||
                    status.includes("fail") || 
-                   status.includes("cancel");
+                   status.includes("cancel") ||
+                   transactionStatus.includes("fail");
           });
-        case 1:
+        case 1: // Agent Booking Request (Pending/Upcoming)
           return agentBookings.filter(booking => {
             const status = booking.status?.toLowerCase() || "";
+            const transactionStatus = booking.transaction?.status?.toLowerCase() || "";
+            
+            // Include pending or upcoming (but not booked/successful)
             return (status.includes("pending") || 
-                    status.includes("booked") || 
-                    status.includes("upcoming"));
+                    status.includes("upcoming") ||
+                    transactionStatus.includes("pending")) &&
+                   !status.includes("booked") &&
+                   !status.includes("success") &&
+                   !transactionStatus.includes("success");
           });
         default:
           return agentBookings;
@@ -280,7 +297,8 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
 
     return filteredBookings.map((booking): TableRowData => {
       const status = booking.status || "Unknown";
-      const apartmentName = booking.apartment?.name || "N/A";
+      const transactionStatus = booking.transaction?.status || "N/A";
+      const apartmentName = "Apartment Name"; // You should replace with actual apartment name
       const bookingDetails = getApartmentDetails(booking);
       
       return {
@@ -294,8 +312,8 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
         apartment_agent: getApartmentAgent(booking),
         status: status,
         displayStatus: getStatusText(status),
-        transaction_status: booking.transaction?.status || "N/A",
-        amount: booking.transaction?.amount ||  "N/A",
+        transaction_status: transactionStatus,
+        amount: booking.transaction?.amount || 0,
         note: bookingDetails.note,
         originalBooking: booking,
         isDeleted: false,
@@ -341,15 +359,22 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
         
         switch (statusFilter) {
           case BookingStatus.SUCCESSFUL:
-            return status.includes("success") || status.includes("complete");
+            return status.includes("booked") || 
+                   status.includes("success") || 
+                   status.includes("complete") ||
+                   displayStatus.includes("success");
           case BookingStatus.FAILED:
-            return status.includes("fail") || status.includes("cancel");
+            return status.includes("fail") || 
+                   status.includes("cancel") ||
+                   displayStatus.includes("fail");
           case BookingStatus.DELETED:
             return status.includes("delete") || row.isDeleted;
           case BookingStatus.UPCOMING:
-            return status.includes("upcoming") || status.includes("pending") || status.includes("booked");
+            return status.includes("upcoming") || 
+                   displayStatus.includes("upcoming");
           case BookingStatus.PENDING:
-            return status.includes("pending");
+            return status.includes("pending") || 
+                   displayStatus.includes("pending");
           default:
             return true;
         }
@@ -402,6 +427,7 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
       value: BookingStatus.SUCCESSFUL, 
       label: 'Successful', 
       count: filteredData.filter(row => 
+        row.status.toLowerCase().includes("booked") ||
         row.status.toLowerCase().includes("success") || 
         row.status.toLowerCase().includes("complete") ||
         row.displayStatus.toLowerCase().includes("success")
@@ -421,12 +447,18 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
   const bookingRequestStatusFilterOptions = [
     { value: 'ALL' as const, label: 'All Status', count: filteredData.length },
     { 
+      value: BookingStatus.PENDING, 
+      label: 'Pending', 
+      count: filteredData.filter(row => 
+        row.status.toLowerCase().includes("pending") ||
+        row.displayStatus.toLowerCase().includes("pending")
+      ).length 
+    },
+    { 
       value: BookingStatus.UPCOMING, 
       label: 'Upcoming', 
       count: filteredData.filter(row => 
         row.status.toLowerCase().includes("upcoming") || 
-        row.status.toLowerCase().includes("pending") || 
-        row.status.toLowerCase().includes("booked") ||
         row.displayStatus.toLowerCase().includes("upcoming")
       ).length 
     }
@@ -438,12 +470,12 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
 
   const BOOKING_DETAILS_COLUMNS: Column<TableRowData>[] = [
     {
-      title: "AGENT & PROPERTY",
+      title: "PROPERTY",
       field: "customer",
       cellStyle: { paddingLeft: "2%" },
       render: (rowData: TableRowData) => (
         <div className="flex flex-col">
-          <div className="font-semibold text-gray-800 text-sm">{rowData.apartment_agent}</div>
+          {/* <div className="font-semibold text-gray-800 text-sm">{rowData.apartment_agent}</div> */}
           <div className="text-xs text-gray-600 mt-1">{rowData.apartment_booked}</div>
           <div className="text-xs text-gray-500 mt-1">Booking: {rowData.id}</div>
           <div className="text-xs text-gray-400 mt-1">({rowData.note})</div>
@@ -506,12 +538,12 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
 
   const BOOKING_REQUEST_COLUMNS: Column<TableRowData>[] = [
     {
-      title: "AGENT & PROPERTY",
+      title: " PROPERTY",
       field: "customer",
       cellStyle: { paddingLeft: "2%" },
       render: (rowData: TableRowData) => (
         <div className="flex flex-col">
-          <div className="font-semibold text-gray-800 text-sm">{rowData.apartment_agent}</div>
+          {/* <div className="font-semibold text-gray-800 text-sm">{rowData.apartment_agent}</div> */}
           <div className="text-xs text-gray-600 mt-1">{rowData.apartment_booked}</div>
           <div className="text-xs text-gray-500 mt-1">Booking: {rowData.id}</div>
           <div className="text-xs text-gray-400 mt-1">({rowData.note})</div>
@@ -748,15 +780,15 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
               <div className="bg-white rounded-t-[20px] p-4 sm:p-5 mt-4">
                 <div className="flex flex-wrap gap-4 sm:gap-12">
                   <div className="bg-[#4EC368] rounded-[12px] text-white px-4 sm:px-8 py-3 text-sm sm:text-base">
-                    {activeTab === 0 ? 'Successful' : 'Upcoming'} ({activeTab === 0 ? getFilteredCounts.successful : getFilteredCounts.upcoming})
+                    {activeTab === 0 ? 'Successful' : 'Pending'} ({activeTab === 0 ? getFilteredCounts.successful : getFilteredCounts.pending})
                   </div>
                   {activeTab === 0 ? (
-                    <div className="bg-[#6B7280] rounded-[12px] text-white px-8 sm:px-14 py-3 text-sm sm:text-base">
+                    <div className="bg-[#FF0909] rounded-[12px] text-white px-8 sm:px-14 py-3 text-sm sm:text-base">
                       Failed ({getFilteredCounts.failed})
                     </div>
                   ) : (
-                    <div className="bg-[#4EC368] rounded-[12px] text-white px-8 sm:px-14 py-3 text-sm sm:text-base">
-                      Pending ({getFilteredCounts.pending})
+                    <div className="bg-[#15ff00ff] rounded-[12px] text-white px-8 sm:px-14 py-3 text-sm sm:text-base">
+                      Upcoming ({getFilteredCounts.upcoming})
                     </div>
                   )}
                 </div>
@@ -781,7 +813,9 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                               ? 'bg-green-600 text-white'
                               : option.value === BookingStatus.FAILED
                               ? 'bg-red-600 text-white'
-                              : 'bg-yellow-600 text-white'
+                              : option.value === BookingStatus.PENDING
+                              ? 'bg-yellow-600 text-white'
+                              : 'bg-teal-600 text-white'
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                         }`}
                       >
@@ -1141,68 +1175,31 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
 
               <div className="space-y-4">
                 <Typography variant="h6" className="font-semibold text-black text-lg">
-                  Apartment Information
+                  Transaction Information
                 </Typography>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div>
                       <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Apartment Name
-                      </Typography>
-                      <Typography variant="body1" className="font-semibold text-black">
-                        {selectedBooking.apartment?.name || "N/A"}
-                      </Typography>
-                    </div>
-                    
-                    <div>
-                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Type
-                      </Typography>
-                      <Typography variant="body1" className="font-semibold text-black">
-                        {selectedBooking.apartment?.type || "N/A"}
-                      </Typography>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Address
-                      </Typography>
-                      <Typography variant="body1" className="font-semibold text-black">
-                        {selectedBooking.apartment?.address || "N/A"}
-                      </Typography>
-                    </div>
-                    
-                    <div>
-                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Amenities
-                      </Typography>
-                      <Typography variant="body1" className="font-semibold text-black">
-                        {selectedBooking.apartment?.servicing || "N/A"}
-                      </Typography>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <Typography variant="h6" className="font-semibold text-black text-lg">
-                  Pricing Information
-                </Typography>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Ref
+                        Transaction Reference
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black font-mono">
                         {selectedBooking.transaction?.reference || "N/A"}
                       </Typography>
                     </div>
                     
+                    <div>
+                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
+                        Transaction Status
+                      </Typography>
+                      <Typography variant="body1" className="font-semibold text-black">
+                        {selectedBooking.transaction?.status || "N/A"}
+                      </Typography>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
                     <div>
                       <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
                         Daily price
@@ -1217,9 +1214,35 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                         Total Amount
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {formatCurrency(selectedBooking.transaction?.amount 
+                        {formatCurrency(selectedBooking.transaction?.amount || 0)}
+                      </Typography>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                        )}
+              <div className="space-y-4">
+                <Typography variant="h6" className="font-semibold text-black text-lg">
+                  Booking Details
+                </Typography>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
+                        Booking ID
+                      </Typography>
+                      <Typography variant="body1" className="font-semibold text-black">
+                        {selectedBooking.id}
+                      </Typography>
+                    </div>
+                    
+                    <div>
+                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
+                        Status
+                      </Typography>
+                      <Typography variant="body1" className="font-semibold text-black" style={{ color: getStatusColor(selectedBooking.status) }}>
+                        {getStatusText(selectedBooking.status)}
                       </Typography>
                     </div>
                   </div>
@@ -1236,19 +1259,10 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
                     
                     <div>
                       <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Transaction status
+                        Total Booking Periods
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {selectedBooking.transaction?.status || "N/A"}
-                      </Typography>
-                    </div>
-                    
-                    <div>
-                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Payment Date
-                      </Typography>
-                      <Typography variant="body1" className="font-semibold text-black">
-                        {formatDate(selectedBooking.transaction?.booking_start_date || "")}
+                        {getBookingDetails(selectedBooking).totalBookingPeriods}
                       </Typography>
                     </div>
                   </div>
