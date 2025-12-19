@@ -452,7 +452,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
             throw new Error("Authentication token not found");
           }
 
-          const response = await axios.get(`${API_BASE_URL}/booking/deleted-bookings`, {
+          const response = await axios.get(`${API_BASE_URL}/api/v1/booking/deleted-bookings`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -539,7 +539,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
             throw new Error("Authentication token not found");
           }
 
-          const response = await axios.get(`${API_BASE_URL}api/v1/booking/agent-booking`, {
+          const response = await axios.get(`${API_BASE_URL}/api/v1/booking/agent-booking`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -634,7 +634,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           }
 
           const response = await axios.get(
-            `${API_BASE_URL}/booking/admin`,
+            `${API_BASE_URL}/api/v1/booking/admin`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -748,7 +748,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           }
 
           const response = await axios.get(
-            `${API_BASE_URL}/booking/${id}`,
+            `${API_BASE_URL}/api/v1/booking/${id}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -820,7 +820,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           }
 
           const response = await axios.get(
-            `${API_BASE_URL}/booking/booking-dates/${apartmentId}`,
+            `${API_BASE_URL}/api/v1/booking/booking-dates/${apartmentId}`,
             {
               headers,
             },
@@ -906,7 +906,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
           if (phoneNumber) params.phoneNumber = phoneNumber;
 
           const response = await axios.get(
-            `${API_BASE_URL}/booking/manage-booking`,
+            `${API_BASE_URL}/api/v1/booking/manage-booking`,
             {
               params,
               headers,
@@ -1007,7 +1007,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
       throw new Error("Authentication token not found");
     }
 
-    const requestUrl = `${API_BASE_URL}/booking/edit-booking/${bookingId}`;
+    const requestUrl = `${API_BASE_URL}/api/v1/booking/edit-booking/${bookingId}`;
     const requestBody = {
       newStartDate: newStartDate.toISOString(),
       newEndDate: newEndDate.toISOString(),

@@ -596,7 +596,7 @@ const useWalletStore = create<WalletState & WalletActions>()(
         payouts: state.payouts,
         successfulPayouts: state.successfulPayouts,
         agentTransactions: state.agentTransactions,
-        agentPayouts: state.agentPayouts, // Include agentPayouts in persistence
+        agentPayouts: state.agentPayouts, 
         payoutStatistics: state.payoutStatistics,
       }),
       version: 1,
