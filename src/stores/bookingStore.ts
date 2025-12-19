@@ -121,7 +121,7 @@ interface BookingState {
   bookingRequests: Booking[];
   expiredBookings: Booking[];
   deletedBookings: Booking[];
-  agentBookings: Booking[]; // NEW
+  agentBookings: Booking[]; 
   isEditing: boolean;
   isDeleting: boolean;
 }
@@ -131,7 +131,7 @@ interface BookingActions {
   fetchBookingRequests: () => Promise<void>;
   fetchExpiredBookings: () => Promise<void>;
   fetchDeletedBookings: () => Promise<void>;
-  fetchAgentBookings: () => Promise<void>; // NEW
+  fetchAgentBookings: () => Promise<void>; 
   fetchBookingById: (id: string) => Promise<void>;
   setSelectedDates: (dates: Date[]) => void;
   setStartDate: (date: Date | null) => void;
@@ -160,7 +160,7 @@ const initialState: BookingState = {
   bookingRequests: [],
   expiredBookings: [],
   deletedBookings: [],
-  agentBookings: [], // NEW
+  agentBookings: [],
   isEditing: false,
   isDeleting: false,
 };
@@ -364,7 +364,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
             },
           });
 
-          console.log("Expired bookings response:", response.data);
+     
 
           const bookingsData = response.data.data || response.data || [];
           
@@ -530,7 +530,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
         }
       },
 
-      // NEW: Fetch agent bookings
+    
       fetchAgentBookings: async () => {
         set({ loading: true, error: null });
         try {
@@ -1013,8 +1013,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
       newEndDate: newEndDate.toISOString(),
     };
     
-    console.log("🌐 Request URL:", requestUrl);
-    console.log("📦 Request Body:", requestBody);
+  
 
     const response = await axios.patch(
       requestUrl,
@@ -1027,7 +1026,6 @@ const useBookingStore = create<BookingState & BookingActions>()(
       },
     );
 
-    console.log("✅ Edit booking response:", response.data);
 
     if (!response.data || !response.data.data) {
       throw new Error("Invalid response format from server");
@@ -1093,13 +1091,12 @@ const useBookingStore = create<BookingState & BookingActions>()(
     
     return updatedBooking;
   } catch (error: any) {
-    console.error("❌ Edit booking error:", error);
+  
     
     let errorMessage = "Failed to edit booking dates";
     
     if (error.response) {
-      console.error("📊 Error Response Status:", error.response.status);
-      console.error("📊 Error Response Data:", error.response.data);
+    
       
       errorMessage = error.response.data?.error || 
                      error.response.data?.message || 
@@ -1130,7 +1127,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
 
     const requestUrl = `${API_BASE_URL}/booking/delete-booking/${bookingId}`;
     
-    console.log("🌐 Request URL:", requestUrl);
+  
 
     const response = await axios.post(
       requestUrl,
@@ -1143,7 +1140,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
       },
     );
 
-    console.log("✅ Delete booking response:", response.data);
+  
 
     if (!response.data) {
       throw new Error("No response received from server");
@@ -1199,13 +1196,12 @@ const useBookingStore = create<BookingState & BookingActions>()(
     
     return deletedBookingData;
   } catch (error: any) {
-    console.error("❌ Delete booking error:", error);
+  
     
     let errorMessage = "Failed to delete booking";
     
     if (error.response) {
-      console.error("📊 Error Response Status:", error.response.status);
-      console.error("📊 Error Response Data:", error.response.data);
+     
       
       errorMessage = error.response.data?.error || 
                      error.response.data?.message || 
@@ -1262,7 +1258,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
         bookingRequests: state.bookingRequests,
         expiredBookings: state.expiredBookings,
         deletedBookings: state.deletedBookings,
-        agentBookings: state.agentBookings, // NEW
+        agentBookings: state.agentBookings, 
       }),
     },
   ),

@@ -644,19 +644,18 @@ const WalletDashboard: React.FC = () => {
 
   const walletStats = calculateWalletStats();
 
-  // Filter payouts based on tab
-  // Processed tab: success and cancelled
+
   const processedPayouts = agentPayouts.filter(p => p.status === "success" || p.status === "cancelled");
-  // Pending tab: pending status
+
   const pendingPayouts = agentPayouts.filter(p => p.status === "pending");
-  // Upcoming tab: filter by transaction status (upcoming or ongoing)
+
   const upcomingPayouts = agentPayouts.filter(p => {
     const transactionStatus = p.transaction?.status?.toLowerCase();
     return transactionStatus === "upcoming" || transactionStatus === "ongoing" || 
            transactionStatus === "booked" || transactionStatus === "pending";
   });
 
-  // Load agent transactions when modal opens
+
   useEffect(() => {
     if (walletModalOpen) {
       fetchAgentTransactions();
