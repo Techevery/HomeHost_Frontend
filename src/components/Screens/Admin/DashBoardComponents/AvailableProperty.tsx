@@ -7,6 +7,7 @@ import useBookingStore from "../../../../stores/bookingStore";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "react-datepicker/dist/react-datepicker.css";
+
 interface Property {
   id: string;
   name: string;
@@ -46,7 +47,7 @@ const BookingModal: React.FC<{
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { offlineBooking } = useAdminStore();
-  const { fetchBookingDates, bookingDates, loading, error } = useBookingStore(); // Add booking store functions
+  const { fetchBookingDates, bookingDates, loading, error } = useBookingStore();
 
   // Fetch booked dates when modal opens
   useEffect(() => {
@@ -55,62 +56,41 @@ const BookingModal: React.FC<{
         setLoadingBookedDates(true);
         console.log("🔄 Fetching booked dates for property:", propertyId);
 
-        
         setBookedDates([]);
-
-        
         await fetchBookingDates(propertyId);
-
-       
 
         const dates: Date[] = [];
 
-      
         if (bookingDates && bookingDates.length > 0) {
           bookingDates.forEach((bookingDate) => {
-           
-
-          
             if (bookingDate.booking_start_date && bookingDate.booking_end_date) {
               const start = new Date(bookingDate.booking_start_date);
               const end = new Date(bookingDate.booking_end_date);
 
-              
               if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-              
                 return;
               }
 
-              
               start.setHours(0, 0, 0, 0);
               end.setHours(0, 0, 0, 0);
 
-          
-
-              
               const currentDate = new Date(start);
               while (currentDate <= end) {
                 const dateToAdd = new Date(currentDate);
                 dates.push(dateToAdd);
-                
-        
                 currentDate.setDate(currentDate.getDate() + 1);
               }
             }
           });
         } 
 
-      
         const uniqueDates = Array.from(
           new Set(dates.map((date) => date.getTime())),
         ).map((timestamp) => new Date(timestamp));
 
         uniqueDates.sort((a, b) => a.getTime() - b.getTime());
-
-
         setBookedDates(uniqueDates);
       } catch (error) {
-    
         toast.warning(
           "Unable to load booked dates. Some dates may be unavailable.",
           {
@@ -129,14 +109,12 @@ const BookingModal: React.FC<{
     }
   }, [property, isOpen, fetchBookingDates, bookingDates]);
 
-  
   useEffect(() => {
     if (property && isOpen) {
       setBookedDates([]);
     }
   }, [property?.id, isOpen]);
 
-  
   const isDateBooked = (date: Date) => {
     if (!date || bookedDates.length === 0) return false;
 
@@ -203,8 +181,11 @@ const BookingModal: React.FC<{
       );
       setSelectedDates(newDates);
 
+      // Allow single date selection (one night booking)
       if (newDates.length === 1) {
         setStartDate(dateToCheck);
+        // For single date booking, end date should be same as start date (one night)
+        // The actual checkout will be the next day, but the booking is for one night
         setEndDate(new Date(dateToCheck.getTime() + 86400000));
       } else {
         const firstDate = newDates[0];
@@ -215,7 +196,6 @@ const BookingModal: React.FC<{
     }
   };
 
-  
   const getDateClusters = (dates: Date[]): Date[][] => {
     if (dates.length === 0) return [];
 
@@ -227,7 +207,6 @@ const BookingModal: React.FC<{
       const currentDate = sortedDates[i];
       const previousDate = sortedDates[i - 1];
 
-      
       const timeDiff = currentDate.getTime() - previousDate.getTime();
       const isConsecutive = timeDiff === 86400000; 
 
@@ -243,12 +222,10 @@ const BookingModal: React.FC<{
     return clusters;
   };
 
-  
   const calculateTotalNights = (clusters: Date[][]): number => {
     return clusters.reduce((total, cluster) => total + cluster.length, 0);
   };
 
-  
   const formatDisplayDate = (date: Date): string => {
     return date.toLocaleDateString("en-US", {
       weekday: "short",
@@ -258,7 +235,6 @@ const BookingModal: React.FC<{
     });
   };
 
-  
   const convertClustersToDateArrays = (
     clusters: Date[][],
   ): { startDates: string[]; endDates: string[] } => {
@@ -267,11 +243,11 @@ const BookingModal: React.FC<{
 
     clusters.forEach((cluster) => {
       if (cluster.length > 0) {
-        
+        // For single date booking, start date is the selected date
         startDates.push(cluster[0].toISOString().split("T")[0]);
 
         const endDate = new Date(cluster[cluster.length - 1]);
-        endDate.setDate(endDate.getDate() + 1); 
+        endDate.setDate(endDate.getDate() + 1); // Add one day for checkout
         endDates.push(endDate.toISOString().split("T")[0]);
       }
     });
@@ -288,7 +264,6 @@ const BookingModal: React.FC<{
     const isToday =
       new Date().setHours(0, 0, 0, 0) === normalizedDate.getTime();
 
-  
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const isPast = normalizedDate < today;
@@ -369,20 +344,28 @@ const BookingModal: React.FC<{
       return false;
     }
 
-    if (!startDate || !endDate) {
-      toast.error("Please select both start and end dates", {
+    // Check if at least one date is selected
+    if (selectedDates.length === 0) {
+      toast.error("Please select at least one date", {
         position: "top-right",
         autoClose: 4000,
       });
       return false;
     }
 
-    if (startDate >= endDate) {
-      toast.error("End date must be after start date", {
+    // For single date booking, ensure we have a start date
+    if (!startDate) {
+      toast.error("Please select a start date", {
         position: "top-right",
         autoClose: 4000,
       });
       return false;
+    }
+
+    // For single date booking, ensure we have an end date
+    if (!endDate) {
+      // If no end date is set, set it to startDate + 1 day
+      setEndDate(new Date(startDate.getTime() + 86400000));
     }
 
     return true;
@@ -430,9 +413,6 @@ const BookingModal: React.FC<{
       const totalNights = calculateTotalNights(dateClusters);
       const totalAmount = property.price * totalNights;
 
-    
-
-    
       const { startDates, endDates } =
         convertClustersToDateArrays(dateClusters);
 
@@ -451,8 +431,6 @@ const BookingModal: React.FC<{
         name: bookingData.name,
         email: bookingData.email,
       };
-
-    
 
       const result = await offlineBooking(offlineBookingData);
 
@@ -473,16 +451,13 @@ const BookingModal: React.FC<{
         totalPrice: totalAmount,
       };
 
-  
       onSubmit(bookingInfo);
       
-  
       setTimeout(() => {
         onClose();
       }, 1500);
 
     } catch (error: any) {
-    
       toast.error(`Booking failed: ${error.message || "Please try again"}`, {
         position: "top-right",
         autoClose: 5000,
@@ -535,7 +510,6 @@ const BookingModal: React.FC<{
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-        
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex items-center gap-3 mb-2">
                 <img
@@ -557,7 +531,6 @@ const BookingModal: React.FC<{
               </div>
             </div>
 
-      
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 Personal Information
@@ -607,7 +580,6 @@ const BookingModal: React.FC<{
               </div>
             </div>
 
-        
             <div className="border rounded-lg p-4 relative">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Select Dates
@@ -702,7 +674,6 @@ const BookingModal: React.FC<{
                     </span>
                   </div>
 
-                
                   <div className="space-y-4 mb-4">
                     {dateClusters.map((cluster, clusterIndex) => (
                       <div
@@ -756,7 +727,6 @@ const BookingModal: React.FC<{
                     ))}
                   </div>
 
-      
                   {property.price && (
                     <div className="pt-4 border-t border-gray-200">
                       <div className="flex justify-between items-center mb-2">
@@ -770,7 +740,6 @@ const BookingModal: React.FC<{
                         </span>
                       </div>
 
-                  
                       {dateClusters.length > 1 && (
                         <div className="flex justify-between items-center mb-2 text-sm">
                           <span className="text-gray-600">
@@ -807,7 +776,6 @@ const BookingModal: React.FC<{
               )}
             </div>
 
-
             <div className="flex space-x-3 pt-4">
               <button
                 type="button"
@@ -843,17 +811,14 @@ const AvailableProperty = () => {
   const { publicProperties, fetchPublicProperties, loading, error } =
     useAgentStore();
     
-   
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
     null,
   );
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
   useEffect(() => {
-  
     fetchPublicProperties(1, 12);
   }, [fetchPublicProperties]);
-
 
   useEffect(() => {
     if (error) {
@@ -885,7 +850,6 @@ const AvailableProperty = () => {
       console.error("Failed to process booking:", error);
     }
   };
-
 
   if (loading && publicProperties.length === 0) {
     return (
@@ -1022,7 +986,6 @@ const AvailableProperty = () => {
           ))}
         </div>
 
-      
         {publicProperties.length === 0 && !loading && (
           <div className="text-center py-8">
             <p className="text-gray-500">
@@ -1031,7 +994,6 @@ const AvailableProperty = () => {
           </div>
         )}
       </div>
-
 
       <BookingModal
         property={selectedProperty}

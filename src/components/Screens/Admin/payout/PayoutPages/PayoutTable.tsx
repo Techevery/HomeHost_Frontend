@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Paper, Modal, Box, Button, IconButton } from "@material-ui/core";
+import { Paper, Modal, Box, Button, IconButton, Dialog, DialogContent } from "@material-ui/core";
 import { ThemeProvider, createTheme } from "@mui/material";
-import MaterialTable, { MTableToolbar } from "material-table";
+import MaterialTable from "material-table";
 import { useLocation } from "react-router-dom";
-import { MdFilterList, MdSearch, MdClose } from 'react-icons/md';
+import { MdFilterList, MdSearch, MdClose, MdPictureAsPdf } from 'react-icons/md';
 import useAdminStore from '../../../../../stores/admin';
 import { ToastContainer, toast } from "react-toastify";
-
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 enum PayoutStatus {
   PENDING = 'PENDING',
@@ -20,13 +21,13 @@ const PayoutTable = () => {
   const { pathname } = url;
   const pathnames = pathname.split("/").filter((x) => x);
   const [modalOpen, setModalOpen] = useState(false);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedPayout, setSelectedPayout] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<PayoutStatus | 'ALL'>('ALL');
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [showStatusFilter, setShowStatusFilter] = useState(false);
   const [searchText, setSearchText] = useState('');
 
-  // Use the admin store
   const { 
     getSuccessfulPayouts,
     isLoading, 
@@ -34,18 +35,17 @@ const PayoutTable = () => {
     clearError 
   } = useAdminStore();
 
-  // State for payouts data
   const [payouts, setPayouts] = useState<any[]>([]);
 
-  // Fetch payouts on component mount
+  
   useEffect(() => {
     fetchPayouts();
   }, []);
 
   const fetchPayouts = async () => {
     try {
-      const response = await    getSuccessfulPayouts();
-      // Handle different response structures
+      const response = await getSuccessfulPayouts();
+    
       if (response.data) {
         setPayouts(response.data);
       } else if (Array.isArray(response)) {
@@ -56,47 +56,44 @@ const PayoutTable = () => {
         setPayouts([]);
       }
     } catch (err) {
-   
       setPayouts([]);
     }
   };
 
-  // Transform payout data to table format based on actual API response
   const transformPayoutToRowData = (payout: any) => {
     const transaction = payout.transaction || {};
     const agent = payout.agent || {};
     const apartment = transaction.apartment || {};
     
-    // Calculate amount details
+   
     const grossAmount = transaction.amount || payout.amount || 0;
     const agentPercentage = transaction.agentPercentage || 0;
     const mockupPrice = transaction.mockupPrice || 0;
-    const charges = payout.charges || 0; // Get charges from payout
+    const charges = payout.charges || 0; 
     
     let agentAmount = 0;
     let calculationType = "";
     let calculationDetail = "";
     let amountDetail = "";
     let fee = 0;
-    let netFee = 0; // Fee after subtracting charges
+    let netFee = 0; 
 
-    // Determine calculation type and calculate accordingly
     if (mockupPrice > 0) {
-      // Calculate based on markup (fixed amount)
+     
       calculationType = "Markup";
       calculationDetail = `₦${mockupPrice.toLocaleString()}`;
       agentAmount = mockupPrice;
       amountDetail = `Fixed markup: ₦${mockupPrice.toLocaleString()}`;
       fee = agentAmount;
     } else if (agentPercentage > 0) {
-      // Calculate based on percentage
+
       calculationType = "Percentage";
       calculationDetail = `${agentPercentage}%`;
       agentAmount = grossAmount * (agentPercentage / 100);
       amountDetail = `₦${grossAmount.toLocaleString()} x ${agentPercentage}%`;
       fee = agentAmount;
     } else {
-      // Default case - use percentage calculation as fallback
+    
       calculationType = "Percentage";
       calculationDetail = `${agentPercentage}%`;
       agentAmount = grossAmount * (agentPercentage / 100);
@@ -104,10 +101,9 @@ const PayoutTable = () => {
       fee = agentAmount;
     }
 
-    // Calculate net fee (fee - charges)
     netFee = Math.max(0, fee - charges);
 
-    // Format period from booking dates
+   
     let period = "N/A";
     if (transaction.booking_start_date && transaction.booking_end_date) {
       const startDate = new Date(transaction.booking_start_date);
@@ -126,14 +122,14 @@ const PayoutTable = () => {
       period = `${startFormatted} - ${endFormatted} (${durationDays} days)`;
     }
 
-    // Format dates
+  
     const createdDate = new Date(payout.createdAt).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
     });
     
-    // Get payment date from transaction
+   
     const paymentDate = transaction.date_paid ? 
       new Date(transaction.date_paid).toLocaleDateString('en-US', {
         month: 'short',
@@ -141,7 +137,7 @@ const PayoutTable = () => {
         year: 'numeric'
       }) : createdDate;
 
-    // Map status from API to display status
+   
     const statusMap: Record<string, string> = {
       'success': 'Approved',
       'pending': 'Pending',
@@ -159,19 +155,23 @@ const PayoutTable = () => {
       return parts[parts.length - 1] || `receipt_${payout.id}`;
     };
 
-    // Get file type from URL
     const getFileTypeFromUrl = (url: string) => {
       if (!url) return 'unknown';
       const extension = url.split('.').pop()?.toLowerCase();
-      return extension || 'file';
+      if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension || '')) {
+        return 'image';
+      } else if (['pdf'].includes(extension || '')) {
+        return 'pdf';
+      }
+      return 'file';
     };
 
-    // Create receipt data if proof exists
+    
     const receipt = payout.proof ? {
       file_name: getFileNameFromUrl(payout.proof),
       file_type: getFileTypeFromUrl(payout.proof),
       file_url: payout.proof,
-      file_size: "2.4 MB", // You might want to get actual file size from backend
+      file_size: "2.4 MB", 
       uploaded_date: new Date(payout.createdAt).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -205,14 +205,14 @@ const PayoutTable = () => {
       payment_date: paymentDate,
       submitted_date: `Submitted ${createdDate}`,
       status: resolvedStatus,
-      originalStatus: payout.status, // Store original status for filtering
-      originalPayout: payout, // Store original payout data for modal
+      originalStatus: payout.status,
+      originalPayout: payout, 
       receipt: receipt,
-      // For approved payouts, show remark; for rejected, show reason/remark
+    
       admin_notes: payout.status?.toLowerCase() === 'success' ? payout.remark : null,
       rejection_reason: (payout.status?.toLowerCase() === 'failed' || payout.status?.toLowerCase() === 'cancelled') ? 
                        (payout.reason || payout.remark) : null,
-      // Store additional data for modal
+      
       account_name: payout.accountName,
       reference: payout.reference,
       proof: payout.proof,
@@ -236,7 +236,6 @@ const PayoutTable = () => {
 
   const data = payouts.map(transformPayoutToRowData);
 
-  // Apply both status filter and search filter
   useEffect(() => {
     let result = data;
 
@@ -279,6 +278,10 @@ const PayoutTable = () => {
     setSelectedPayout(null);
   };
 
+  const handleCloseImageModal = () => {
+    setImageModalOpen(false);
+  };
+
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchText(event.target.value);
   };
@@ -291,96 +294,192 @@ const PayoutTable = () => {
     if (selectedPayout?.receipt?.file_url) {
       try {
         const response = await fetch(selectedPayout.receipt.file_url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const blob = await response.blob();
         
-        // Create a download link
+      
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = selectedPayout.receipt.file_name;
+        link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-     
+        
+        // Cleanup
+        setTimeout(() => {
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+        
+        toast.success("Receipt downloaded successfully!");
       } catch (error) {
-        toast.error("Error downloading receipt:");
-        // Fallback: open in new tab if download fails
+        console.error("Download error:", error);
+        toast.error("Error downloading receipt. Please try again.");
+      
         window.open(selectedPayout.receipt.file_url, '_blank');
       }
+    } else {
+      toast.error("No receipt available to download.");
     }
   };
 
   const handleViewReceipt = () => {
     if (selectedPayout?.receipt?.file_url) {
-      // Open the receipt in a new tab
-      window.open(selectedPayout.receipt.file_url, '_blank');
+      const fileType = selectedPayout.receipt.file_type;
+      
+      if (fileType === 'image') {
+      
+        setImageModalOpen(true);
+      } else if (fileType === 'pdf') {
+  
+        window.open(selectedPayout.receipt.file_url, '_blank');
+      } else {
+      
+        window.open(selectedPayout.receipt.file_url, '_blank');
+      }
+    } else {
+      toast.error("No receipt available to view.");
     }
   };
 
-  // Generate PDF report for payout
+ 
   const generatePDFReport = () => {
     if (!selectedPayout) return;
 
-    const pdfContent = `
-      PAYOUT REPORT
-      =============
-      
-      Agent: ${selectedPayout.agent}
-      Agent ID: ${selectedPayout.agent_id}
-      Property: ${selectedPayout.property}
-      Booking ID: ${selectedPayout.booking}
-      Period: ${selectedPayout.period}
-      Duration: ${selectedPayout.duration_days} days
-      
-      CALCULATION DETAILS:
-      -------------------
-      Type: ${selectedPayout.calculation_type}
-      Detail: ${selectedPayout.calculation_detail}
-      Formula: ${selectedPayout.amount_detail}
-      
-      AMOUNT BREAKDOWN:
-      -----------------
-      Agent Amount: ${selectedPayout.amount}
-      Gross Amount: ${selectedPayout.gross}
-      Platform Fee: ${selectedPayout.fee}
-      Charges: ${selectedPayout.charges}
-      Net Fee (Fee - Charges): ${selectedPayout.net_fee}
-      
-      BANK DETAILS:
-      -------------
-      Bank: ${selectedPayout.bank}
-      Account: ${selectedPayout.account_number}
-      Account Name: ${selectedPayout.account_name}
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 15;
+      let yPos = margin;
 
-      
-      
-      DATES:
-      ------
-      Created: ${selectedPayout.date}
-      Payment Date: ${selectedPayout.payment_date}
-      ${selectedPayout.submitted_date}
-      
-      STATUS: ${selectedPayout.status}
-      Transaction Status: ${selectedPayout.transaction_status}
-      
-      ${selectedPayout.admin_notes ? `ADMIN NOTES:\n${selectedPayout.admin_notes}` : ''}
-      ${selectedPayout.rejection_reason ? `REJECTION REASON:\n${selectedPayout.rejection_reason}` : ''}
-      
-      ${selectedPayout.receipt ? `RECEIPT:\nFile: ${selectedPayout.receipt.file_name}\nTransaction ID: ${selectedPayout.receipt.transaction_id}` : ''}
-      
-      Generated on: ${new Date().toLocaleString()}
-    `;
+    
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("PAYOUT REPORT", pageWidth / 2, yPos, { align: "center" });
+      yPos += 15;
 
-    const blob = new Blob([pdfContent], { type: 'application/pdf' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `payout_report_${selectedPayout.booking}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+      doc.setLineWidth(0.5);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 10;
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("AGENT & PROPERTY INFORMATION", margin, yPos);
+      yPos += 8;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Agent: ${selectedPayout.agent}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Agent ID: ${selectedPayout.agent_id}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Property: ${selectedPayout.property}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Booking ID: ${selectedPayout.booking}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Period: ${selectedPayout.period}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Duration: ${selectedPayout.duration_days} days`, margin, yPos);
+      yPos += 12;
+
+     
+      if (yPos > 250) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+     
+      doc.setFont("helvetica", "bold");
+      doc.text("CALCULATION DETAILS", margin, yPos);
+      yPos += 8;
+
+      doc.setFont("helvetica", "normal");
+      doc.text(`Type: ${selectedPayout.calculation_type}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Detail: ${selectedPayout.calculation_detail}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Formula: ${selectedPayout.amount_detail}`, margin, yPos);
+      yPos += 12;
+
+   
+      doc.setFont("helvetica", "bold");
+      doc.text("AMOUNT BREAKDOWN", margin, yPos);
+      yPos += 8;
+
+      doc.setFont("helvetica", "normal");
+      doc.text(`Agent Amount: ${selectedPayout.amount}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Gross Amount: ${selectedPayout.gross}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Platform Fee: ${selectedPayout.fee}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Charges: ${selectedPayout.charges}`, margin, yPos);
+      yPos += 7;
+      doc.setFont("helvetica", "bold");
+      doc.text(`Net Fee (Fee - Charges): ${selectedPayout.net_fee}`, margin, yPos);
+      yPos += 12;
+
+      doc.setFont("helvetica", "bold");
+      doc.text("BANK DETAILS", margin, yPos);
+      yPos += 8;
+
+      doc.setFont("helvetica", "normal");
+      doc.text(`Bank: ${selectedPayout.bank}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Account Number: ${selectedPayout.account_number}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Account Name: ${selectedPayout.account_name}`, margin, yPos);
+      yPos += 12;
+
+      // Dates
+      doc.setFont("helvetica", "bold");
+      doc.text("DATES", margin, yPos);
+      yPos += 8;
+
+      doc.setFont("helvetica", "normal");
+      doc.text(`Created Date: ${selectedPayout.date}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Payment Date: ${selectedPayout.payment_date}`, margin, yPos);
+      yPos += 7;
+      doc.text(`Transaction Status: ${selectedPayout.transaction_status}`, margin, yPos);
+      yPos += 12;
+
+      // Status Information
+      doc.setFont("helvetica", "bold");
+      doc.text("STATUS", margin, yPos);
+      yPos += 8;
+
+      doc.setFont("helvetica", "normal");
+      doc.text(`Status: ${selectedPayout.status}`, margin, yPos);
+      yPos += 7;
+
+      if (selectedPayout.admin_notes) {
+        doc.text(`Admin Notes: ${selectedPayout.admin_notes}`, margin, yPos);
+        yPos += 7;
+      }
+
+      if (selectedPayout.rejection_reason) {
+        doc.text(`Rejection Reason: ${selectedPayout.rejection_reason}`, margin, yPos);
+        yPos += 7;
+      }
+
+      // Footer
+      yPos = 280;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.text(`Report generated on: ${new Date().toLocaleString()}`, pageWidth / 2, yPos, { align: "center" });
+
+      // Save the PDF
+      doc.save(`payout_report_${selectedPayout.booking}.pdf`);
+      toast.success("PDF report generated successfully!");
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      toast.error("Error generating PDF report. Please try again.");
+    }
   };
 
   // Status filter options
@@ -503,11 +602,11 @@ const PayoutTable = () => {
 
   const defaultMaterialTheme = createTheme({
     palette: {
-      // mode: "light",
+     
     },
   });
 
-  // Show loading state
+
   if (isLoading) {
     return (
       <div className="bg-white rounded-[12px] shadow-sm border border-[#E8E9ED] p-6 flex items-center justify-center">
@@ -516,7 +615,7 @@ const PayoutTable = () => {
     );
   }
 
-  // Show error state
+
   if (error) {
     return (
       <div className="bg-white rounded-[12px] shadow-sm border border-[#E8E9ED] p-6">
@@ -533,21 +632,20 @@ const PayoutTable = () => {
 
   return (
     <div>
-
-
       <ToastContainer
-                      position="top-right"
-                      autoClose={5000}
-                      hideProgressBar={false}
-                      newestOnTop={false}
-                      closeOnClick
-                      rtl={false}
-                      pauseOnFocusLoss
-                      draggable
-                      pauseOnHover
-                      theme="light"
-                    />
-      {/* Error Banner */}
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+      
+   
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <div className="text-red-700 text-sm">{error}</div>
@@ -598,7 +696,7 @@ const PayoutTable = () => {
         </div>
       )}
     
-      {/* Table Section */}
+    
       <div className="bg-white rounded-[12px] shadow-sm border border-[#E8E9ED]">
         <ThemeProvider theme={defaultMaterialTheme}>
           <link
@@ -613,7 +711,7 @@ const PayoutTable = () => {
                 Toolbar: (props) => (
                   <div className="flex flex-col">
                     <div className="flex items-center justify-between p-4">
-                      {/* Custom Search Field */}
+                    
                       <div className="relative flex-1 max-w-md">
                         <div className="relative">
                           <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -645,7 +743,7 @@ const PayoutTable = () => {
                         )}
                       </div>
 
-                      {/* Filter Button */}
+                    
                       <button
                         onClick={() => setShowStatusFilter(!showStatusFilter)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -716,7 +814,7 @@ const PayoutTable = () => {
         </ThemeProvider>
       </div>
 
-      {/* View Modal - Single Consolidated Box with Uploaded Files Section */}
+     
       <Modal
         open={modalOpen}
         onClose={handleCloseModal}
@@ -817,8 +915,6 @@ const PayoutTable = () => {
                           </div>
                         </div>
                       </div>
-
-                      {/* Bank Details */}
                       <div>
                         <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
                           <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -843,14 +939,11 @@ const PayoutTable = () => {
                       </div>
                     </div>
 
-                    {/* Right Column */}
                     <div className="space-y-6">
-                      {/* Amount Details */}
+                     
                       <div>
                         <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
-                          <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                          </svg>
+                      
                           Amount Details
                         </h3>
                         <div className="space-y-3">
@@ -877,7 +970,6 @@ const PayoutTable = () => {
                         </div>
                       </div>
 
-                      {/* Calculation Details */}
                       <div>
                         <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
                           <svg className="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -902,8 +994,6 @@ const PayoutTable = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* Uploaded Files Section - Always Visible */}
                   <div className="border-t border-gray-200 pt-6">
                     <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
                       <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -918,9 +1008,17 @@ const PayoutTable = () => {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-4">
                               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
+                                {selectedPayout.receipt.file_type === 'image' ? (
+                                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                ) : selectedPayout.receipt.file_type === 'pdf' ? (
+                                  <MdPictureAsPdf className="w-6 h-6 text-blue-600" />
+                                ) : (
+                                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                )}
                               </div>
                               <div>
                                 <p className="font-medium text-blue-800">{selectedPayout.receipt.file_name}</p>
@@ -938,7 +1036,7 @@ const PayoutTable = () => {
                                 onClick={handleViewReceipt}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
                               >
-                                View File
+                                {selectedPayout.receipt.file_type === 'image' ? 'View Image' : 'View File'}
                               </Button>
                               <Button
                                 onClick={handleDownloadReceipt}
@@ -948,8 +1046,6 @@ const PayoutTable = () => {
                               </Button>
                             </div>
                           </div>
-                          
-                          {/* Additional Receipt Information */}
                           <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-blue-200">
                             <div>
                               <label className="text-xs text-blue-600 font-medium block mb-1">Transaction ID:</label>
@@ -972,8 +1068,6 @@ const PayoutTable = () => {
                       </div>
                     )}
                   </div>
-
-                  {/* Status Specific Information */}
                   {selectedPayout.status === "Approved" && selectedPayout.admin_notes && (
                     <div className="border-t border-gray-200 pt-6">
                       <h3 className="font-semibold text-green-800 mb-4 text-lg flex items-center">
@@ -1004,7 +1098,7 @@ const PayoutTable = () => {
                     </div>
                   )}
 
-                  {/* Timeline Information */}
+            
                   <div className="border-t border-gray-200 pt-6">
                     <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
                       <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1032,15 +1126,13 @@ const PayoutTable = () => {
             )}
           </div>
 
-          {/* Modal Footer */}
+
           <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
             <Button
               onClick={generatePDFReport}
               className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center space-x-2"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <MdPictureAsPdf className="w-4 h-4" />
               <span>Download PDF Report</span>
             </Button>
             <div className="flex space-x-3">
@@ -1054,6 +1146,58 @@ const PayoutTable = () => {
           </div>
         </Box>
       </Modal>
+
+     
+      <Dialog
+        open={imageModalOpen}
+        onClose={handleCloseImageModal}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogContent>
+          {selectedPayout?.receipt?.file_url && (
+            <div className="relative">
+              <IconButton
+                onClick={handleCloseImageModal}
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                  zIndex: 1,
+                }}
+              >
+                <MdClose />
+              </IconButton>
+              <div className="flex flex-col items-center">
+                <img
+                  src={selectedPayout.receipt.file_url}
+                  alt={selectedPayout.receipt.file_name}
+                  className="max-w-full max-h-[70vh] object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.onerror = null;
+                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNGRkYiLz48cGF0aCBkPSJNNTAgNzVMMTAwIDEyNUwxNTAgNzVIMTUwVjEyNUg1MFY3NUg1MFoiIGZpbGw9IiNEOEQ4RDgiLz48L3N2Zz4=';
+                  }}
+                />
+                <div className="mt-4 text-center">
+                  <p className="font-medium text-gray-700">{selectedPayout.receipt.file_name}</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Click the download button to save this image
+                  </p>
+                  <Button
+                    onClick={handleDownloadReceipt}
+                    className="mt-3 bg-blue-600 text-white hover:bg-blue-700"
+                    variant="contained"
+                  >
+                    Download Image
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

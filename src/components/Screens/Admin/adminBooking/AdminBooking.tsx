@@ -24,6 +24,8 @@ import MaterialTable, { Column } from "material-table";
 import useBookingStore from "../../../../stores/bookingStore";
 import CloseIcon from '@mui/icons-material/Close';
 import { MdFilterList, MdSearch, MdClose, MdEdit, MdDelete } from 'react-icons/md';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -56,8 +58,8 @@ enum BookingStatus {
 }
 
 interface EditBookingForm {
-  startDate: string;
-  endDate: string;
+  startDate: Date | null;
+  endDate: Date | null;
 }
 
 interface TableRowData {
@@ -78,6 +80,20 @@ interface TableRowData {
   isDeleted: boolean;
   isEditable: boolean;
 }
+
+// Function to create an array of dates between start and end
+const getDatesInRange = (startDate: Date, endDate: Date) => {
+  const dates: Date[] = [];
+  const currentDate = new Date(startDate);
+  const lastDate = new Date(endDate);
+  
+  while (currentDate <= lastDate) {
+    dates.push(new Date(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return dates;
+};
 
 const AdminBooking = () => {
   const { 
@@ -106,8 +122,8 @@ const AdminBooking = () => {
   
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState<EditBookingForm>({
-    startDate: '',
-    endDate: ''
+    startDate: null,
+    endDate: null
   });
   
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -169,14 +185,14 @@ const AdminBooking = () => {
     }
   };
 
-  const formatDateForInput = (dateString: string) => {
-    if (!dateString) return '';
+  const formatDateForInput = (dateString: string): Date | null => {
+    if (!dateString) return null;
     try {
       const date = new Date(dateString);
-      if (isNaN(date.getTime())) return '';
-      return date.toISOString().split('T')[0];
+      if (isNaN(date.getTime())) return null;
+      return date;
     } catch {
-      return '';
+      return null;
     }
   };
 
@@ -542,8 +558,37 @@ const getPhoneNumber = (booking: any) => {
     }
   };
 
-  const handleEditClick = () => {
+  // Get booked dates for the date picker exclusion
+  const getBookedDates = useMemo(() => {
+    if (!selectedBooking?.apartment_id || !bookingDates.length) return [];
+    
+    const bookedDates: Date[] = [];
+    
+    bookingDates.forEach(date => {
+      // Exclude the current booking being edited
+      if (date.id === selectedBooking.id) return;
+      
+      if (date.booking_start_date && date.booking_end_date) {
+        const start = new Date(date.booking_start_date);
+        const end = new Date(date.booking_end_date);
+        
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+          const datesInRange = getDatesInRange(start, end);
+          bookedDates.push(...datesInRange);
+        }
+      }
+    });
+    
+    return bookedDates;
+  }, [bookingDates, selectedBooking]);
+
+  const handleEditClick = async () => {
     if (selectedBooking) {
+      // Fetch booking dates for the apartment
+      if (selectedBooking.apartment_id) {
+        await fetchBookingDates(selectedBooking.apartment_id);
+      }
+      
       const startDate = selectedBooking.booking_start_date || (selectedBooking.booking_period as any)?.start_date || '';
       const endDate = selectedBooking.booking_end_date || (selectedBooking.booking_period as any)?.end_date || '';
       
@@ -555,8 +600,7 @@ const getPhoneNumber = (booking: any) => {
     }
   };
 
-  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+  const handleEditFormChange = (name: keyof EditBookingForm, value: Date | null) => {
     setEditFormData(prev => ({
       ...prev,
       [name]: value
@@ -582,19 +626,19 @@ const getPhoneNumber = (booking: any) => {
       }
       
       if (selectedBooking.apartment_id) {
-        await fetchBookingDates(selectedBooking.apartment_id);
-        
         const conflictingBooking = bookingDates.find(date => {
-          if (!date.booking_start_date || !date.booking_end_date) return false;
+          if (!date.booking_start_date || !date.booking_end_date || date.id === selectedBooking.id) return false;
           
           const existingStart = new Date(date.booking_start_date);
           const existingEnd = new Date(date.booking_end_date);
           
+          existingStart.setHours(12, 0, 0, 0);
+          existingEnd.setHours(12, 0, 0, 0);
+          
           return (
-            date.id !== selectedBooking.id &&
-            ((newStartDate >= existingStart && newStartDate <= existingEnd) ||
-              (newEndDate >= existingStart && newEndDate <= existingEnd) ||
-              (newStartDate <= existingStart && newEndDate >= existingEnd))
+            (newStartDate >= existingStart && newStartDate <= existingEnd) ||
+            (newEndDate >= existingStart && newEndDate <= existingEnd) ||
+            (newStartDate <= existingStart && newEndDate >= existingEnd)
           );
         });
         
@@ -850,6 +894,14 @@ const getPhoneNumber = (booking: any) => {
   const defaultMaterialTheme = createTheme({
     palette: {},
   });
+
+  // Custom day class for date picker
+  const dayClassName = (date: Date) => {
+    const isBooked = getBookedDates.some(bookedDate => 
+      bookedDate.toDateString() === date.toDateString()
+    );
+    return isBooked ? 'bg-red-100 text-red-700 hover:bg-red-200' : '';
+  };
 
   if (loading) {
     return (
@@ -1468,7 +1520,7 @@ const getPhoneNumber = (booking: any) => {
           sx={{
             position: 'relative',
             width: '95%',
-            maxWidth: '500px',
+            maxWidth: '600px',
             maxHeight: '95vh',
             bgcolor: 'background.paper',
             borderRadius: '8px',
@@ -1495,42 +1547,85 @@ const getPhoneNumber = (booking: any) => {
                 <label className="block text-sm font-medium mb-2 text-gray-700">
                   Start Date
                 </label>
-                <input
-                  type="date"
-                  name="startDate"
-                  value={editFormData.startDate}
-                  onChange={handleEditFormChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  min={new Date().toISOString().split('T')[0]}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Current: {selectedBooking?.booking_start_date ? formatDate(selectedBooking.booking_start_date) : "N/A"}
-                </p>
+                <div className="relative">
+                  <DatePicker
+                    selected={editFormData.startDate}
+                    onChange={(date) => handleEditFormChange('startDate', date)}
+                    selectsStart
+                    startDate={editFormData.startDate}
+                    endDate={editFormData.endDate}
+                    minDate={new Date()}
+                    excludeDates={getBookedDates}
+                    dateFormat="MMMM d, yyyy"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholderText="Select start date"
+                    dayClassName={dayClassName}
+                    isClearable
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Current: {selectedBooking?.booking_start_date ? formatDate(selectedBooking.booking_start_date) : "N/A"}
+                  </p>
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-700">
                   End Date
                 </label>
-                <input
-                  type="date"
-                  name="endDate"
-                  value={editFormData.endDate}
-                  onChange={handleEditFormChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  min={editFormData.startDate || new Date().toISOString().split('T')[0]}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Current: {selectedBooking?.booking_end_date ? formatDate(selectedBooking.booking_end_date) : "N/A"}
-                </p>
+                <div className="relative">
+                  <DatePicker
+                    selected={editFormData.endDate}
+                    onChange={(date) => handleEditFormChange('endDate', date)}
+                    selectsEnd
+                    startDate={editFormData.startDate}
+                    endDate={editFormData.endDate}
+                    minDate={editFormData.startDate || new Date()}
+                    excludeDates={getBookedDates}
+                    dateFormat="MMMM d, yyyy"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholderText="Select end date"
+                    dayClassName={dayClassName}
+                    isClearable
+                    disabled={!editFormData.startDate}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Current: {selectedBooking?.booking_end_date ? formatDate(selectedBooking.booking_end_date) : "N/A"}
+                  </p>
+                </div>
               </div>
+
+              {/* Booked dates information */}
+              {getBookedDates.length > 0 && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
+                    <p className="text-sm font-medium text-red-700">Booked Dates</p>
+                  </div>
+                  <p className="text-xs text-red-600">
+                    Red highlighted dates are already booked for this apartment. Please select available dates.
+                  </p>
+                  <div className="mt-2">
+                    <p className="text-xs font-medium text-red-700 mb-1">Existing bookings:</p>
+                    <div className="max-h-20 overflow-y-auto">
+                      {bookingDates
+                        .filter(date => date.id !== selectedBooking?.id)
+                        .map((date, index) => (
+                          <div key={index} className="text-xs text-red-600 mb-1">
+                            {formatDate(typeof date.booking_start_date === 'string' ? date.booking_start_date : (date.booking_start_date as any)?.toISOString() || '')} - {formatDate(typeof date.booking_end_date === 'string' ? date.booking_end_date : (date.booking_end_date as any)?.toISOString() || '')}
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {editFormData.startDate && editFormData.endDate && (
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <p className="text-sm text-blue-700">
                     New duration: {
                       Math.ceil(
-                        (new Date(editFormData.endDate).getTime() - new Date(editFormData.startDate).getTime()) / 
+                        (editFormData.endDate.getTime() - editFormData.startDate.getTime()) / 
                         (1000 * 60 * 60 * 24)
                       )
                     } days
@@ -1552,6 +1647,7 @@ const getPhoneNumber = (booking: any) => {
               <button
                 onClick={handleEditSubmit}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                disabled={!editFormData.startDate || !editFormData.endDate}
               >
                 <MdEdit className="w-4 h-4" />
                 Update Dates
@@ -1621,4 +1717,4 @@ const getPhoneNumber = (booking: any) => {
   ); 
 };
 
-export default AdminBooking; 
+export default AdminBooking;

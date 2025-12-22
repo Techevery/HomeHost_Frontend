@@ -1237,4 +1237,4 @@ const PayoutRequestTable = () => {
     );
 }
 
-export default PayoutRequestTable;
+export default PayoutRequestTable
