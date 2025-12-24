@@ -34,7 +34,6 @@ interface ApartmentData {
   agentPercentage: number;
 }
 
-
 interface UpdateApartmentData {
   name?: string;
   address?: string;
@@ -46,7 +45,6 @@ interface UpdateApartmentData {
   agentPercentage?: number;
   imagesToDelete?: string[]; 
 }
-
 
 interface OfflineBookingData {
   apartmentId: string;
@@ -95,12 +93,12 @@ interface AdminActions {
     files?: File[]
   ) => Promise<any>;
   offlineBooking: (bookingData: OfflineBookingData) => Promise<any>;
- 
+  
   getAgentDetails: (agentId: string) => Promise<any>;
   getAgentPayouts: (agentId: string) => Promise<any>;
   getAgentProperties: (agentId: string) => Promise<any>;
   getAgentDashboard: (agentId: string) => Promise<any>;
- 
+  
   getSuccessfulPayouts: (page?: number, pageSize?: number) => Promise<any>;
   getPayoutRequests: (page?: number, pageSize?: number) => Promise<any>;
 }
@@ -166,14 +164,12 @@ const useAdminStore = create<AdminState & AdminActions>()(
             isLoading: false,
           });
 
-       
           try {
             localStorage.setItem("token", token);
           } catch (storageError) {
             console.error("Storage error:", storageError);
           }
 
-          
           try {
             await get().fetchAdminProfile();
           } catch (profileError) {
@@ -181,7 +177,6 @@ const useAdminStore = create<AdminState & AdminActions>()(
               "Failed to fetch complete admin profile, but login was successful:",
               profileError,
             );
-           
           }
         } catch (error: any) {
           const errorMessage =
@@ -420,7 +415,6 @@ const useAdminStore = create<AdminState & AdminActions>()(
         set({ isLoading: true });
         try {
           const token = get().token || localStorage.getItem("token");
-         
 
           if (!token) {
             throw new Error(
@@ -627,82 +621,83 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
-updateApartment: async (
-  apartmentId: string,
-  updateData: UpdateApartmentData,
-  files?: File[],
-) => {
-  set({ isLoading: true });
-  try {
-    const token = get().token || localStorage.getItem("token");
-    if (!token) {
-      throw new Error("user not login, please login again");
-    }
+      updateApartment: async (
+        apartmentId: string,
+        updateData: UpdateApartmentData,
+        files?: File[],
+      ) => {
+        set({ isLoading: true });
+        try {
+          const token = get().token || localStorage.getItem("token");
+          if (!token) {
+            throw new Error("user not login, please login again");
+          }
 
-    const formData = new FormData();
-    
-    // Append form data
-    Object.entries(updateData).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        // Handle arrays specially (like imagesToDelete)
-        if (Array.isArray(value) && value.length > 0) {
-          formData.append(key, JSON.stringify(value));
-        } else {
-          formData.append(key, value.toString());
+          const formData = new FormData();
+          
+          // Append form data
+          Object.entries(updateData).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+              // Handle arrays specially (like imagesToDelete)
+              if (Array.isArray(value) && value.length > 0) {
+                formData.append(key, JSON.stringify(value));
+              } else {
+                formData.append(key, value.toString());
+              }
+            }
+          });
+          
+          // Append new images
+          if (files && files.length > 0) {
+            files.forEach(file => {
+              formData.append('images', file);
+            });
+          }
+
+          console.log('🔄 Sending update request with:', {
+            apartmentId,
+            updateData,
+            filesCount: files?.length || 0,
+            imagesToDelete: updateData.imagesToDelete,
+            formDataEntries: Array.from(formData.entries())
+          });
+
+          const response = await axios.patch(
+            `${API_BASE_URL}/api/v1/admin/update-apartment/${apartmentId}`,
+            formData,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'multipart/form-data',
+              },
+              timeout: 30000,
+            },
+          );
+
+          console.log('✅ Update response:', response);
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          console.error('❌ Update error details:', {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message,
+          });
+          
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to update apartment";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw error;
         }
-      }
-    });
-    
-    // Append new images
-    if (files && files.length > 0) {
-      files.forEach(file => {
-        formData.append('images', file);
-      });
-    }
-
-    console.log('🔄 Sending update request with:', {
-      apartmentId,
-      updateData,
-      filesCount: files?.length || 0,
-      imagesToDelete: updateData.imagesToDelete,
-      formDataEntries: Array.from(formData.entries())
-    });
-
-    const response = await axios.patch(
-      `${API_BASE_URL}/api/v1/admin/update-apartment/${apartmentId}`,
-      formData,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 30000,
       },
-    );
 
-    console.log('✅ Update response:', response);
-    set({ isLoading: false });
-    return response.data;
-  } catch (error: any) {
-    console.error('❌ Update error details:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
-    
-    const errorMessage =
-      error.response?.data?.message ||
-      error.response?.data?.error ||
-      error.message ||
-      "Failed to update apartment";
-
-    set({
-      error: errorMessage,
-      isLoading: false,
-    });
-    throw error;
-  }
-},
       createApartment: async (apartmentData, files) => {
         set({ isLoading: true });
         try {
@@ -747,41 +742,70 @@ updateApartment: async (
         }
       },
 
-      // New offline booking method
-      offlineBooking: async (bookingData) => {
-        set({ isLoading: true, error: null });
-        try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login, please login again");
-          }
+  
+     // In admin.ts, update the offlineBooking method:
 
-          const response = await axios.post(
-            `${API_BASE_URL}/api/v1/admin/book`,
-            bookingData,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            },
-          );
+offlineBooking: async (bookingData) => {
+  set({ isLoading: true, error: null });
+  try {
+    const token = get().token || localStorage.getItem("token");
+    if (!token) {
+      throw new Error("User not logged in. Please log in again.");
+    }
 
-          set({ isLoading: false });
-          return response.data;
-        } catch (error: any) {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.message ||
-            "Offline booking failed";
+    // Extract admin ID from store
+    const adminId = get().adminInfo?.id;
+    if (!adminId) {
+      throw new Error("Admin information not found. Please log in again.");
+    }
 
-          set({
-            error: errorMessage,
-            isLoading: false,
-          });
-          throw error;
-        }
+    console.log("📤 Sending offline booking request:", bookingData);
+
+    // Prepare data in backend expected format
+    const requestData = {
+      apartmentId: bookingData.apartmentId,
+      startDate: bookingData.startDate,
+      endDate: bookingData.endDate,
+      name: bookingData.name,
+      email: bookingData.email,
+      // Note: adminId will be extracted from token on backend
+    };
+
+    const response = await axios.post(
+      `${API_BASE_URL}/api/v1/admin/book`, 
+      requestData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 30000, 
       },
+    );
+
+    console.log("✅ Offline booking response:", response.data);
+    set({ isLoading: false });
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ Offline booking error:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    
+    const errorMessage =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      "Offline booking failed. Please try again.";
+
+    set({
+      error: errorMessage,
+      isLoading: false,
+    });
+    throw error;
+  }
+},
 
       // New methods for agent profile modal
       getAgentDetails: async (agentId: string) => {

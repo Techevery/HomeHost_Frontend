@@ -138,7 +138,7 @@ const PayoutRequestTable = () => {
       return {
 
 
-        
+
         id: payout.id,
         agent: agent.name || 'Unknown Agent',
         property: transaction.apartment?.name || 'Unknown Property',

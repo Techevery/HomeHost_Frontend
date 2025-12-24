@@ -181,11 +181,8 @@ const BookingModal: React.FC<{
       );
       setSelectedDates(newDates);
 
-      // Allow single date selection (one night booking)
       if (newDates.length === 1) {
         setStartDate(dateToCheck);
-        // For single date booking, end date should be same as start date (one night)
-        // The actual checkout will be the next day, but the booking is for one night
         setEndDate(new Date(dateToCheck.getTime() + 86400000));
       } else {
         const firstDate = newDates[0];
@@ -243,11 +240,13 @@ const BookingModal: React.FC<{
 
     clusters.forEach((cluster) => {
       if (cluster.length > 0) {
-        // For single date booking, start date is the selected date
+        // Start date is the first selected date
         startDates.push(cluster[0].toISOString().split("T")[0]);
 
+        // For single-date booking, end date is the same day + 1 (one night stay)
+        // For multi-date booking, end date is the last selected date + 1
         const endDate = new Date(cluster[cluster.length - 1]);
-        endDate.setDate(endDate.getDate() + 1); // Add one day for checkout
+        endDate.setDate(endDate.getDate() + 1);
         endDates.push(endDate.toISOString().split("T")[0]);
       }
     });
@@ -344,7 +343,6 @@ const BookingModal: React.FC<{
       return false;
     }
 
-    // Check if at least one date is selected
     if (selectedDates.length === 0) {
       toast.error("Please select at least one date", {
         position: "top-right",
@@ -353,19 +351,12 @@ const BookingModal: React.FC<{
       return false;
     }
 
-    // For single date booking, ensure we have a start date
     if (!startDate) {
       toast.error("Please select a start date", {
         position: "top-right",
         autoClose: 4000,
       });
       return false;
-    }
-
-    // For single date booking, ensure we have an end date
-    if (!endDate) {
-      // If no end date is set, set it to startDate + 1 day
-      setEndDate(new Date(startDate.getTime() + 86400000));
     }
 
     return true;
@@ -413,26 +404,29 @@ const BookingModal: React.FC<{
       const totalNights = calculateTotalNights(dateClusters);
       const totalAmount = property.price * totalNights;
 
-      const { startDates, endDates } =
-        convertClustersToDateArrays(dateClusters);
+      const { startDates, endDates } = convertClustersToDateArrays(dateClusters);
 
-      console.log("📅 Date clusters for backend:", {
+      console.log("📤 Sending offline booking data:", {
+        apartmentId: property.id,
         startDates,
         endDates,
-        clusters: dateClusters.map((cluster) =>
+        name: bookingData.name,
+        email: bookingData.email,
+        dateClusters: dateClusters.map((cluster) =>
           cluster.map((d) => d.toISOString().split("T")[0]),
         ),
       });
 
-      const offlineBookingData = {
+      // Call the offlineBooking method from admin store
+      const result = await offlineBooking({
         apartmentId: property.id,
         startDate: startDates,
         endDate: endDates,
         name: bookingData.name,
         email: bookingData.email,
-      };
+      });
 
-      const result = await offlineBooking(offlineBookingData);
+      console.log("✅ Offline booking successful:", result);
 
       toast.success("Booking created successfully!", {
         position: "top-right",
@@ -449,16 +443,25 @@ const BookingModal: React.FC<{
         endDate: endDate,
         totalNights: totalNights,
         totalPrice: totalAmount,
+        bookingResult: result,
       };
 
       onSubmit(bookingInfo);
       
+      // Close modal after successful booking
       setTimeout(() => {
         onClose();
       }, 1500);
 
     } catch (error: any) {
-      toast.error(`Booking failed: ${error.message || "Please try again"}`, {
+      console.error("❌ Offline booking error:", error);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          error.message || 
+                          "Booking failed. Please try again.";
+      
+      toast.error(`Booking failed: ${errorMessage}`, {
         position: "top-right",
         autoClose: 5000,
       });
@@ -550,33 +553,32 @@ const BookingModal: React.FC<{
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <input
-                    type="tel"
-                    required
-                    value={bookingData.phone}
-                    onChange={(e) =>
-                      setBookingData({ ...bookingData, phone: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Phone Number"
-                    disabled={isSubmitting}
-                  />
-                </div>
-                <div>
-                  <input
-                    type="email"
-                    required
-                    value={bookingData.email}
-                    onChange={(e) =>
-                      setBookingData({ ...bookingData, email: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Email Address"
-                    disabled={isSubmitting}
-                  />
-                </div>
+              <div>
+                <input
+                  type="tel"
+                  required
+                  value={bookingData.phone}
+                  onChange={(e) =>
+                    setBookingData({ ...bookingData, phone: e.target.value })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Phone Number"
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div>
+                <input
+                  type="email"
+                  required
+                  value={bookingData.email}
+                  onChange={(e) =>
+                    setBookingData({ ...bookingData, email: e.target.value })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Email Address"
+                  disabled={isSubmitting}
+                />
               </div>
             </div>
 
@@ -585,6 +587,7 @@ const BookingModal: React.FC<{
                 Select Dates
               </h3>
 
+        
               <div className="flex flex-wrap gap-4 mb-4 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
@@ -681,18 +684,20 @@ const BookingModal: React.FC<{
                         className="p-3 bg-white rounded-lg border border-gray-200">
                         <div className="flex justify-between items-start mb-2">
                           <span className="font-medium text-sm text-gray-700">
-                            Booking {clusterIndex + 1}
+                            {cluster.length === 1 ? "One-night stay" : `Booking ${clusterIndex + 1}`}
                           </span>
                           <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                            {cluster.length} night
-                            {cluster.length > 1 ? "s" : ""}
+                            {cluster.length === 1 ? "1 night" : `${cluster.length} nights`}
                           </span>
                         </div>
 
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
                             <span className="text-gray-600">Check-in:</span>
-                            <span>{formatDisplayDate(cluster[0])} (1pm)</span>
+                            <span>
+                              {formatDisplayDate(cluster[0])}
+                              <span className="text-xs text-gray-500 ml-1">(1pm)</span>
+                            </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-600">Check-out:</span>
@@ -702,14 +707,21 @@ const BookingModal: React.FC<{
                                   cluster[cluster.length - 1].getTime() +
                                     86400000,
                                 ),
-                              )}{" "}
-                              (12noon)
+                              )}
+                              <span className="text-xs text-gray-500 ml-1">(12noon)</span>
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-600">Nights:</span>
                             <span>{cluster.length}</span>
                           </div>
+                          
+                          {cluster.length === 1 && (
+                            <div className="text-xs text-gray-500 italic pt-1 border-t border-gray-100">
+                              One-night booking: Check-in, check-out 
+                            </div>
+                          )}
+                          
                           {property.price && (
                             <div className="flex justify-between pt-2 border-t border-gray-100">
                               <span className="text-gray-600">Amount:</span>
