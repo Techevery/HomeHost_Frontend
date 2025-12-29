@@ -95,12 +95,12 @@ const BookingModal: React.FC<{
                       // Only mark additional dates if end date is AFTER start date
                       if (endDate > startDate) {
                         let currentDate = new Date(startDate);
-                        currentDate.setDate(currentDate.getDate() );
+                        currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
                         
                         while (currentDate < endDate) {
                           const rangeDateStr = getDateString(currentDate);
                           dateStrings.push(rangeDateStr);
-                          currentDate.setDate(currentDate.getDate() );
+                          currentDate.setDate(currentDate.getDate() + 1);
                         }
                       }
                     }
