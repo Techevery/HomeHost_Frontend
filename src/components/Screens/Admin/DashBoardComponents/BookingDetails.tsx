@@ -28,7 +28,7 @@ const BookingDetails = () => {
       customer: booking?.guest_name || "Customer", 
       apartment_booked: booking?.apartment?.name || "Apartment",
       date: formatDate(booking?.created_at),
-      phone_number: booking?.guest_phone || "+234 000 000 0000",
+      phone_number: booking?.guest_phone || "N/A",
       check_in: formatDate(booking?.booking_start_date),
       check_out: formatDate(booking?.booking_end_date),
       apartment_agent: "Agent", 
@@ -37,16 +37,16 @@ const BookingDetails = () => {
   };
 
   const mapStatus = (status: string) => {
-    if (!status) return "Pending";
+    if (!status) return "Unavailable";
     
     const statusMap: { [key: string]: string } = {
-      booked: "Successful",
-      confirmed: "Successful",
+      booked: "Booked",
+      unavailable: "Unavailable",
       pending: "Pending",
       cancelled: "Cancelled",
       rejected: "Rejected",
     };
-    return statusMap[status] || "Pending";
+    return statusMap[status] || "Unavailable";
   };
 
   // Helper function to format dates
@@ -86,14 +86,14 @@ const BookingDetails = () => {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      Successful: { color: "bg-green-100 text-green-800", label: "Successful" },
-      Pending: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
+      Booked: { color: "bg-green-100 text-green-800", label: "Booked    " },
+      Unavailable: { color: "bg-yellow-100 text-yellow-800", label: "Unavailable" },
       Rejected: { color: "bg-red-100 text-red-800", label: "Rejected" },
       Cancelled: { color: "bg-gray-100 text-gray-800", label: "Cancelled" },
     };
 
     const config =
-      statusConfig[status as keyof typeof statusConfig] || statusConfig.Pending;
+      statusConfig[status as keyof typeof statusConfig] || statusConfig.Unavailable;
     return (
       <span
         className={`px-3 py-1 rounded-full text-xs font-medium ${config.color}`}>

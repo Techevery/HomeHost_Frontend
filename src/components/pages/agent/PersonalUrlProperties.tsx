@@ -1452,7 +1452,7 @@ const BookingModal: React.FC<{
 
         // End date is the day after the last date in the cluster
         const endDate = new Date(cluster[cluster.length - 1]);
-        endDate.setDate(endDate.getDate() + 1);
+        endDate.setDate(endDate.getDate());
         endDates.push(endDate.toISOString().split("T")[0]);
       }
     });
