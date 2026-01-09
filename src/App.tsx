@@ -1,5 +1,4 @@
 import React from "react";
-import logo from "./logo.svg";
 import "./App.css";
 import { Navigate, Route, Routes } from "react-router-dom";
 import Home from "./components/pages/Home";
@@ -12,7 +11,6 @@ import ViewBooking from "./components/pages/viewBooking.tsx/ViewBooking";
 import DownloadReceipt from "./components/pages/viewBooking.tsx/DownloadReceipt";
 import LoginAgent from "./components/pages/agent/LoginAgent";
 import AddProperty from "./components/pages/agent/AddApartment";
-
 import BecomeAgent from "./components/pages/agent/BecomeAgent";
 import Profile from "./components/pages/profile/Profile";
 import PersonalInfo from "./components/pages/profile/PersonalInfo";
@@ -23,18 +21,16 @@ import AdminDashboard from "./components/Screens/Admin/AdminDashboard";
 import AdminBooking from "./components/Screens/Admin/adminBooking/AdminBooking";
 import BookingRequest from  "./components/Screens/Admin/adminBooking/BookingRequest";
 import AdminLogin from "./components/Screens/Admin/auth/AdminLogin";
-import Agent from "./components/Screens/Admin/agent/AgentHome";
 import ListOfApartment from "./components/Screens/Admin/listOfAppointment/ListOfApartment";
 import Payout from "./components/Screens/Admin/payout/PayoutHome";
 import Agentprofile from "./components/pages/profile/AgentProfile";
 import EditProfileModal from "./components/pages/profile/EditAdminProfile";
 import AgentPropertiesGallery from "./components/pages/agent/PersonalUrlProperties";
-
 import Dashboard from "./components/Screens/Dashboard";
 import AgentHome from "./components/Screens/Admin/agent/AgentHome";
 import AddApartment from "./components/Screens/Admin/listOfAppointment/AddApartment";
 import Apartment from "./components/pages/agent/AddApartment";
-import Forgottenpassword from "./components/pages/agent/forgottenpassword";
+import ResetPassword from "./components/pages/agent/resetpassword";
 import EditModal from "./components/pages/profile/EditModal";
 import ContactUs from "./components/shared/ContactUs";
 import BannerList from "./components/banner/BannerList";
@@ -64,7 +60,7 @@ function App() {
         <Route path="/earnings" element={<Earnings />} />
         <Route path="/earnings-report" element={<EarningsReport />} />
         <Route path="/admin-login" element={<AdminLogin />} />
-        <Route path="/forgotten-password" element={<Forgottenpassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/contact-us" element={<ContactUs />} />
         <Route path="/payment-success" element={<PaymentSuccessPage />} />
         <Route

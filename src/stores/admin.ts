@@ -43,7 +43,7 @@ interface UpdateApartmentData {
   price?: number;
   amenities?: string;
   agentPercentage?: number;
-  imagesToDelete?: string[]; 
+  imagesToDelete?: string[];
 }
 
 interface OfflineBookingData {
@@ -52,6 +52,14 @@ interface OfflineBookingData {
   endDate: string[];
   name: string;
   email: string;
+  phone?: string;
+}
+
+interface EditAdminProfileData {
+  name?: string;
+  address?: string;
+  password?: string;
+  confirmPassword?: string;
 }
 
 interface AdminActions {
@@ -66,8 +74,8 @@ interface AdminActions {
   logout: () => void;
   fetchAdminProfile: () => Promise<void>;
   updateAdminProfile: (
-    updatedData: Partial<AdminState["adminInfo"]> | FormData,
-  ) => Promise<void>;
+    updatedData: EditAdminProfileData | FormData,
+  ) => Promise<any>;
   clearError: () => void;
   verifyAgent: (
     agentId: string,
@@ -77,7 +85,7 @@ interface AdminActions {
   rejectAgent: (agentId: string, reason: string) => Promise<any>;
   listProperties: (page?: number, pageSize?: number) => Promise<any>;
   listAgents: (page?: number, pageSize?: number) => Promise<any>;
-  getAgentProfile: (agentId: string) => Promise<any>;
+  getAgentProfile: (agentId: string, status?: "info" | "payout" | "properties") => Promise<any>;
   getDashboardStats: () => Promise<any>;
   getTransactionDetailsByYear: (year: number) => Promise<any>;
   deleteApartment: (apartmentId: string) => Promise<any>;
@@ -94,11 +102,6 @@ interface AdminActions {
   ) => Promise<any>;
   offlineBooking: (bookingData: OfflineBookingData) => Promise<any>;
   
-  getAgentDetails: (agentId: string) => Promise<any>;
-  getAgentPayouts: (agentId: string) => Promise<any>;
-  getAgentProperties: (agentId: string) => Promise<any>;
-  getAgentDashboard: (agentId: string) => Promise<any>;
-  
   getSuccessfulPayouts: (page?: number, pageSize?: number) => Promise<any>;
   getPayoutRequests: (page?: number, pageSize?: number) => Promise<any>;
 }
@@ -114,6 +117,15 @@ const initialState: AdminState = {
 const API_BASE_URL =
   process.env.REACT_APP_DEV_BASE_URL || "https://homeyhost.ng/api";
 
+// Create axios instance with default config
+const adminAxios = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 const useAdminStore = create<AdminState & AdminActions>()(
   persist(
     (set, get) => ({
@@ -122,12 +134,11 @@ const useAdminStore = create<AdminState & AdminActions>()(
       login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await axios.post(
-            `${API_BASE_URL}/api/v1/auth/admin-login`,
+          const response = await adminAxios.post(
+            `/api/v1/auth/admin-login`,
             { email, password },
           );
 
-          // Handle different response structures
           const responseData = response.data;
           const token =
             responseData.token ||
@@ -140,7 +151,6 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("No Access received from server");
           }
 
-          // Set store state with initial login data
           set({
             token,
             adminInfo: {
@@ -197,8 +207,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
       registerAdmin: async (adminData) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await axios.post(
-            `${API_BASE_URL}/api/v1/auth/register-admin`,
+          const response = await adminAxios.post(
+            `/api/v1/auth/register-admin`,
             adminData,
           );
 
@@ -233,8 +243,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("user not login. Please log in again.");
           }
 
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/admin-profile`,
+          const response = await adminAxios.get(
+            `/api/v1/admin/admin-profile`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -285,31 +295,70 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("user not login. Please log in again.");
           }
 
+          // Check if it's FormData (for file upload) or regular JSON
           const isFormData = updatedData instanceof FormData;
-          const config = {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              ...(isFormData ? {} : { "Content-Type": "application/json" }),
-            },
-          };
+          let config;
+          let dataToSend;
 
-          const response = await axios.patch(
-            `${API_BASE_URL}/api/v1/admin/edit-profile`,
-            isFormData ? updatedData : updatedData,
+          if (isFormData) {
+            // For FormData, don't set Content-Type header - browser will set it with boundary
+            config = {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            };
+            dataToSend = updatedData;
+          } else {
+            // For regular JSON data
+            config = {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            };
+            
+            // Prepare the data according to backend expectations
+            const { name, address, password, confirmPassword } = updatedData as EditAdminProfileData;
+            dataToSend = { name, address, password, confirmPassword };
+          }
+
+          console.log("🔄 Updating admin profile:", dataToSend);
+
+          const response = await adminAxios.patch(
+            `/api/v1/admin/edit-profile`,
+            dataToSend,
             config,
           );
 
-          const data = response.data.data;
-          set({
-            adminInfo: {
-              ...get().adminInfo!,
+          const data = response.data.data || response.data;
+          
+          // Update the admin info in store
+          set((state) => ({
+            adminInfo: state.adminInfo ? {
+              ...state.adminInfo,
               ...data,
-            },
+            } : null,
             isLoading: false,
-          });
+            error: null,
+          }));
+
+          console.log("✅ Admin profile updated successfully:", data);
+          return response.data;
         } catch (error: any) {
+          console.error("❌ Update admin profile error:", {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message,
+          });
+          
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to update admin profile";
+
           set({
-            error: error.response?.data?.message,
+            error: errorMessage,
             isLoading: false,
           });
           throw error;
@@ -324,8 +373,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("user not login. Please log in again.");
           }
 
-          const response = await axios.put(
-            `${API_BASE_URL}/api/v1/admin/verify-agent`,
+          const response = await adminAxios.put(
+            `/api/v1/admin/verify-agent`,
             { agentId, status },
             {
               headers: {
@@ -354,8 +403,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("user not login. Please log in again.");
           }
 
-          const response = await axios.patch(
-            `${API_BASE_URL}/api/v1/admin/suspend-agent`,
+          const response = await adminAxios.patch(
+            `/api/v1/admin/suspend-agent`,
             { agentId },
             {
               headers: {
@@ -384,8 +433,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("user not login. Please log in again.");
           }
 
-          const response = await axios.delete(
-            `${API_BASE_URL}/api/v1/admin/reject/${agentId}`,
+          const response = await adminAxios.delete(
+            `/api/v1/admin/reject/${agentId}`,
             {
               data: { reason },
               headers: {
@@ -422,8 +471,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             );
           }
 
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/list-apartments`,
+          const response = await adminAxios.get(
+            `/api/v1/admin/list-apartments`,
             {
               params: { page, pageSize },
               headers: {
@@ -456,8 +505,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("user not login, please login again");
           }
 
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/list-agents`,
+          const response = await adminAxios.get(
+            `/api/v1/admin/list-agents`,
             {
               params: { page, pageSize },
               headers: {
@@ -477,45 +526,102 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
-      getAgentProfile: async (agentId) => {
-        set({ isLoading: true });
-        try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login, please login again");
-          }
 
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/agents-profile`,
-            {
-              params: { agentId },
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          );
+getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties" = "info") => {
+  set({ isLoading: true, error: null });
+  
+  try {
+    // Get token
+    const token = get().token || localStorage.getItem("token");
+    if (!token) {
+      throw new Error("Authentication token not found. Please log in again.");
+    }
 
-          set({ isLoading: false });
-          return response.data;
-        } catch (error: any) {
-          set({
-            error: error.response?.data?.message,
-            isLoading: false,
-          });
-          throw error;
-        }
+    console.log('📤 [FRONTEND] Fetching agent profile:', {
+      agentId,
+      status,
+      tokenPreview: token.substring(0, 20) + '...'
+    });
+
+    // Construct URL - IMPORTANT: Use the adminAxios instance
+    const url = `/api/v1/admin/agent-profile/${agentId}`;
+    const params = { status };
+    
+    console.log('🔗 [FRONTEND] Request details:', {
+      url,
+      params,
+      fullUrl: `${API_BASE_URL}${url}?status=${status}`
+    });
+
+    // Make the request
+    const response = await adminAxios.get(url, {
+      params,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
       },
+      timeout: 20000, // 20 seconds timeout
+    });
+
+    console.log('✅ [FRONTEND] Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      dataKeys: Object.keys(response.data || {}),
+      success: response.data?.success,
+      message: response.data?.message
+    });
+
+    set({ isLoading: false });
+    
+    // Return the data part
+    return response.data?.data || response.data;
+
+  } catch (error: any) {
+    console.error('❌ [FRONTEND] Agent Profile Error Details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      isAxiosError: error.isAxiosError,
+      responseStatus: error.response?.status,
+      responseData: error.response?.data,
+      config: {
+        url: error.config?.url,
+        params: error.config?.params,
+        headers: error.config?.headers
+      }
+    });
+
+    let errorMessage = "Failed to fetch agent profile";
+    
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      errorMessage = "Request timeout. The server is taking too long to respond.";
+    } else if (error.response?.status === 401) {
+      errorMessage = "Authentication expired. Please log in again.";
+    } else if (error.response?.status === 404) {
+      errorMessage = "Agent not found.";
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    }
+
+    set({
+      error: errorMessage,
+      isLoading: false,
+    });
+    
+    throw new Error(errorMessage);
+  }
+},
 
       getDashboardStats: async () => {
         set({ isLoading: true });
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("user not login, please login again");
+            throw new Error("User not logged in. Please log in again.");
           }
 
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/stats`,
+          const response = await adminAxios.get(
+            `/api/v1/admin/stats`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -523,11 +629,17 @@ const useAdminStore = create<AdminState & AdminActions>()(
             },
           );
 
+          console.log("Dashboard Stats Response:", response.data);
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to fetch dashboard statistics";
+
           set({
-            error: error.response?.data?.message,
+            error: errorMessage,
             isLoading: false,
           });
           throw error;
@@ -542,8 +654,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("user not login, please login again");
           }
 
-          const response = await axios.post(
-            `${API_BASE_URL}/api/v1/admin/get-transaction-details`,
+          const response = await adminAxios.post(
+            `/api/v1/admin/get-transaction-details`,
             { year },
             {
               headers: {
@@ -572,8 +684,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("user not login, please login again");
           }
 
-          const response = await axios.delete(
-            `${API_BASE_URL}/api/v1/admin/${apartmentId}`,
+          const response = await adminAxios.delete(
+            `/api/v1/admin/${apartmentId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -600,8 +712,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("user not login, please login again");
           }
 
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/search-apartment`,
+          const response = await adminAxios.get(
+            `/api/v1/admin/search-apartment`,
             {
               params: { query },
               headers: {
@@ -635,10 +747,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
 
           const formData = new FormData();
           
-          // Append form data
           Object.entries(updateData).forEach(([key, value]) => {
             if (value !== undefined && value !== null && value !== '') {
-              // Handle arrays specially (like imagesToDelete)
               if (Array.isArray(value) && value.length > 0) {
                 formData.append(key, JSON.stringify(value));
               } else {
@@ -647,7 +757,6 @@ const useAdminStore = create<AdminState & AdminActions>()(
             }
           });
           
-          // Append new images
           if (files && files.length > 0) {
             files.forEach(file => {
               formData.append('images', file);
@@ -662,8 +771,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             formDataEntries: Array.from(formData.entries())
           });
 
-          const response = await axios.patch(
-            `${API_BASE_URL}/api/v1/admin/update-apartment/${apartmentId}`,
+          const response = await adminAxios.patch(
+            `/api/v1/admin/update-apartment/${apartmentId}`,
             formData,
             {
               headers: {
@@ -708,20 +817,18 @@ const useAdminStore = create<AdminState & AdminActions>()(
 
           const formData = new FormData();
           
-          // Type-safe way to append apartment data
           Object.entries(apartmentData).forEach(([key, value]) => {
             formData.append(key, value.toString());
           });
           
-          // Append files if any
           if (files) {
             files.forEach(file => {
               formData.append('files', file);
             });
           }
 
-          const response = await axios.post(
-            `${API_BASE_URL}/api/v1/admin/upload-property`,
+          const response = await adminAxios.post(
+            `/api/v1/admin/upload-property`,
             formData,
             {
               headers: {
@@ -742,96 +849,56 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
-  
-     // In admin.ts, update the offlineBooking method:
-
-offlineBooking: async (bookingData) => {
-  set({ isLoading: true, error: null });
-  try {
-    const token = get().token || localStorage.getItem("token");
-    if (!token) {
-      throw new Error("User not logged in. Please log in again.");
-    }
-
-    // Extract admin ID from store
-    const adminId = get().adminInfo?.id;
-    if (!adminId) {
-      throw new Error("Admin information not found. Please log in again.");
-    }
-
-    console.log("📤 Sending offline booking request:", bookingData);
-
-    // Prepare data in backend expected format
-    const requestData = {
-      apartmentId: bookingData.apartmentId,
-      startDate: bookingData.startDate,
-      endDate: bookingData.endDate,
-      name: bookingData.name,
-      email: bookingData.email,
-      // Note: adminId will be extracted from token on backend
-    };
-
-    const response = await axios.post(
-      `${API_BASE_URL}/api/v1/admin/book`, 
-      requestData,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 30000, 
-      },
-    );
-
-    console.log("✅ Offline booking response:", response.data);
-    set({ isLoading: false });
-    return response.data;
-  } catch (error: any) {
-    console.error("❌ Offline booking error:", {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
-    
-    const errorMessage =
-      error.response?.data?.message ||
-      error.response?.data?.error ||
-      error.message ||
-      "Offline booking failed. Please try again.";
-
-    set({
-      error: errorMessage,
-      isLoading: false,
-    });
-    throw error;
-  }
-},
-
-      // New methods for agent profile modal
-      getAgentDetails: async (agentId: string) => {
-        set({ isLoading: true });
+      offlineBooking: async (bookingData: OfflineBookingData) => {
+        set({ isLoading: true, error: null });
         try {
           const token = get().token || localStorage.getItem("token");
           if (!token) {
-            throw new Error("user not login, please login again");
+            throw new Error("User not logged in. Please log in again.");
           }
 
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/agent/${agentId}/details`,
+          console.log("📤 Sending offline booking request:", bookingData);
+
+          const requestData: any = {
+            apartmentId: bookingData.apartmentId,
+            startDate: bookingData.startDate,
+            endDate: bookingData.endDate,
+            name: bookingData.name,
+            email: bookingData.email,
+          };
+
+          // Add phone if provided
+          if (bookingData.phone) {
+            requestData.phone = bookingData.phone;
+          }
+
+          const response = await adminAxios.post(
+            `/api/v1/admin/book`, 
+            requestData,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
               },
+              timeout: 30000, 
             },
           );
 
+          console.log("✅ Offline booking response:", response.data);
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
+          console.error("❌ Offline booking error:", {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message,
+          });
+          
           const errorMessage =
             error.response?.data?.message ||
+            error.response?.data?.error ||
             error.message ||
-            "Failed to fetch agent details";
+            "Offline booking failed. Please try again.";
 
           set({
             error: errorMessage,
@@ -841,106 +908,6 @@ offlineBooking: async (bookingData) => {
         }
       },
 
-      getAgentPayouts: async (agentId: string) => {
-        set({ isLoading: true });
-        try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("Authentication token not found");
-          }
-
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/agent/${agentId}/payouts`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          );
-
-          set({ isLoading: false });
-          return response.data;
-        } catch (error: any) {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.message ||
-            "Failed to fetch agent payouts";
-
-          set({
-            error: errorMessage,
-            isLoading: false,
-          });
-          throw error;
-        }
-      },
-
-      getAgentProperties: async (agentId: string) => {
-        set({ isLoading: true });
-        try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("Authentication token not found");
-          }
-
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/agent/${agentId}/properties`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          );
-
-          set({ isLoading: false });
-          return response.data;
-        } catch (error: any) {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.message ||
-            "Failed to fetch agent properties";
-
-          set({
-            error: errorMessage,
-            isLoading: false,
-          });
-          throw error;
-        }
-      },
-
-      getAgentDashboard: async (agentId: string) => {
-        set({ isLoading: true });
-        try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("Authentication token not found");
-          }
-
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/admin/agent/${agentId}/dashboard`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          );
-
-          set({ isLoading: false });
-          return response.data;
-        } catch (error: any) {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.message ||
-            "Failed to fetch agent dashboard data";
-
-          set({
-            error: errorMessage,
-            isLoading: false,
-          });
-          throw error;
-        }
-      },
-
-      // New methods for wallet and payouts
       getSuccessfulPayouts: async (page = 1, pageSize = 10) => {
         set({ isLoading: true });
         try {
@@ -949,8 +916,8 @@ offlineBooking: async (bookingData) => {
             throw new Error("Authentication token not found");
           }
 
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/wallet/successful-payout`,
+          const response = await adminAxios.get(
+            `/api/v1/wallet/successful-payout`,
             {
               params: { page, pageSize },
               headers: {
@@ -983,8 +950,8 @@ offlineBooking: async (bookingData) => {
             throw new Error("Authentication token not found");
           }
 
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/wallet`,
+          const response = await adminAxios.get(
+            `/api/v1/wallet`,
             {
               params: { page, pageSize },
               headers: {

@@ -4,7 +4,7 @@ import { Paper } from "@material-ui/core";
 import { ThemeProvider, createTheme } from "@mui/material";
 import MaterialTable from "material-table";
 import { useLocation } from 'react-router-dom';
-import { MdClose, MdCheck, MdCancel, MdCloudUpload, MdFilterList, MdSearch, MdAttachMoney, MdAdd } from 'react-icons/md';
+import { MdClose, MdCheck, MdCancel, MdCloudUpload, MdFilterList, MdSearch, MdAttachMoney, MdAdd, MdToggleOn, MdToggleOff } from 'react-icons/md';
 import useWalletStore, { PayoutStatus } from '../../../../../stores/payoutStore';
 import { ToastContainer, toast } from "react-toastify";
 
@@ -26,11 +26,16 @@ interface RowData {
   bankName?: string;
   accountNumber?: string;
   accountName?: string;
+  // Add these for charge status management
+  chargeId?: string;
+  chargeStatus?: "active" | "inactive";
+  chargeDescription?: string;
 }
 
 interface ChargeData {
   description: string;
   amount: number;
+  status?: "active" | "inactive";
 }
 
 const PayoutRequestTable = () => {
@@ -52,6 +57,17 @@ const PayoutRequestTable = () => {
     const [chargeAmount, setChargeAmount] = useState<string>('');
     const [charges, setCharges] = useState<ChargeData[]>([]);
     const [totalCharges, setTotalCharges] = useState<number>(0);
+    const [chargeStatus, setChargeStatus] = useState<"active" | "inactive">("active");
+    
+    // Add charge status management states
+    const [selectedCharge, setSelectedCharge] = useState<{
+      chargeId: string;
+      currentStatus: "active" | "inactive";
+      description?: string;
+      amount?: number;
+    } | null>(null);
+    const [isChargeStatusModalOpen, setIsChargeStatusModalOpen] = useState(false);
+    const [newChargeStatus, setNewChargeStatus] = useState<"active" | "inactive">("active");
 
     const { 
       payouts, 
@@ -62,7 +78,8 @@ const PayoutRequestTable = () => {
       getAllPayouts, 
       confirmPayout,
       rejectPayout,
-      createCharges, 
+      createCharges,
+      updateChargeStatus,
       clearError 
     } = useWalletStore();
 
@@ -136,9 +153,6 @@ const PayoutRequestTable = () => {
       };
 
       return {
-
-
-
         id: payout.id,
         agent: agent.name || 'Unknown Agent',
         property: transaction.apartment?.name || 'Unknown Property',
@@ -155,10 +169,13 @@ const PayoutRequestTable = () => {
         charges,
         bankName: payout.bankName,
         accountNumber: payout.accountNumber,
-        accountName: payout.accountName || agent.name
+        accountName: payout.accountName || agent.name,
+        // Add charge info - you may need to adjust based on your actual data structure
+        chargeId: payout.chargeId, // Adjust this based on your actual data
+        chargeStatus: payout.chargeStatus || "active", // Adjust this based on your actual data
+        chargeDescription: payout.chargeDescription // Adjust this based on your actual data
       };
     };
-
 
     
     const data: RowData[] = payouts.map(transformPayoutToRowData);
@@ -200,20 +217,60 @@ const PayoutRequestTable = () => {
         setRejectReason('');
     };
 
-    const handleAddChargeClick = (rowData: RowData) => {
-      setSelectedRow(rowData);
+    const handleOpenAddChargeModal = () => {
       setChargeDescription('');
       setChargeAmount('');
       setCharges([]);
       setTotalCharges(0);
+      setChargeStatus('active');
       setIsChargeModalOpen(true);
+    };
+
+    // New function for updating charge status
+    const handleUpdateChargeStatus = async () => {
+      if (!selectedCharge) return;
+
+      try {
+        await updateChargeStatus({
+          chargeId: selectedCharge.chargeId,
+          status: newChargeStatus
+        });
+
+        toast.success(`Charge ${newChargeStatus === "active" ? "activated" : "deactivated"} successfully!`);
+        
+        // Refresh data
+        await getAllPayouts();
+        
+        // Close modal
+        setIsChargeStatusModalOpen(false);
+        setSelectedCharge(null);
+        
+      } catch (error) {
+        toast.error('Failed to update charge status. Please try again.');
+      }
+    };
+
+    // Function to open charge status modal
+    const handleOpenChargeStatusModal = (rowData: RowData) => {
+      // You need to get the actual charge data from your row
+      // This is just an example - adjust based on your actual data structure
+      setSelectedCharge({
+        chargeId: rowData.chargeId || `charge-${rowData.id}`,
+        currentStatus: rowData.chargeStatus || "active",
+        description: rowData.chargeDescription || "Service Charge",
+        amount: rowData.charges
+      });
+      setNewChargeStatus(rowData.chargeStatus || "active");
+      setIsChargeStatusModalOpen(true);
     };
 
     const handleCloseModals = () => {
         setIsApproveModalOpen(false);
         setIsRejectModalOpen(false);
-        setIsChargeModalOpen(false); 
+        setIsChargeModalOpen(false);
+        setIsChargeStatusModalOpen(false);
         setSelectedRow(null);
+        setSelectedCharge(null);
         setRejectReason('');
         setApproveRemark('');
         setUploadedFile(null);
@@ -221,6 +278,7 @@ const PayoutRequestTable = () => {
         setChargeAmount('');
         setCharges([]);
         setTotalCharges(0);
+        setChargeStatus('active');
         clearError();
     };
 
@@ -243,7 +301,6 @@ const PayoutRequestTable = () => {
             setUploadedFile(file);
         }
     };
-
 
     
     const handleApproveSubmit = async () => {
@@ -308,7 +365,8 @@ const PayoutRequestTable = () => {
 
       const newCharge: ChargeData = {
         description: chargeDescription.trim(),
-        amount
+        amount,
+        status: chargeStatus
       };
 
       setCharges([...charges, newCharge]);
@@ -327,28 +385,29 @@ const PayoutRequestTable = () => {
     };
     
     const handleSubmitCharges = async () => {
-      if (!selectedRow || charges.length === 0) {
+      if (charges.length === 0) {
         toast.error('Please add at least one charge');
         return;
       }
 
       try {
-        // Create all charges
+        // Create all charges - backend expects description and amount
         for (const charge of charges) {
           await createCharges({
-            description: `${selectedRow.agent} - ${charge.description}`,
+            description: charge.description,
             amount: charge.amount
           });
         }
 
-       
-        toast.success('Charges added successfully!');
+        toast.success('Charges created successfully!');
         
         handleCloseModals();
         
+        // Refresh the payouts list
+        await getAllPayouts();
+        
       } catch (error) {
-      
-        toast.success('Failed to create charges. Please try again.');
+        toast.error('Failed to create charges. Please try again.');
       }
     };
 
@@ -378,6 +437,23 @@ const PayoutRequestTable = () => {
             <div className="font-semibold text-[#333]">{rowData.agent}</div>
             <div className="text-sm text-gray-600">{rowData.property}</div>
             <div className="text-sm text-gray-500">Booking: {rowData.booking}</div>
+            {/* Show charge status if available */}
+            {rowData.chargeId && (
+              <div className="mt-1">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${
+                  rowData.chargeStatus === "active" 
+                    ? "bg-green-100 text-green-800" 
+                    : "bg-gray-100 text-gray-800"
+                }`}>
+                  {rowData.chargeStatus === "active" ? (
+                    <MdToggleOn className="w-3 h-3 mr-1" />
+                  ) : (
+                    <MdToggleOff className="w-3 h-3 mr-1" />
+                  )}
+                  Charge: {rowData.chargeStatus || "active"}
+                </span>
+              </div>
+            )}
           </div>
         ),
       },
@@ -463,7 +539,7 @@ const PayoutRequestTable = () => {
               rowData.status === 'Rejected' ? 'bg-red-100 text-red-800' : 
               'bg-yellow-100 text-yellow-800'
             }`}>
-              {/* {rowData.status} */}
+              {rowData.status}
             </div>
             
             {/* Action Buttons - Only show for pending payouts */}
@@ -488,15 +564,25 @@ const PayoutRequestTable = () => {
                   </button>
                 </div>
                 
-                {/* Add Charge Button - Only for pending payouts */}
-                <button 
-                  onClick={() => handleAddChargeClick(rowData)}
-                  disabled={isProcessingCharges}
-                  className="flex items-center justify-center gap-1 bg-purple-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                
-                  {isProcessingCharges ? 'Processing...' : 'Add Charge'}
-                </button>
+                {/* Manage Charge Status Button - Show if charge exists */}
+                {rowData.chargeId && (
+                  <button 
+                    onClick={() => handleOpenChargeStatusModal(rowData)}
+                    disabled={isProcessingCharges}
+                    className={`flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${
+                      rowData.chargeStatus === "active" 
+                        ? "bg-yellow-600 text-white hover:bg-yellow-700" 
+                        : "bg-gray-600 text-white hover:bg-gray-700"
+                    }`}
+                  >
+                    {rowData.chargeStatus === "active" ? (
+                      <MdToggleOn className="w-4 h-4" />
+                    ) : (
+                      <MdToggleOff className="w-4 h-4" />
+                    )}
+                    {rowData.chargeStatus === "active" ? "Deactivate" : "Activate"} Charge
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -599,14 +685,12 @@ const PayoutRequestTable = () => {
                         : option.value === PayoutStatus.SUCCESS
                         ? 'bg-green-600 text-white'
                         : 'bg-red-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                    }`}
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
                 >
                   {option.label} 
                   <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${statusFilter === option.value 
                       ? 'bg-white bg-opacity-20' 
-                      : 'bg-gray-100'
-                    }`}>
+                      : 'bg-gray-100'}`}>
                     {option.count}
                   </span>
                 </button>
@@ -615,13 +699,151 @@ const PayoutRequestTable = () => {
           </div>
         )}
 
-        {/* Charge Modal */}
-        {isChargeModalOpen && selectedRow && (
+        {/* Charge Status Modal */}
+        {isChargeStatusModalOpen && selectedCharge && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <h3 className="text-xl font-bold text-gray-800">Update Charge Status</h3>
+                <button 
+                  onClick={() => {
+                    setIsChargeStatusModalOpen(false);
+                    setSelectedCharge(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                  disabled={isProcessingCharges}
+                >
+                  <MdClose className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6">
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold mb-4">Charge Information</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-gray-600">Charge ID</p>
+                      <p className="font-medium">{selectedCharge.chargeId}</p>
+                    </div>
+                    {selectedCharge.description && (
+                      <div>
+                        <p className="text-sm text-gray-600">Description</p>
+                        <p className="font-medium">{selectedCharge.description}</p>
+                      </div>
+                    )}
+                    {selectedCharge.amount && (
+                      <div>
+                        <p className="text-sm text-gray-600">Amount</p>
+                        <p className="font-medium">₦{selectedCharge.amount.toLocaleString()}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm text-gray-600">Current Status</p>
+                      <div className="flex items-center gap-2">
+                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${selectedCharge.currentStatus === "active" 
+                            ? "bg-green-100 text-green-800" 
+                            : "bg-gray-100 text-gray-800"}`}>
+                          {selectedCharge.currentStatus === "active" ? (
+                            <span className="flex items-center">
+                              <MdToggleOn className="w-4 h-4 mr-1" />
+                              Active
+                            </span>
+                          ) : (
+                            <span className="flex items-center">
+                              <MdToggleOff className="w-4 h-4 mr-1" />
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold mb-4">Set New Status</h4>
+                  <div className="space-y-4">
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => setNewChargeStatus("active")}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${newChargeStatus === "active"
+                            ? "bg-green-50 border-green-500 text-green-700" 
+                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                        disabled={isProcessingCharges}
+                      >
+                        <MdToggleOn className="w-5 h-5" />
+                        <div className="text-left">
+                          <div className="font-medium">Active</div>
+                          <div className="text-xs">Charge will be applied</div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => setNewChargeStatus("inactive")}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${newChargeStatus === "inactive"
+                            ? "bg-gray-50 border-gray-500 text-gray-700" 
+                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                        disabled={isProcessingCharges}
+                      >
+                        <MdToggleOff className="w-5 h-5" />
+                        <div className="text-left">
+                          <div className="font-medium">Inactive</div>
+                          <div className="text-xs">Charge will be suspended</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`rounded-lg p-4 ${newChargeStatus === "active" 
+                    ? "bg-green-50 border border-green-200 text-green-800" 
+                    : "bg-gray-50 border border-gray-200 text-gray-800"}`}>
+                  <p className="text-sm">
+                    {newChargeStatus === "active" 
+                      ? "Activating this charge will apply it to future payouts." 
+                      : "Deactivating this charge will suspend it from future payouts."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setIsChargeStatusModalOpen(false);
+                    setSelectedCharge(null);
+                  }}
+                  disabled={isProcessingCharges}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateChargeStatus}
+                  disabled={isProcessingCharges || newChargeStatus === selectedCharge.currentStatus}
+                  className={`px-6 py-2 rounded-lg text-white transition-colors ${!isProcessingCharges && newChargeStatus !== selectedCharge.currentStatus
+                      ? newChargeStatus === "active" 
+                        ? "bg-green-600 hover:bg-green-700" 
+                        : "bg-gray-600 hover:bg-gray-700" 
+                      : 'bg-gray-400 cursor-not-allowed'}`}
+                >
+                  {isProcessingCharges 
+                    ? 'Processing...' 
+                    : `Set as ${newChargeStatus === "active" ? "Active" : "Inactive"}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Charge Modal */}
+        {isChargeModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
               {/* Modal Header */}
               <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h3 className="text-xl font-bold text-gray-800">Add Charges</h3>
+                <h3 className="text-xl font-bold text-gray-800">Create New Charge</h3>
                 <button 
                   onClick={handleCloseModals}
                   className="text-gray-500 hover:text-gray-700 transition-colors"
@@ -633,35 +855,6 @@ const PayoutRequestTable = () => {
 
               {/* Modal Body */}
               <div className="p-6">
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold mb-4">Payout Information</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-600">Agent Name</p>
-                      <p className="font-medium">{selectedRow.agent}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Property</p>
-                      <p className="font-medium">{selectedRow.property}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Booking Reference</p>
-                      <p className="font-medium">{selectedRow.booking}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Original Fee</p>
-                      <p className="font-medium">₦{selectedRow.fee.toLocaleString()}</p>
-                    </div>
-                   
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <p className="text-sm text-yellow-800">
-                        Charges will be recorded separately and may affect future payouts
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Add Charge Form */}
                 <div className="mb-6">
                   <h4 className="text-lg font-semibold mb-4">Add New Charge</h4>
                   <div className="space-y-4">
@@ -693,13 +886,49 @@ const PayoutRequestTable = () => {
                         disabled={isProcessingCharges}
                       />
                     </div>
+
+                    {/* Charge Status Toggle */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Charge Status
+                      </label>
+                      <div className="flex gap-4">
+                        <button
+                          onClick={() => setChargeStatus("active")}
+                          className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${chargeStatus === "active"
+                              ? "bg-green-50 border-green-500 text-green-700" 
+                              : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                          disabled={isProcessingCharges}
+                        >
+                          <MdToggleOn className="w-5 h-5" />
+                          <div className="text-left">
+                            <div className="font-medium">Active</div>
+                            <div className="text-xs">Charge will be applied</div>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => setChargeStatus("inactive")}
+                          className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${chargeStatus === "inactive"
+                              ? "bg-gray-50 border-gray-500 text-gray-700" 
+                              : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                          disabled={isProcessingCharges}
+                        >
+                          <MdToggleOff className="w-5 h-5" />
+                          <div className="text-left">
+                            <div className="font-medium">Inactive</div>
+                            <div className="text-xs">Charge will be suspended</div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
                     <button
                       onClick={handleAddCharge}
                       disabled={!chargeDescription.trim() || !chargeAmount.trim() || isProcessingCharges}
                       className="flex items-center justify-center gap-2 w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                       <MdAdd className="w-5 h-5" />
-                      Add Charge
+                      Add Charge to List
                     </button>
                   </div>
                 </div>
@@ -707,12 +936,19 @@ const PayoutRequestTable = () => {
                 {/* Charges List */}
                 {charges.length > 0 && (
                   <div className="mb-6">
-                    <h4 className="text-lg font-semibold mb-4">Charges List</h4>
+                    <h4 className="text-lg font-semibold mb-4">Charges to Create</h4>
                     <div className="border border-gray-200 rounded-lg overflow-hidden">
                       {charges.map((charge, index) => (
                         <div key={index} className="flex items-center justify-between p-4 border-b border-gray-200 last:border-b-0 hover:bg-gray-50">
                           <div>
-                            <p className="font-medium text-gray-800">{charge.description}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-800">{charge.description}</p>
+                              <span className={`px-2 py-0.5 rounded-full text-xs ${charge.status === 'active' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-gray-100 text-gray-800'}`}>
+                                {charge.status === 'active' ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
                             <p className="text-sm text-gray-600">₦{charge.amount.toLocaleString()}</p>
                           </div>
                           <button
@@ -729,16 +965,8 @@ const PayoutRequestTable = () => {
                     {/* Total Charges */}
                     <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                       <div className="flex justify-between items-center">
-                        <span className="font-semibold text-gray-800">Total New Charges:</span>
+                        <span className="font-semibold text-gray-800">Total Charges:</span>
                         <span className="font-bold text-xl text-red-600">₦{totalCharges.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
-                        <span className="font-semibold text-gray-800">Existing Charges:</span>
-                        <span className="font-medium text-red-600">₦{selectedRow.charges.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
-                        <span className="font-bold text-gray-800">Total Charges:</span>
-                        <span className="font-bold text-2xl text-red-600">₦{(selectedRow.charges + totalCharges).toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
@@ -746,7 +974,7 @@ const PayoutRequestTable = () => {
 
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                   <p className="text-purple-800 text-sm">
-                    Charges will be recorded against this agent. They will be notified and these charges may affect future payouts.
+                    These charges will be created and can be activated/deactivated later. Active charges will be applied to payouts.
                   </p>
                 </div>
               </div>
@@ -765,10 +993,9 @@ const PayoutRequestTable = () => {
                   disabled={charges.length === 0 || isProcessingCharges}
                   className={`px-6 py-2 rounded-lg text-white transition-colors ${charges.length > 0 && !isProcessingCharges
                       ? 'bg-purple-600 hover:bg-purple-700' 
-                      : 'bg-gray-400 cursor-not-allowed'
-                    }`}
+                      : 'bg-gray-400 cursor-not-allowed'}`}
                 >
-                  {isProcessingCharges ? 'Processing...' : `Create Charges (₦${totalCharges.toLocaleString()})`}
+                  {isProcessingCharges ? 'Processing...' : 'Create Charges'}
                 </button>
               </div>
             </div>
@@ -777,7 +1004,6 @@ const PayoutRequestTable = () => {
 
   {isApproveModalOpen && selectedRow && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    {/* Increased width from max-w-md to max-w-2xl (from 28rem to 42rem) */}
     <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
       {/* Modal Header */}
       <div className="flex justify-between items-center p-6 border-b border-gray-200">
@@ -791,7 +1017,7 @@ const PayoutRequestTable = () => {
         </button>
       </div>
 
-      {/* Modal Body - Two column layout for better use of space */}
+      {/* Modal Body */}
       <div className="p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Left Column - Payout Information */}
@@ -1012,35 +1238,6 @@ const PayoutRequestTable = () => {
   </div>
 )}
 
-{/* Full Screen Image Preview Modal */}
-{isFullScreenPreviewOpen && uploadedFile && uploadedFile.type.startsWith('image/') && (
-  <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4">
-    <div className="relative w-full h-full flex items-center justify-center">
-      <button
-        onClick={() => setIsFullScreenPreviewOpen(false)}
-        className="absolute top-4 right-4 bg-white text-gray-800 p-3 rounded-full hover:bg-gray-100 transition-colors z-10 shadow-lg"
-        type="button"
-      >
-        <MdClose className="w-6 h-6" />
-      </button>
-      
-      <div className="max-w-full max-h-full overflow-auto">
-        <img 
-          src={URL.createObjectURL(uploadedFile)} 
-          alt="Full screen preview" 
-          className="max-w-full max-h-full object-contain"
-        />
-      </div>
-      
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
-        <p className="text-sm">
-          {uploadedFile.name} • {(uploadedFile.size / 1024).toFixed(1)} KB
-        </p>
-      </div>
-    </div>
-  </div>
-)}
-
         {/* Reject Modal */}
         {isRejectModalOpen && selectedRow && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1169,22 +1366,34 @@ const PayoutRequestTable = () => {
                         )}
                       </div>
 
-                      {/* Filter Button */}
-                      <button
-                        onClick={() => setShowStatusFilter(!showStatusFilter)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showStatusFilter || statusFilter !== 'ALL'
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                      >
-                        <MdFilterList className="w-4 h-4" />
-                        Filter
-                        {(statusFilter !== 'ALL' || searchText) && (
-                          <span className="ml-1 px-1.5 py-0.5 bg-white bg-opacity-20 rounded-full text-xs">
-                            {filteredData.length}
-                          </span>
-                        )}
-                      </button>
+                      {/* Button Group - Filter and Add Charge */}
+                      <div className="flex gap-2">
+                        {/* Filter Button */}
+                        <button
+                          onClick={() => setShowStatusFilter(!showStatusFilter)}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showStatusFilter || statusFilter !== 'ALL'
+                              ? 'bg-blue-600 text-white' 
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                          <MdFilterList className="w-4 h-4" />
+                          Filter
+                          {(statusFilter !== 'ALL' || searchText) && (
+                            <span className="ml-1 px-1.5 py-0.5 bg-white bg-opacity-20 rounded-full text-xs">
+                              {filteredData.length}
+                            </span>
+                          )}
+                        </button>
+
+                        {/* Add Charge Button */}
+                        <button
+                          onClick={handleOpenAddChargeModal}
+                          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                        >
+                         
+                          Add Charge
+                        </button>
+                      </div>
                     </div>
                     {props.components?.Actions && (
                       <props.components.Actions {...props} />

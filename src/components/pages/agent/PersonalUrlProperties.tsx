@@ -1208,6 +1208,8 @@ Generated on: ${new Date().toLocaleDateString()}
 };
 
 
+// ... [previous code remains the same until BookingModal component]
+
 const BookingModal: React.FC<{
   property: Property | null;
   isOpen: boolean;
@@ -1225,16 +1227,44 @@ const BookingModal: React.FC<{
   });
 
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
-  const [bookedDates, setBookedDates] = useState<Date[]>([]);
+  const [bookedDates, setBookedDates] = useState<string[]>([]);
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
   const [loadingBookedDates, setLoadingBookedDates] = useState(false);
 
   const { initiatePayment, isInitializingPayment, clearPaymentInitError } =
     usePaymentStore();
 
-  const { fetchBookingDates, bookingDates, loading, error } = useBookingStore();
+  const { fetchBookingDates, bookingDates } = useBookingStore();
+
+  // Helper to get date string in YYYY-MM-DD format
+  const getDateString = (date: Date): string => {
+    if (isNaN(date.getTime())) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Helper to normalize a date to midnight (remove time component)
+  const normalizeDate = (date: Date): Date => {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  };
+
+  // Helper to check if two dates are the same day
+  const isSameDay = (date1: Date, date2: Date): boolean => {
+    return getDateString(date1) === getDateString(date2);
+  };
+
+  // Parse backend date - extract only YYYY-MM-DD
+  const parseBackendDate = (dateStr: string): Date => {
+    if (!dateStr) return new Date(NaN);
+    
+    // Extract just the YYYY-MM-DD part
+    const datePart = dateStr.split('T')[0];
+    const [year, month, day] = datePart.split('-').map(Number);
+    
+    return new Date(year, month - 1, day);
+  };
 
   // Fetch booked dates when modal opens
   useEffect(() => {
@@ -1242,54 +1272,47 @@ const BookingModal: React.FC<{
       try {
         setLoadingBookedDates(true);
        
-
         // Clear previous dates
         setBookedDates([]);
+        
+        const dates = await fetchBookingDates(propertyId);
+        
+        const dateStrings: string[] = [];
 
-        // Fetch booking dates
-        await fetchBookingDates(propertyId);
-
-        const dates: Date[] = [];
-
-        // Process booking dates
-        if (bookingDates && bookingDates.length > 0) {
-          bookingDates.forEach((bookingDate) => {
-           
-
-            // Check if booking has valid dates
-            if (bookingDate.booking_start_date && bookingDate.booking_end_date) {
-              const start = new Date(bookingDate.booking_start_date);
-              const end = new Date(bookingDate.booking_end_date);
-
-              // Validate dates
-              if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-                console.warn("Invalid date found:", bookingDate);
-                return;
-              }
-
-              // Normalize dates to start of day
-              start.setHours(0, 0, 0, 0);
-              end.setHours(0, 0, 0, 0);
-
-              // Add all dates in the range to booked dates
-              const currentDate = new Date(start);
-              while (currentDate <= end) {
-                const dateToAdd = new Date(currentDate);
-                dates.push(dateToAdd);
-                currentDate.setDate(currentDate.getDate() + 1);
+        if (dates && dates.length > 0) {          
+          dates.forEach((bookingDate: any) => {
+            const startDateStr = bookingDate.start_date;
+            const endDateStr = bookingDate.end_date;
+            
+            if (startDateStr && endDateStr) {
+              try {
+                // Parse dates using simple extraction
+                const startDateLocal = parseBackendDate(startDateStr);
+                const endDateLocal = parseBackendDate(endDateStr);
+                
+                if (!isNaN(startDateLocal.getTime()) && !isNaN(endDateLocal.getTime())) {
+                  // Generate all dates in the range
+                  const currentDate = new Date(startDateLocal);
+                  while (currentDate <= endDateLocal) {
+                    const dateString = getDateString(currentDate);
+                    if (!dateStrings.includes(dateString)) {
+                      dateStrings.push(dateString);
+                    }
+                    currentDate.setDate(currentDate.getDate() + 1);
+                  }
+                }
+              } catch (error) {
+                console.error(`Error parsing dates ${startDateStr} to ${endDateStr}:`, error);
               }
             }
           });
         }
 
         // Remove duplicates and sort
-        const uniqueDates = Array.from(
-          new Set(dates.map((date) => date.getTime())),
-        ).map((timestamp) => new Date(timestamp));
-
-        uniqueDates.sort((a, b) => a.getTime() - b.getTime());
-
+        const uniqueDates = [...new Set(dateStrings)].sort();
+        
         setBookedDates(uniqueDates);
+        
       } catch (error) {
         console.error("Error fetching booked dates:", error);
         toast.warning(
@@ -1308,52 +1331,39 @@ const BookingModal: React.FC<{
     if (property && isOpen && property.id) {
       fetchBookedDates(property.id);
     }
-  }, [property, isOpen, fetchBookingDates, bookingDates]);
+  }, [property, isOpen, fetchBookingDates]);
 
-  // Clear booked dates when property changes
+  // Clear dates when modal closes
   useEffect(() => {
-    if (property && isOpen) {
+    if (!isOpen) {
+      setSelectedDates([]);
       setBookedDates([]);
     }
-  }, [property?.id, isOpen]);
+  }, [isOpen]);
 
-  // Improved isDateBooked function
   const isDateBooked = (date: Date) => {
-    if (!date || bookedDates.length === 0) return false;
+    if (!date || bookedDates.length === 0) {
+      return false;
+    }
 
-    const dateToCheck = new Date(date);
-    dateToCheck.setHours(0, 0, 0, 0);
-
-    const isBooked = bookedDates.some((bookedDate) => {
-      if (!bookedDate) return false;
-
-      const normalizedBookedDate = new Date(bookedDate);
-      normalizedBookedDate.setHours(0, 0, 0, 0);
-
-      return normalizedBookedDate.getTime() === dateToCheck.getTime();
-    });
-
-    return isBooked;
+    const dateStr = getDateString(date);
+    return bookedDates.includes(dateStr);
   };
 
   const isDateSelected = (date: Date) => {
-    const dateToCheck = new Date(date);
-    dateToCheck.setHours(0, 0, 0, 0);
-
-    return selectedDates.some((selectedDate) => {
-      const normalizedSelectedDate = new Date(selectedDate);
-      normalizedSelectedDate.setHours(0, 0, 0, 0);
-      return normalizedSelectedDate.getTime() === dateToCheck.getTime();
-    });
+    return selectedDates.some(selectedDate => 
+      isSameDay(selectedDate, date)
+    );
   };
 
   const handleDateChange = (date: Date | null) => {
     if (!date) return;
 
-    const dateToCheck = new Date(date);
-    dateToCheck.setHours(0, 0, 0, 0);
+    // Create a clean date without time component
+    const cleanDate = normalizeDate(date);
+    const dateStr = getDateString(cleanDate);
 
-    if (isDateBooked(dateToCheck)) {
+    if (isDateBooked(cleanDate)) {
       toast.info("This date is already booked. Please select another date.", {
         position: "top-center",
         autoClose: 3000,
@@ -1362,73 +1372,22 @@ const BookingModal: React.FC<{
     }
 
     const dateIndex = selectedDates.findIndex((selectedDate) => {
-      const normalizedSelectedDate = new Date(selectedDate);
-      normalizedSelectedDate.setHours(0, 0, 0, 0);
-      return normalizedSelectedDate.getTime() === dateToCheck.getTime();
+      return isSameDay(selectedDate, cleanDate);
     });
 
     if (dateIndex >= 0) {
+      // Remove date if already selected
       const newDates = selectedDates.filter((_, index) => index !== dateIndex);
       setSelectedDates(newDates);
-
-      if (dateToCheck.getTime() === startDate?.getTime()) {
-        setStartDate(null);
-        setEndDate(null);
-      }
-      if (dateToCheck.getTime() === endDate?.getTime()) {
-        setEndDate(null);
-      }
     } else {
-      const newDates = [...selectedDates, dateToCheck].sort(
+      // Add date
+      const newDates = [...selectedDates, cleanDate].sort(
         (a, b) => a.getTime() - b.getTime(),
       );
       setSelectedDates(newDates);
-
-      if (newDates.length === 1) {
-        setStartDate(dateToCheck);
-        setEndDate(new Date(dateToCheck.getTime() + 86400000));
-      } else {
-        const firstDate = newDates[0];
-        const lastDate = newDates[newDates.length - 1];
-        setStartDate(firstDate);
-        setEndDate(new Date(lastDate.getTime() + 86400000));
-      }
     }
   };
 
-  // Get date clusters for multiple booking periods
-  const getDateClusters = (dates: Date[]): Date[][] => {
-    if (dates.length === 0) return [];
-
-    const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime());
-    const clusters: Date[][] = [];
-    let currentCluster: Date[] = [sortedDates[0]];
-
-    for (let i = 1; i < sortedDates.length; i++) {
-      const currentDate = sortedDates[i];
-      const previousDate = sortedDates[i - 1];
-
-      const timeDiff = currentDate.getTime() - previousDate.getTime();
-      const isConsecutive = timeDiff === 86400000; // 24 hours in milliseconds
-
-      if (isConsecutive) {
-        currentCluster.push(currentDate);
-      } else {
-        clusters.push([...currentCluster]);
-        currentCluster = [currentDate];
-      }
-    }
-
-    clusters.push(currentCluster);
-    return clusters;
-  };
-
-  // Calculate total nights across all clusters
-  const calculateTotalNights = (clusters: Date[][]): number => {
-    return clusters.reduce((total, cluster) => total + cluster.length, 0);
-  };
-
-  // Format date for display
   const formatDisplayDate = (date: Date): string => {
     return date.toLocaleDateString("en-US", {
       weekday: "short",
@@ -1438,44 +1397,47 @@ const BookingModal: React.FC<{
     });
   };
 
-  // Convert clusters to date arrays for API
-  const convertClustersToDateArrays = (
-    clusters: Date[][],
+  // Convert dates to simple YYYY-MM-DD format for backend
+  const convertToBookingFormat = (
+    dates: Date[]
   ): { startDates: string[]; endDates: string[] } => {
+    if (dates.length === 0) {
+      throw new Error("No dates selected for booking");
+    }
+
+    // Sort dates chronologically
+    const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime());
+    
     const startDates: string[] = [];
     const endDates: string[] = [];
-
-    clusters.forEach((cluster) => {
-      if (cluster.length > 0) {
-        // Start date is the first date in the cluster
-        startDates.push(cluster[0].toISOString().split("T")[0]);
-
-        // End date is the day after the last date in the cluster
-        const endDate = new Date(cluster[cluster.length - 1]);
-        endDate.setDate(endDate.getDate());
-        endDates.push(endDate.toISOString().split("T")[0]);
-      }
+    
+    // Send each selected date as a separate booking - ONLY DATES, NO TIME
+    sortedDates.forEach((date) => {
+      const dateStr = getDateString(date); // Just YYYY-MM-DD
+      
+      // Send the same date for both start and end (backend handles duration)
+      startDates.push(dateStr);
+      endDates.push(dateStr);
     });
-
+    
     return { startDates, endDates };
   };
 
   const renderDayContents = (day: number, date: Date) => {
-    const normalizedDate = new Date(date);
-    normalizedDate.setHours(0, 0, 0, 0);
-
-    const isBooked = isDateBooked(normalizedDate);
-    const isSelected = isDateSelected(normalizedDate);
-    const isToday =
-      new Date().setHours(0, 0, 0, 0) === normalizedDate.getTime();
-
+    // Create a clean date without time component
+    const cleanDate = normalizeDate(date);
+    const isBooked = isDateBooked(cleanDate);
+    const isSelected = isDateSelected(cleanDate);
+    
+    // Create today for comparison
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const isPast = normalizedDate < today;
+    const cleanToday = normalizeDate(today);
+    const isToday = cleanDate.getTime() === cleanToday.getTime();
+    const isPast = cleanDate < cleanToday && !isToday;
 
     const handleDateClick = () => {
       if (!isBooked && !isPast) {
-        handleDateChange(normalizedDate);
+        handleDateChange(date);
       }
     };
 
@@ -1484,23 +1446,14 @@ const BookingModal: React.FC<{
         className={`relative flex items-center justify-center w-8 h-8 rounded-full text-sm
       ${isToday ? "bg-blue-100 font-semibold" : ""}
       ${isSelected ? "bg-blue-600 text-white" : ""}
-      ${
-        isBooked
-          ? "bg-red-100 text-red-600 cursor-not-allowed"
-          : isPast
-          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-          : "hover:bg-gray-100 cursor-pointer"
-      }
-      transition-colors duration-200
-    `}
+      ${isBooked ? "bg-red-100 text-red-600 cursor-not-allowed" : isPast ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "hover:bg-gray-100 cursor-pointer"}
+      transition-colors duration-200`}
         onClick={handleDateClick}
-        onMouseEnter={() =>
-          !isBooked && !isPast && setHoveredDate(normalizedDate)
-        }
+        onMouseEnter={() => !isBooked && !isPast && setHoveredDate(cleanDate)}
         onMouseLeave={() => setHoveredDate(null)}
         title={
           isBooked
-            ? "Already booked"
+            ? "Already booked - This date is unavailable"
             : isPast
             ? "Cannot select past dates"
             : isSelected
@@ -1587,7 +1540,7 @@ const BookingModal: React.FC<{
       return;
     }
 
-    // Determine agent ID - prioritize agentData, fall back to property.agentId
+
     const finalAgentId = agentData?.id || property.agentId;
 
     if (!finalAgentId) {
@@ -1615,17 +1568,10 @@ const BookingModal: React.FC<{
     }
 
     try {
-      const dateClusters = getDateClusters(selectedDates);
-      const totalNights = calculateTotalNights(dateClusters);
-      const totalAmount = property.price * totalNights;
-
-     
-
+      const { startDates, endDates } = convertToBookingFormat(selectedDates);
       
-      const { startDates, endDates } =
-        convertClustersToDateArrays(dateClusters);
+      console.log("Sending dates to backend:", { startDates, endDates });
 
-      
       const paymentData = {
         email: bookingData.email,
         channels: ["card", "bank"],
@@ -1638,17 +1584,13 @@ const BookingModal: React.FC<{
         nextofKinName: bookingData.name_of_nxt_of_kin,
         nextofKinNumber: bookingData.number_of_nxt_of_kin,
         fullName: bookingData.name,
-        // personalUrl: personalUrl || agentData?.personalUrl, 
       };
-
-      console.log("Payment data with personalUrl:", paymentData);
 
       const toastId = toast.loading("Initializing payment...", {
         position: "top-right",
         autoClose: 3000,
       });
 
-      
       const paymentResult = await initiatePayment(
         paymentData.email,
         paymentData.channels,
@@ -1661,7 +1603,6 @@ const BookingModal: React.FC<{
         paymentData.nextofKinNumber,
         paymentData.fullName,
         paymentData.agentId,
-        // paymentData.personalUrl 
       );
 
       if (paymentResult.success && paymentResult.data) {
@@ -1676,23 +1617,17 @@ const BookingModal: React.FC<{
           ...bookingData,
           propertyId: property.id,
           propertyName: property.name,
-          selectedDates: selectedDates,
-          dateClusters: dateClusters,
-          totalNights: totalNights,
-          totalPrice: totalAmount,
+          selectedDates: selectedDates.map(d => getDateString(d)),
           paymentReference: paymentResult.data.reference,
           agentId: finalAgentId,
-          // personalUrl: paymentData.personalUrl, 
           authorizationUrl:
             paymentResult.data.paymentUrl ||
             paymentResult.data.authorizationUrl,
         };
 
-        
         sessionStorage.setItem("pendingBooking", JSON.stringify(bookingInfo));
         onSubmit(bookingInfo);
 
-        
         setTimeout(() => {
           if (paymentResult.data.paymentUrl) {
             window.location.href = paymentResult.data.paymentUrl;
@@ -1715,6 +1650,9 @@ const BookingModal: React.FC<{
     }
   };
 
+
+  // Also remove dateClusters logic from the form rendering
+
   // Reset form when modal closes
   useEffect(() => {
     const resetForm = () => {
@@ -1726,8 +1664,6 @@ const BookingModal: React.FC<{
         number_of_nxt_of_kin: "",
       });
       setSelectedDates([]);
-      setStartDate(null);
-      setEndDate(null);
       setBookedDates([]);
       setHoveredDate(null);
       clearPaymentInitError();
@@ -1740,8 +1676,8 @@ const BookingModal: React.FC<{
 
   if (!isOpen || !property) return null;
 
-  const dateClusters = getDateClusters(selectedDates);
-  const totalNights = calculateTotalNights(dateClusters);
+  // Calculate simple totals for display only
+  const totalNights = selectedDates.length;
   const totalAmount = property.price * totalNights;
 
   return (
@@ -1888,12 +1824,18 @@ const BookingModal: React.FC<{
                     onChange={handleDateChange}
                     inline
                     className="w-full"
-                    minDate={new Date()}
+                    minDate={normalizeDate(new Date())}
                     dateFormat="yyyy/MM/dd"
                     renderDayContents={renderDayContents}
-                    filterDate={(date) => !isDateBooked(date)}
+                    filterDate={(date) => {
+                      const cleanDate = normalizeDate(date);
+                      const isBooked = isDateBooked(cleanDate);
+                      const isPast = cleanDate < normalizeDate(new Date());
+                      return !isBooked && !isPast;
+                    }}
                     dayClassName={(date) => {
-                      if (isDateBooked(date)) {
+                      const cleanDate = normalizeDate(date);
+                      if (isDateBooked(cleanDate)) {
                         return "react-datepicker__day--disabled";
                       }
                       return "";
@@ -1942,58 +1884,58 @@ const BookingModal: React.FC<{
                     </span>
                   </div>
 
-                  {/* Individual booking periods */}
-                  <div className="space-y-4 mb-4">
-                    {dateClusters.map((cluster, clusterIndex) => (
-                      <div
-                        key={clusterIndex}
-                        className="p-3 bg-white rounded-lg border border-gray-200">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="font-medium text-sm text-gray-700">
-                            Booking {clusterIndex + 1}
-                          </span>
-                          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                            {cluster.length} night
-                            {cluster.length > 1 ? "s" : ""}
-                          </span>
-                        </div>
-
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Check-in:</span>
-                            <span>{formatDisplayDate(cluster[0])} (1pm)</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Check-out:</span>
-                            <span>
-                              {formatDisplayDate(
-                                new Date(
-                                  cluster[cluster.length - 1].getTime() +
-                                    86400000,
-                                ),
-                              )}{" "}
-                              (12noon)
+                  {/* Display selected dates */}
+                  <div className="space-y-3 mb-4">
+                    {selectedDates.map((date, index) => {
+                      const checkInDate = formatDisplayDate(date);
+                      const checkOutDate = new Date(date);
+                      checkOutDate.setDate(checkOutDate.getDate() + 1);
+                      const checkOutDateStr = formatDisplayDate(checkOutDate);
+                      
+                      return (
+                        <div
+                          key={index}
+                          className="p-3 bg-white rounded-lg border border-gray-200">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="font-medium text-sm text-gray-700">
+                              Night {index + 1}
+                            </span>
+                            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                              {checkInDate}
                             </span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Nights:</span>
-                            <span>{cluster.length}</span>
-                          </div>
-                          {property.price && (
-                            <div className="flex justify-between pt-2 border-t border-gray-100">
-                              <span className="text-gray-600">Amount:</span>
-                              <span className="font-medium text-green-600">
-                                {new Intl.NumberFormat("en-NG", {
-                                  style: "currency",
-                                  currency: "NGN",
-                                  minimumFractionDigits: 0,
-                                }).format(property.price * cluster.length)}
+
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Check-in:</span>
+                              <span>
+                                {checkInDate} at 1:00 PM
                               </span>
                             </div>
-                          )}
+                            
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Check-out:</span>
+                              <span>
+                                {checkOutDateStr} at 12:00 PM
+                              </span>
+                            </div>
+                            
+                            {property.price && (
+                              <div className="flex justify-between pt-2 border-t border-gray-100">
+                                <span className="text-gray-600">Amount:</span>
+                                <span className="font-medium text-green-600">
+                                  {new Intl.NumberFormat("en-NG", {
+                                    style: "currency",
+                                    currency: "NGN",
+                                    minimumFractionDigits: 0,
+                                  }).format(property.price)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Total amount */}
@@ -2009,27 +1951,6 @@ const BookingModal: React.FC<{
                           }).format(property.price)}
                         </span>
                       </div>
-
-                      {/* Individual booking amounts (if multiple periods) */}
-                      {dateClusters.length > 1 && (
-                        <div className="flex justify-between items-center mb-2 text-sm">
-                          <span className="text-gray-600">
-                            Individual bookings:
-                          </span>
-                          <span className="text-gray-900 text-right">
-                            {dateClusters.map((cluster, index) => (
-                              <div key={index} className="text-right">
-                                Booking {index + 1}:{" "}
-                                {new Intl.NumberFormat("en-NG", {
-                                  style: "currency",
-                                  currency: "NGN",
-                                  minimumFractionDigits: 0,
-                                }).format(property.price * cluster.length)}
-                              </div>
-                            ))}
-                          </span>
-                        </div>
-                      )}
 
                       <div className="flex justify-between items-center font-semibold text-lg">
                         <span>Total Amount:</span>
@@ -2080,6 +2001,8 @@ const BookingModal: React.FC<{
     </div>
   );
 };
+
+
 const AgentPropertiesGallery: React.FC = () => {
   const { personalUrl } = useParams<{ personalUrl: string }>();
   const { fetchPropertiesBySlug, isLoading, error, clearError } =

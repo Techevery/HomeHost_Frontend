@@ -1,3 +1,4 @@
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
@@ -244,6 +245,32 @@ interface AgentPayoutResponse {
   message?: string;
 }
 
+interface PasswordResetResponse {
+  message: string;
+  data?: {
+    resetLink?: string;
+  };
+}
+
+interface UpdateProfileData {
+  name?: string;
+  email?: string;
+  phone_number?: string;
+  address?: string;
+  gender?: string;
+  bank_name?: string;
+  account_number?: string;
+  personalUrl?: string;
+  nextOfKinName?: string;
+  nextOfKinPhone?: string;
+  nextOfKinAddress?: string;
+  nextOfKinEmail?: string;
+  nextOfKinStatus?: string;
+  nextOfKinOccupation?: string;
+  profile_picture?: File;
+  id_card?: File;
+}
+
 interface AgentState {
   token: string | null;
   agentInfo: AgentInfo | null;
@@ -298,11 +325,11 @@ interface AgentActions {
   
   // Profile
   fetchAgentProfile: () => Promise<void>;
-  updateAgentProfile: (updatedData: any) => Promise<void>;
+  updateAgentProfile: (updatedData: UpdateProfileData | FormData) => Promise<{ success: boolean; message: string; data?: any }>;
   
   // Password
-  forgotPassword: (email: string) => Promise<void>;
-  resetPassword: (token: string, password: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<PasswordResetResponse>;
+  resetPassword: (token: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
   
   // Properties
   enlistApartment: (
@@ -695,7 +722,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
       },
 
       updateAgentProfile: async (updatedData) => {
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         try {
           const { token, isAuthenticated } = get();
           const authValidation = validateAuth(token, isAuthenticated);
@@ -703,18 +730,39 @@ const useAgentStore = create<AgentState & AgentActions>()(
             throw new Error(authValidation.message);
           }
 
+          // Handle FormData for file uploads
+          let formData: FormData;
+          let isFormData = false;
+
+          if (updatedData instanceof FormData) {
+            formData = updatedData;
+            isFormData = true;
+          } else {
+            // Convert regular object to FormData for file uploads
+            formData = new FormData();
+            
+            // Add all fields to FormData
+            Object.entries(updatedData).forEach(([key, value]) => {
+              if (value !== undefined && value !== null) {
+                if (value instanceof File) {
+                  formData.append(key, value);
+                } else {
+                  formData.append(key, String(value));
+                }
+              }
+            });
+            isFormData = true;
+          }
+
           const response = await axios.patch(
-            `${API_BASE_URL}/api/v1/agent/profile`,
-            updatedData,
+            `${API_BASE_URL}/api/v1/agent/update-profile`,
+            formData,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
-                "Content-Type":
-                  updatedData instanceof FormData
-                    ? "multipart/form-data"
-                    : "application/json",
+                "Content-Type": isFormData ? "multipart/form-data" : "application/json",
               },
-              timeout: 15000,
+              timeout: 30000,
             },
           );
 
@@ -724,12 +772,33 @@ const useAgentStore = create<AgentState & AgentActions>()(
             throw new Error("Invalid response from server.");
           }
 
-          set({
-            agentInfo: {
-              ...get().agentInfo!,
-              ...data,
-            },
-          });
+          // Update agent info in state
+          const currentAgentInfo = get().agentInfo;
+          if (currentAgentInfo) {
+            set({
+              agentInfo: {
+                ...currentAgentInfo,
+                name: data.name || currentAgentInfo.name,
+                email: data.email || currentAgentInfo.email,
+                phone_number: data.phone_number || currentAgentInfo.phone_number,
+                address: data.address || currentAgentInfo.address,
+                gender: data.gender || currentAgentInfo.gender,
+                bank_name: data.bank_name || currentAgentInfo.bank_name,
+                account_number: data.account_number || currentAgentInfo.account_number,
+                personalUrl: data.personalUrl || currentAgentInfo.personalUrl,
+                profile_picture: data.profile_picture || data.avatar || currentAgentInfo.profile_picture,
+                next_of_kin_full_name: data.nextOfKinName || data.next_of_kin_full_name || currentAgentInfo.next_of_kin_full_name,
+                next_of_kin_email: data.nextOfkinEmail || data.next_of_kin_email || currentAgentInfo.next_of_kin_email,
+                id_card: data.id_card || currentAgentInfo.id_card,
+              },
+            });
+          }
+
+          return {
+            success: true,
+            message: "Profile updated successfully",
+            data: data,
+          };
         } catch (error: any) {
           const errorMessage = handleApiError(
             error,
@@ -738,7 +807,10 @@ const useAgentStore = create<AgentState & AgentActions>()(
           set({
             error: errorMessage,
           });
-          throw new Error(errorMessage);
+          return {
+            success: false,
+            message: errorMessage,
+          };
         } finally {
           set({ isLoading: false });
         }
@@ -751,11 +823,21 @@ const useAgentStore = create<AgentState & AgentActions>()(
             throw new Error("Email is required.");
           }
 
-          await axios.post(
-            `${API_BASE_URL}/api/v1/auth/forgot-password`,
+          const response = await axios.post(
+            `${API_BASE_URL}/api/v1/agent/forget-password`,
             { email },
-            { timeout: 15000 },
+            { 
+              headers: {
+                "Content-Type": "application/json",
+              },
+              timeout: 15000 
+            },
           );
+
+          return {
+            message: "Password reset email sent successfully",
+            data: response.data.data,
+          };
         } catch (error: any) {
           const errorMessage = handleApiError(
             error,
@@ -770,31 +852,44 @@ const useAgentStore = create<AgentState & AgentActions>()(
         }
       },
 
-      resetPassword: async (token, password) => {
+      resetPassword: async (token, newPassword) => {
         set({ isLoading: true, error: null });
         try {
-          if (!token || !password) {
-            throw new Error("Token and password are required.");
+          if (!token || !newPassword) {
+            throw new Error("Token and new password are required.");
           }
 
-          if (password.length < 6) {
+          if (newPassword.length < 6) {
             throw new Error("Password must be at least 6 characters long.");
           }
 
-          await axios.post(
-            `${API_BASE_URL}/api/v1/auth/reset-password`,
-            { token, password },
-            { timeout: 15000 },
+          const response = await axios.post(
+            `${API_BASE_URL}/api/v1/agent/reset-password`,
+            { token, newPassword },
+            { 
+              headers: {
+                "Content-Type": "application/json",
+              },
+              timeout: 15000 
+            },
           );
+
+          return {
+            success: true,
+            message: "Password reset successful. You can now login with your new password.",
+          };
         } catch (error: any) {
           const errorMessage = handleApiError(
             error,
-            "Failed to reset password.",
+            "Failed to reset password. Please try again.",
           );
           set({
             error: errorMessage,
           });
-          throw new Error(errorMessage);
+          return {
+            success: false,
+            message: errorMessage,
+          };
         } finally {
           set({ isLoading: false });
         }
@@ -1892,7 +1987,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
           );
 
           let result = response.data;
-          
+          console.log("Agent Bookings Response:", {result});
           if (response.status === 200 && Array.isArray(result)) {
             result = { success: true, data: result };
           }

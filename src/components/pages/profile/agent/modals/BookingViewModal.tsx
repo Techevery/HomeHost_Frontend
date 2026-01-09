@@ -82,7 +82,8 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
     fetchAgentBookings,
     clearError
   } = useAgentStore();
-  
+  console.log("Agent Bookings:", fetchAgentBookings);
+    
   type BookingType = typeof agentBookings[0];
   const [selectedBooking, setSelectedBooking] = useState<BookingType | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);

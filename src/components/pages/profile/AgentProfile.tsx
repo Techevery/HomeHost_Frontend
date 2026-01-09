@@ -1027,25 +1027,17 @@ const handleViewBookingClick = () => {
         onPropertyAdded={handlePropertyAdded}
       />
 
-      <EditProfileModal
-        open={editProfileModalOpen}
-        onClose={() => setEditProfileModalOpen(false)}
-        profileForm={profileForm}
-        profileFormErrors={profileFormErrors}
-        avatarPreview={avatarPreview}
-        onProfileFormChange={setProfileForm}
-        onProfileFormErrorsChange={setProfileFormErrors}
-        onAvatarChange={handleAvatarChange}
-        onUpdateProfile={handleUpdateProfile}
-        onAvatarRemove={() => {
-          setAvatarFile(null);
-          setAvatarPreview(agentInfo?.profile_picture || "");
-          setProfileForm((prev) => ({
-            ...prev,
-            avatar: agentInfo?.profile_picture || "",
-          }));
-        }}
-      />
+   <EditProfileModal
+  open={editProfileModalOpen}
+  onClose={() => setEditProfileModalOpen(false)}
+  agentInfo={agentInfo}
+  onProfileUpdateSuccess={() => {
+
+    fetchAgentProfile(); 
+    setEditProfileModalOpen(false); 
+    showSnackbar("Profile updated successfully", "success");
+  }}
+/>
 
       {/* Create Banner Modal */}
       <Dialog

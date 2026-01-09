@@ -37,9 +37,7 @@ import {
   CalendarToday,
   Link as LinkIcon,
   Badge,
- 
   CheckCircle,
-
   Fingerprint,
   Payment,
   VerifiedUser,
@@ -48,7 +46,6 @@ import {
   AccountBalanceWallet,
   Home,
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
 import useAdminStore from "../../../../../stores/admin";
 
 interface AgentData {
@@ -74,6 +71,116 @@ interface AgentData {
   nextOfKinPhone?: string;
   bankName?: string;
   accountNumber?: string;
+  profile_picture?: string;
+  id_card?: string;
+  personalUrl?: string;
+  accountBalance?: number;
+  nextOfKinAddress?: string;
+  nextOfKinOccupation?: string;
+  nextOfKinStatus?: string;
+  nextOfKinName?: string;
+  bank_name?: string;
+  account_number?: string;
+  suspended?: boolean;
+}
+
+interface PropertyData {
+  id: string;
+  agent_id: string;
+  apartment_id: string;
+  base_price: number;
+  markedup_price: number;
+  price_changed_by: string | null;
+  price_changed_at: string;
+  updated_at: string;
+  agent_commission_percent: number;
+  apartment: {
+    id: string;
+    name: string;
+    address: string;
+    type: string;
+    servicing: string;
+    bedroom: string;
+    price: number;
+    images: string[];
+    video_link: string | null;
+    agentPercentage: number | null;
+    amenities: string;
+    isBooked: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+interface PayoutData {
+  id: string;
+  agentId: string;
+  accountNumber: string;
+  accountName: string;
+  bankName: string;
+  status: string;
+  createdAt: string;
+  amount: number;
+  proof: string | null;
+  reference: string;
+  remark: string | null;
+  transactionId: string;
+  reason: string | null;
+  charges: number;
+  transaction?: {
+    id: string;
+    email: string;
+    status: string;
+    amount: number;
+    channel: string | null;
+    charge: number | null;
+    metadata: {
+      bookingPeriods: Array<{
+        endDate: string;
+        startDate: string;
+        durationDays: number;
+      }>;
+    };
+    reference: string;
+    date_paid: string;
+    apartment_id: string;
+    agent_id: string;
+    created_at: string;
+    updated_at: string;
+    booking_end_date: string;
+    booking_start_date: string;
+    duration_days: number;
+    phone_number: string;
+    payment_month: string | null;
+    payment_year: string | null;
+    credited: boolean;
+    agentPercentage: number;
+    mockupPrice: number;
+    bookingPeriods: Array<{
+      id: string;
+      transaction_id: string;
+      apartment_id: string;
+      start_date: string;
+      end_date: string;
+      duration_days: number;
+      created_at: string;
+      isDeleted: boolean;
+      isEdited: boolean;
+      expired: boolean;
+      status: string;
+      newBookingDuration: string | null;
+    }>;
+  };
+}
+
+interface AgentProfileResponse {
+  totals?: {
+    totalBalance: number;
+    totalPending: number;
+    totalEarning: number;
+    totalActiveProperties: number;
+  } | null;
+  data: any[];
 }
 
 // Tab Panel Component
@@ -99,35 +206,227 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-// Agent Dashboard Component
-const AgentDashboard: React.FC<{ agent: any; details: any }> = ({ agent, details }) => {
-  const dashboardData = {
-    availableBalance: '₦29,950',
-    pendingClearance: '₦45,000',
-    totalEarnings: '₦185,950',
-    activeProperties: 12,
-    monthlyGrowth: '+22.5%',
-    recentPayouts: [
-      {
-        property: 'Luxury 2BR Apartment - Lekki Phase 1',
-        method: 'Percentage (10%)',
-        calculation: '₦100,000 × 10%',
-        net: '₦9,950',
-        booking: 'BK-7829',
-        checkout: 'Nov 20, 2025',
-        processed: 'Nov 20, 2025',
-      },
-      {
-        property: 'Studio Apartment - Ikeja GRA',
-        method: 'Markup (₦5,000/day)',
-        calculation: '₦5,000 × 4 days',
-        net: '₦19,950',
-        booking: 'BK-9921',
-        checkout: 'Nov 22, 2025',
-        processed: 'Nov 22, 2025',
-      },
-    ],
+// Helper function to extract data from API response - IMPROVED VERSION
+const extractAgentData = (response: any): AgentProfileResponse => {
+  console.log('🔍 Extracting data from response structure:', {
+    hasResponse: !!response,
+    responseType: typeof response,
+    responseKeys: response ? Object.keys(response) : [],
+    fullResponse: response
+  });
+  
+  if (!response) {
+    return { data: [], totals: null };
+  }
+
+  // Handle the specific structure from your backend (most common case)
+  if (response?.data?.totals && response?.data?.data !== undefined) {
+    // Structure: { data: { totals: {...}, data: [...] } }
+    console.log('✅ Found structure: response.data.totals + response.data.data');
+    const dataArray = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
+    return {
+      totals: response.data.totals,
+      data: dataArray
+    };
+  } 
+  
+  // Alternative structure: direct totals and data
+  if (response?.totals && response?.data !== undefined) {
+    console.log('✅ Found structure: response.totals + response.data');
+    const dataArray = Array.isArray(response.data) ? response.data : [response.data];
+    return {
+      totals: response.totals,
+      data: dataArray
+    };
+  } 
+  
+  // Structure with just data
+  if (response?.data !== undefined) {
+    console.log('✅ Found structure: response.data only');
+    const dataArray = Array.isArray(response.data) ? response.data : [response.data];
+    return {
+      totals: response.totals || null,
+      data: dataArray
+    };
+  }
+  
+  // If response is already an array
+  if (Array.isArray(response)) {
+    console.log('✅ Found structure: array');
+    return {
+      totals: null,
+      data: response
+    };
+  }
+  
+  // If response is an object but not the expected structure
+  if (response && typeof response === 'object') {
+    console.log('✅ Found structure: object, checking for nested data');
+    
+    // Check if it has properties that look like agent data
+    if (response.id || response.name || response.email) {
+      return {
+        totals: null,
+        data: [response]
+      };
+    }
+    
+    // Return empty if we can't parse it
+    return {
+      totals: null,
+      data: []
+    };
+  }
+  
+  console.log('❌ No valid data structure found');
+  return {
+    totals: null,
+    data: []
   };
+};
+
+// Agent Dashboard Component
+const AgentDashboard: React.FC<{ agent: AgentData }> = ({ agent }) => {
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [recentPayouts, setRecentPayouts] = useState<PayoutData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { getAgentProfile } = useAdminStore();
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!agent?.id) {
+        console.log('❌ No agent ID provided');
+        setLoading(false);
+        return;
+      }
+      
+      setLoading(true);
+      setError(null);
+      try {
+        console.log('📤 Fetching dashboard data for agent:', agent.id);
+        
+        // Fetch info for totals
+        const infoResponse = await getAgentProfile(agent.id, 'info');
+        console.log('📊 Dashboard raw response:', infoResponse);
+        
+        const infoExtracted = extractAgentData(infoResponse);
+        
+        console.log('📊 Dashboard extracted data:', {
+          totals: infoExtracted.totals,
+          dataLength: infoExtracted.data?.length,
+          firstItem: infoExtracted.data?.[0]
+        });
+        
+        if (infoExtracted.totals) {
+          setDashboardData(infoExtracted.totals);
+        } else {
+          console.log('⚠️ No totals found in dashboard response');
+          setDashboardData({
+            totalBalance: 0,
+            totalPending: 0,
+            totalEarning: 0,
+            totalActiveProperties: 0
+          });
+        }
+
+        // Fetch payouts for recent section
+        const payoutResponse = await getAgentProfile(agent.id, 'payout');
+        console.log('💰 Payouts raw response:', payoutResponse);
+        
+        const payoutExtracted = extractAgentData(payoutResponse);
+        
+        console.log('💰 Payouts extracted data:', {
+          dataLength: payoutExtracted.data?.length,
+          firstItem: payoutExtracted.data?.[0]
+        });
+        
+        if (payoutExtracted.data && payoutExtracted.data.length > 0) {
+          // Get latest 2 payouts for dashboard
+          const recent = payoutExtracted.data
+            .sort((a: any, b: any) => 
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            )
+            .slice(0, 2);
+          setRecentPayouts(recent);
+        } else {
+          console.log('⚠️ No payout data found');
+          setRecentPayouts([]);
+        }
+      } catch (error: any) {
+        console.error('❌ Error fetching dashboard data:', error);
+        setError(error.message || 'Failed to fetch dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [agent?.id, getAgentProfile]);
+
+  const formatCurrency = (amount: number | undefined | null) => {
+    if (amount === undefined || amount === null) return '₦0';
+    return `₦${amount.toLocaleString()}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'processed':
+      case 'success':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'failed':
+      case 'rejected':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" py={4}>
+        <CircularProgress />
+        <Typography variant="body2" sx={{ ml: 2 }}>
+          Loading dashboard data...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ my: 2 }}>
+        {error}
+      </Alert>
+    );
+  }
+
+  if (!dashboardData && !loading && !error) {
+    return (
+      <Box>
+        <Typography variant="h5" gutterBottom fontWeight="bold">
+          Welcome back, {agent.name?.split(' ')[0] || 'Agent'}
+        </Typography>
+        <Typography variant="body1" color="text.secondary" gutterBottom>
+          Dashboard data is not available at the moment.
+        </Typography>
+        <Alert severity="info" sx={{ mt: 2 }}>
+          Agent profile data is being loaded. If this persists, check agent ID and permissions.
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -148,10 +447,7 @@ const AgentDashboard: React.FC<{ agent: any; details: any }> = ({ agent, details
                 <Typography variant="h6">Available Balance</Typography>
               </Box>
               <Typography variant="h4" fontWeight="bold">
-                {dashboardData.availableBalance}
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9, mt: 1 }}>
-                {dashboardData.availableBalance} this month
+                {dashboardData ? formatCurrency(dashboardData.totalBalance) : '₦0'}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.8 }}>
                 Cleaned funds ready for payout
@@ -169,10 +465,7 @@ const AgentDashboard: React.FC<{ agent: any; details: any }> = ({ agent, details
                 <Typography variant="h6">Pending Clearance</Typography>
               </Box>
               <Typography variant="h4" fontWeight="bold">
-                {dashboardData.pendingClearance}
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9, mt: 1 }}>
-                {dashboardData.pendingClearance} this month
+                {dashboardData ? formatCurrency(dashboardData.totalPending) : '₦0'}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.8 }}>
                 Funds held until guest checkout
@@ -190,13 +483,10 @@ const AgentDashboard: React.FC<{ agent: any; details: any }> = ({ agent, details
                 <Typography variant="h6">Total Earnings</Typography>
               </Box>
               <Typography variant="h4" fontWeight="bold">
-                {dashboardData.totalEarnings}
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9, mt: 1 }}>
-                {dashboardData.monthlyGrowth} this month
+                {dashboardData ? formatCurrency(dashboardData.totalEarning) : '₦0'}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                Total commissions this month
+                Total commissions earned
               </Typography>
             </CardContent>
           </Card>
@@ -211,10 +501,7 @@ const AgentDashboard: React.FC<{ agent: any; details: any }> = ({ agent, details
                 <Typography variant="h6">Active Properties</Typography>
               </Box>
               <Typography variant="h4" fontWeight="bold">
-                {dashboardData.activeProperties}
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9, mt: 1 }}>
-                +2 this month
+                {dashboardData ? dashboardData.totalActiveProperties : 0}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.8 }}>
                 Properties generating commissions
@@ -225,110 +512,155 @@ const AgentDashboard: React.FC<{ agent: any; details: any }> = ({ agent, details
       </Grid>
 
       {/* Recent Payouts */}
-      <Card sx={{ mt: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom fontWeight="bold">
-            Recent Payouts
-          </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Payouts are processed on checkout dates
-          </Typography>
+      {recentPayouts.length > 0 ? (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom fontWeight="bold">
+              Recent Payouts
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Latest payout activities
+            </Typography>
 
-          {dashboardData.recentPayouts.map((payout, index) => (
-            <Box key={index} sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                {payout.property}
-              </Typography>
-              
-              <Grid container spacing={2} sx={{ mb: 1 }}>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="text.secondary">
-                    Method: {payout.method}
-                  </Typography>
-                  <Typography variant="body2">
-                    Calculation: {payout.calculation}
-                  </Typography>
-                  <Typography variant="body2" fontWeight="bold">
-                    Net: {payout.net}
-                  </Typography>
+            {recentPayouts.map((payout, index) => (
+              <Box key={payout.id || index} sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  Transaction: {payout.reference || 'N/A'}
+                </Typography>
+                
+                <Grid container spacing={2} sx={{ mb: 1 }}>
+                  <Grid item xs={12} md={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Amount: {formatCurrency(payout.amount)}
+                    </Typography>
+                    <Typography variant="body2">
+                      Status: {payout.status || 'Unknown'}
+                    </Typography>
+                    <Typography variant="body2" fontWeight="bold">
+                      Bank: {payout.bankName || 'N/A'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} md={8}>
+                    <Box display="flex" gap={2} flexWrap="wrap">
+                      <Chip
+                        label={`Reference: ${payout.reference || 'N/A'}`}
+                        variant="outlined"
+                        size="small"
+                      />
+                      <Chip
+                        label={`Created: ${formatDate(payout.createdAt)}`}
+                        variant="outlined"
+                        size="small"
+                      />
+                      <Chip
+                        label={payout.status || 'Unknown'}
+                        color={getStatusColor(payout.status) as any}
+                        size="small"
+                      />
+                    </Box>
+                  </Grid>
                 </Grid>
-                <Grid item xs={12} md={8}>
-                  <Box display="flex" gap={2} flexWrap="wrap">
-                    <Chip
-                      label={`Booking: ${payout.booking}`}
-                      variant="outlined"
-                      size="small"
-                    />
-                    <Chip
-                      label={`Checkout: ${payout.checkout}`}
-                      variant="outlined"
-                      size="small"
-                    />
-                    <Chip
-                      label={`Processed: ${payout.processed}`}
-                      variant="outlined"
-                      size="small"
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
-              
-              {index < dashboardData.recentPayouts.length - 1 && <Divider sx={{ my: 2 }} />}
-            </Box>
-          ))}
-        </CardContent>
-      </Card>
+                
+                {index < recentPayouts.length - 1 && <Divider sx={{ my: 2 }} />}
+              </Box>
+            ))}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom fontWeight="bold">
+              Recent Payouts
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              No recent payout activities found
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
     </Box>
   );
 };
 
 // Agent Payouts Component
-const AgentPayouts: React.FC<{ agent: any }> = ({ agent }) => {
-  const [payouts, setPayouts] = useState<any[]>([]);
+const AgentPayouts: React.FC<{ agent: AgentData }> = ({ agent }) => {
+  const [payouts, setPayouts] = useState<PayoutData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { getAgentProfile } = useAdminStore();
 
   useEffect(() => {
-    // Mock data - replace with actual API call
-    setLoading(true);
-    setTimeout(() => {
-      setPayouts([
-        {
-          id: '1',
-          amount: '₦9,950',
-          status: 'processed',
-          method: 'Percentage (10%)',
-          bookingReference: 'BK-7829',
-          property: 'Luxury 2BR Apartment - Lekki Phase 1',
-          checkoutDate: 'Nov 20, 2025',
-          processedDate: 'Nov 20, 2025',
-          calculation: '₦100,000 × 10%',
-        },
-        {
-          id: '2',
-          amount: '₦19,950',
-          status: 'pending',
-          method: 'Markup (₦5,000/day)',
-          bookingReference: 'BK-9921',
-          property: 'Studio Apartment - Ikeja GRA',
-          checkoutDate: 'Nov 22, 2025',
-          processedDate: 'Nov 22, 2025',
-          calculation: '₦5,000 × 4 days',
-        },
-      ]);
-      setLoading(false);
-    }, 1000);
-  }, [agent]);
+    const fetchPayouts = async () => {
+      if (!agent?.id) {
+        console.log('❌ No agent ID provided for payouts');
+        setLoading(false);
+        return;
+      }
+      
+      setLoading(true);
+      setError(null);
+      try {
+        console.log('📤 Fetching payouts for agent:', agent.id);
+        const response = await getAgentProfile(agent.id, 'payout');
+        console.log('💰 Payouts raw response:', response);
+        
+        const extracted = extractAgentData(response);
+        
+        console.log('💰 Payouts extracted data:', {
+          dataLength: extracted.data?.length,
+          firstItem: extracted.data?.[0]
+        });
+        
+        if (extracted.data && extracted.data.length > 0) {
+          // Sort by creation date, newest first
+          const sortedPayouts = extracted.data.sort((a: any, b: any) => 
+            new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          );
+          setPayouts(sortedPayouts);
+        } else {
+          setPayouts([]);
+        }
+      } catch (error: any) {
+        console.error('❌ Error fetching payouts:', error);
+        setError(error.message || 'Failed to fetch payouts');
+        setPayouts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayouts();
+  }, [agent?.id, getAgentProfile]);
 
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case 'processed':
+      case 'success':
         return 'success';
       case 'pending':
         return 'warning';
       case 'failed':
+      case 'rejected':
         return 'error';
       default:
         return 'default';
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `₦${amount?.toLocaleString() || '0'}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      return 'Invalid Date';
     }
   };
 
@@ -336,7 +668,18 @@ const AgentPayouts: React.FC<{ agent: any }> = ({ agent }) => {
     return (
       <Box display="flex" justifyContent="center" py={4}>
         <CircularProgress />
+        <Typography variant="body2" sx={{ ml: 2 }}>
+          Loading payout history...
+        </Typography>
       </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ my: 2 }}>
+        {error}
+      </Alert>
     );
   }
 
@@ -345,59 +688,64 @@ const AgentPayouts: React.FC<{ agent: any }> = ({ agent }) => {
       <Typography variant="h5" gutterBottom fontWeight="bold">
         Payout History
       </Typography>
+      <Typography variant="body2" color="text.secondary" gutterBottom>
+        Total records: {payouts.length}
+      </Typography>
 
       <Card>
         <CardContent>
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Property</TableCell>
-                  <TableCell>Booking Reference</TableCell>
-                  <TableCell>Method</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Checkout Date</TableCell>
-                  <TableCell>Processed Date</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {payouts.map((payout) => (
-                  <TableRow key={payout.id}>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {payout.property}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {payout.calculation}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{payout.bookingReference}</TableCell>
-                    <TableCell>{payout.method}</TableCell>
-                    <TableCell>
-                      <Typography fontWeight="bold">
-                        {payout.amount}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={payout.status}
-                        color={getStatusColor(payout.status) as any}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{payout.checkoutDate}</TableCell>
-                    <TableCell>{payout.processedDate}</TableCell>
+          {payouts.length > 0 ? (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Reference</TableCell>
+                    <TableCell>Amount</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Bank Details</TableCell>
+                    <TableCell>Created Date</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          {payouts.length === 0 && !loading && (
+                </TableHead>
+                <TableBody>
+                  {payouts.map((payout, index) => (
+                    <TableRow key={payout.id || index}>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">
+                          {payout.reference || 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography fontWeight="bold">
+                          {formatCurrency(payout.amount)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={payout.status || 'Unknown'}
+                          color={getStatusColor(payout.status) as any}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {payout.bankName || 'N/A'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {payout.accountNumber || 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(payout.createdAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
             <Box textAlign="center" py={4}>
               <Typography variant="body1" color="text.secondary">
-                No payout history found
+                No payout history found for this agent
               </Typography>
             </Box>
           )}
@@ -408,71 +756,83 @@ const AgentPayouts: React.FC<{ agent: any }> = ({ agent }) => {
 };
 
 // Agent Properties Component
-const AgentProperties: React.FC<{ agent: any }> = ({ agent }) => {
-  const [properties, setProperties] = useState<any[]>([]);
+const AgentProperties: React.FC<{ agent: AgentData }> = ({ agent }) => {
+  const [properties, setProperties] = useState<PropertyData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { getAgentProfile } = useAdminStore();
 
   useEffect(() => {
-    // Mock data - replace with actual API call
-    setLoading(true);
-    setTimeout(() => {
-      setProperties([
-        {
-          id: '1',
-          title: 'Luxury 2BR Apartment',
-          location: 'Lekki Phase 1',
-          type: 'Apartment',
-          status: 'active',
-          price: '₦100,000',
-          commission: '₦9,950',
-          bookings: 15,
-          lastBooking: 'Nov 20, 2025',
-        },
-        {
-          id: '2',
-          title: 'Studio Apartment',
-          location: 'Ikeja GRA',
-          type: 'Studio',
-          status: 'active',
-          price: '₦20,000',
-          commission: '₦19,950',
-          bookings: 8,
-          lastBooking: 'Nov 22, 2025',
-        },
-        {
-          id: '3',
-          title: '3BR Duplex',
-          location: 'Victoria Island',
-          type: 'Duplex',
-          status: 'inactive',
-          price: '₦150,000',
-          commission: '₦11,950',
-          bookings: 12,
-          lastBooking: 'Nov 18, 2025',
-        },
-      ]);
-      setLoading(false);
-    }, 1000);
-  }, [agent]);
+    const fetchProperties = async () => {
+      if (!agent?.id) {
+        console.log('❌ No agent ID provided for properties');
+        setLoading(false);
+        return;
+      }
+      
+      setLoading(true);
+      setError(null);
+      try {
+        console.log('📤 Fetching properties for agent:', agent.id);
+        const response = await getAgentProfile(agent.id, 'properties');
+        console.log('🏠 Properties raw response:', response);
+        
+        const extracted = extractAgentData(response);
+        
+        console.log('🏠 Properties extracted data:', {
+          dataLength: extracted.data?.length,
+          firstItem: extracted.data?.[0]
+        });
+        
+        if (extracted.data && extracted.data.length > 0) {
+          setProperties(extracted.data);
+        } else {
+          setProperties([]);
+        }
+      } catch (error: any) {
+        console.error('❌ Error fetching properties:', error);
+        setError(error.message || 'Failed to fetch properties');
+        setProperties([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'success';
-      case 'inactive':
-        return 'error';
-      case 'pending':
-        return 'warning';
-      default:
-        return 'default';
-    }
+    fetchProperties();
+  }, [agent?.id, getAgentProfile]);
+
+  const getStatusColor = (isBooked: boolean) => {
+    return isBooked ? 'error' : 'success';
+  };
+
+  const getStatusLabel = (isBooked: boolean) => {
+    return isBooked ? 'Booked' : 'Available';
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `₦${amount?.toLocaleString() || '0'}`;
+  };
+
+  const calculateCommission = (price: number, commissionPercent: number) => {
+    return (price * (commissionPercent || 0)) / 100;
   };
 
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" py={4}>
         <CircularProgress />
+        <Typography variant="body2" sx={{ ml: 2 }}>
+          Loading agent properties...
+        </Typography>
       </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ my: 2 }}>
+        {error}
+      </Alert>
     );
   }
 
@@ -487,88 +847,102 @@ const AgentProperties: React.FC<{ agent: any }> = ({ agent }) => {
         </Typography>
       </Box>
 
-      <Grid container spacing={3}>
-        {properties.map((property) => (
-          <Grid item xs={12} md={6} key={property.id}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box display="flex" alignItems="flex-start" gap={2} mb={2}>
-                  <Box
-                    sx={{
-                      width: 60,
-                      height: 60,
-                      bgcolor: 'primary.main',
-                      borderRadius: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                    }}
-                  >
-                    <Home />
-                  </Box>
-                  <Box flex={1}>
-                    <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                      <Typography variant="h6" fontWeight="bold">
-                        {property.title}
-                      </Typography>
-                      <Chip
-                        label={property.status}
-                        color={getStatusColor(property.status) as any}
-                        size="small"
+      {properties.length > 0 ? (
+        <Grid container spacing={3}>
+          {properties.map((property, index) => (
+            <Grid item xs={12} md={6} key={property.id || index}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box display="flex" alignItems="flex-start" gap={2} mb={2}>
+                    {property.apartment?.images?.[0] ? (
+                      <Box
+                        sx={{
+                          width: 60,
+                          height: 60,
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          backgroundImage: `url(${property.apartment.images[0]})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }}
                       />
+                    ) : (
+                      <Box
+                        sx={{
+                          width: 60,
+                          height: 60,
+                          bgcolor: 'primary.main',
+                          borderRadius: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                        }}
+                      >
+                        <Home />
+                      </Box>
+                    )}
+                    <Box flex={1}>
+                      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                        <Typography variant="h6" fontWeight="bold">
+                          {property.apartment?.name || 'Unnamed Property'}
+                        </Typography>
+                        <Chip
+                          label={getStatusLabel(property.apartment?.isBooked || false)}
+                          color={getStatusColor(property.apartment?.isBooked || false) as any}
+                          size="small"
+                        />
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={0.5} mb={1}>
+                        <PersonPin fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary">
+                          {property.apartment?.address || 'No address'}
+                        </Typography>
+                      </Box>
+                      <Chip label={property.apartment?.type || 'Unknown'} variant="outlined" size="small" />
                     </Box>
-                    <Box display="flex" alignItems="center" gap={0.5} mb={1}>
-                      <PersonPin fontSize="small" color="action" />
-                      <Typography variant="body2" color="text.secondary">
-                        {property.location}
-                      </Typography>
-                    </Box>
-                    <Chip label={property.type} variant="outlined" size="small" />
                   </Box>
-                </Box>
 
-                <Grid container spacing={2} mt={1}>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" color="text.secondary">
-                      Price
-                    </Typography>
-                    <Typography variant="body1" fontWeight="bold">
-                      {property.price}
-                    </Typography>
+                  <Grid container spacing={2} mt={1}>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Price
+                      </Typography>
+                      <Typography variant="body1" fontWeight="bold">
+                        {formatCurrency(property.base_price || 0)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Commission ({property.agent_commission_percent || 0}%)
+                      </Typography>
+                      <Typography variant="body1" fontWeight="bold" color="success.main">
+                        {formatCurrency(calculateCommission(property.base_price || 0, property.agent_commission_percent || 0))}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Bedrooms
+                      </Typography>
+                      <Typography variant="body1">
+                        {property.apartment?.bedroom || 'N/A'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Type
+                      </Typography>
+                      <Typography variant="body1">
+                        {property.apartment?.type || 'N/A'}
+                      </Typography>
+                    </Grid>
                   </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" color="text.secondary">
-                      Commission
-                    </Typography>
-                    <Typography variant="body1" fontWeight="bold" color="success.main">
-                      {property.commission}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" color="text.secondary">
-                      Bookings
-                    </Typography>
-                    <Typography variant="body1">
-                      {property.bookings}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" color="text.secondary">
-                      Last Booking
-                    </Typography>
-                    <Typography variant="body1">
-                      {property.lastBooking}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      {properties.length === 0 && !loading && (
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
         <Box textAlign="center" py={4}>
           <Typography variant="body1" color="text.secondary">
             No properties found for this agent
@@ -580,33 +954,51 @@ const AgentProperties: React.FC<{ agent: any }> = ({ agent }) => {
 };
 
 // Agent Personal Info Component
-const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, details }) => {
-  const personalInfo = {
-    profilePicture: null,
-    frontId: agent.front_id || null,
-    backId: agent.back_id || null,
-    frontIdStatus: agent.front_id_status || false,
-    backIdStatus: agent.back_id_status || false,
-    account: agent.account || 'N/A',
-    email: agent.email,
-    phone: agent.phone_number || 'N/A',
-    slug: agent.slug || 'N/A',
-    status: agent.status || 'Unknown',
-    createdAt: agent.createdAt,
-    
-    // New Personal Information fields
-    gender: agent.gender || null,
-    address: agent.address || null,
-    
-    // Next of Kin Information
-    nextOfKinFullName: agent.nextOfKinFullName || null,
-    nextOfKinEmail: agent.nextOfKinEmail || null,
-    nextOfKinPhone: agent.nextOfKinPhone || null,
-    
-    // Bank Information
-    bankName: agent.bankName || null,
-    accountNumber: agent.accountNumber || null,
-  };
+const AgentPersonalInfo: React.FC<{ agent: AgentData }> = ({ agent }) => {
+  const [personalInfo, setPersonalInfo] = useState<AgentData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { getAgentProfile } = useAdminStore();
+
+  useEffect(() => {
+    const fetchPersonalInfo = async () => {
+      if (!agent?.id) {
+        console.log('❌ No agent ID provided for personal info');
+        setLoading(false);
+        return;
+      }
+      
+      setLoading(true);
+      setError(null);
+      try {
+        console.log('📤 Fetching personal info for agent:', agent.id);
+        const response = await getAgentProfile(agent.id, 'info');
+        console.log('👤 Personal info raw response:', response);
+        
+        const extracted = extractAgentData(response);
+        
+        console.log('👤 Personal info extracted data:', {
+          dataLength: extracted.data?.length,
+          firstItem: extracted.data?.[0]
+        });
+        
+        if (extracted.data && extracted.data.length > 0) {
+          setPersonalInfo(extracted.data[0]);
+        } else {
+          console.log('⚠️ No personal info data found, using agent data');
+          setPersonalInfo(agent);
+        }
+      } catch (error: any) {
+        console.error('❌ Error fetching personal info:', error);
+        setError(error.message || 'Failed to fetch personal info');
+        setPersonalInfo(agent);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPersonalInfo();
+  }, [agent, getAgentProfile]);
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -624,9 +1016,41 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
     }
   };
 
-  const handleDocumentUpload = (documentType: string) => {
-    console.log(`Upload ${documentType}`);
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return 'Invalid Date';
+    }
   };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" py={4}>
+        <CircularProgress />
+        <Typography variant="body2" sx={{ ml: 2 }}>
+          Loading personal information...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ my: 2 }}>
+        {error}
+      </Alert>
+    );
+  }
+
+  const info = personalInfo || agent;
 
   return (
     <Grid container spacing={3}>
@@ -637,22 +1061,31 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
             <Box display="flex" alignItems="center" gap={3}>
               <Avatar
                 sx={{ width: 80, height: 80, bgcolor: 'primary.main' }}
-                src={personalInfo.profilePicture || undefined}
+                src={info.profile_picture || undefined}
               >
                 <Person sx={{ fontSize: 40 }} />
               </Avatar>
               <Box flex={1}>
                 <Typography variant="h5" fontWeight="bold">
-                  {agent.name || 'Unnamed Agent'}
+                  {info.name || 'Unnamed Agent'}
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
-                  Agent ID: {agent.id}
+                  Agent ID: {info.id}
                 </Typography>
-                <Chip
-                  label={personalInfo.status}
-                  color={getStatusColor(personalInfo.status) as any}
-                  sx={{ mt: 1 }}
-                />
+                <Box display="flex" gap={1} mt={1}>
+                  <Chip
+                    label={info.status || 'Unknown'}
+                    color={getStatusColor(info.status) as any}
+                    size="small"
+                  />
+                  {info.suspended && (
+                    <Chip
+                      label="Suspended"
+                      color="error"
+                      size="small"
+                    />
+                  )}
+                </Box>
               </Box>
             </Box>
           </CardContent>
@@ -670,10 +1103,10 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
             <Box display="flex" flexDirection="column" gap={2}>
               <Box display="flex" justifyContent="space-between">
                 <Typography variant="body2" color="text.secondary">
-                  Account:
+                  Email:
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  {personalInfo.account}
+                  {info.email || 'N/A'}
                 </Typography>
               </Box>
               <Box display="flex" justifyContent="space-between">
@@ -681,7 +1114,7 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                   Slug/URL:
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  https://homeyhost.ng/shortlet/{personalInfo.slug}
+                  {info.personalUrl || `https://homeyhost.ng/shortlet/${info.slug || 'N/A'}`}
                 </Typography>
               </Box>
               <Box display="flex" justifyContent="space-between">
@@ -689,7 +1122,7 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                   Registration Date:
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  {new Date(personalInfo.createdAt).toLocaleDateString()}
+                  {formatDate(info.createdAt)}
                 </Typography>
               </Box>
             </Box>
@@ -711,7 +1144,7 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                   Email:
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  {personalInfo.email}
+                  {info.email || 'N/A'}
                 </Typography>
               </Box>
               <Box display="flex" justifyContent="space-between">
@@ -719,7 +1152,7 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                   Phone:
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  {personalInfo.phone}
+                  {info.phone_number || 'N/A'}
                 </Typography>
               </Box>
             </Box>
@@ -741,7 +1174,7 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                   Gender:
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  {personalInfo.gender || 'Not specified'}
+                  {info.gender || 'Not specified'}
                 </Typography>
               </Box>
               <Box display="flex" justifyContent="space-between">
@@ -749,7 +1182,7 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                   Address:
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  {personalInfo.address || 'Not specified'}
+                  {info.address || 'Not specified'}
                 </Typography>
               </Box>
             </Box>
@@ -771,7 +1204,7 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                   Full Name:
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  {personalInfo.nextOfKinFullName || 'Not specified'}
+                  {info.nextOfKinName || info.nextOfKinFullName || 'Not specified'}
                 </Typography>
               </Box>
               <Box display="flex" justifyContent="space-between">
@@ -779,7 +1212,7 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                   Email Address:
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  {personalInfo.nextOfKinEmail || 'Not specified'}
+                  {info.nextOfKinEmail || 'Not specified'}
                 </Typography>
               </Box>
               <Box display="flex" justifyContent="space-between">
@@ -787,7 +1220,31 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                   Phone Number:
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  {personalInfo.nextOfKinPhone || 'Not specified'}
+                  {info.nextOfKinPhone || 'Not specified'}
+                </Typography>
+              </Box>
+              <Box display="flex" justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">
+                  Relationship:
+                </Typography>
+                <Typography variant="body2" fontWeight="medium">
+                  {info.nextOfKinStatus || 'Not specified'}
+                </Typography>
+              </Box>
+              <Box display="flex" justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">
+                  Occupation:
+                </Typography>
+                <Typography variant="body2" fontWeight="medium">
+                  {info.nextOfKinOccupation || 'Not specified'}
+                </Typography>
+              </Box>
+              <Box display="flex" justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">
+                  Address:
+                </Typography>
+                <Typography variant="body2" fontWeight="medium">
+                  {info.nextOfKinAddress || 'Not specified'}
                 </Typography>
               </Box>
             </Box>
@@ -810,7 +1267,7 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                     Bank Name:
                   </Typography>
                   <Typography variant="body2" fontWeight="medium">
-                    {personalInfo.bankName || 'Not specified'}
+                    {info.bankName || info.bank_name || 'Not specified'}
                   </Typography>
                 </Box>
               </Grid>
@@ -820,7 +1277,7 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                     Account Number:
                   </Typography>
                   <Typography variant="body2" fontWeight="medium">
-                    {personalInfo.accountNumber || 'Not specified'}
+                    {info.accountNumber || info.account_number || 'Not specified'}
                   </Typography>
                 </Box>
               </Grid>
@@ -842,28 +1299,23 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                 <Box
                   sx={{
                     border: '2px dashed',
-                    borderColor: 'grey.300',
+                    borderColor: info.id_card ? 'success.main' : 'grey.300',
                     borderRadius: 2,
                     p: 3,
                     textAlign: 'center',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      borderColor: 'primary.main',
-                      bgcolor: 'action.hover',
-                    },
+                    backgroundColor: info.id_card ? 'success.50' : 'transparent',
                   }}
-                  onClick={() => handleDocumentUpload('front_id')}
                 >
-                  {personalInfo.frontId ? (
+                  {info.id_card ? (
                     <Box>
                       <CheckCircle color="success" sx={{ fontSize: 48 }} />
                       <Typography variant="body1" fontWeight="medium" mt={1}>
-                        Front ID Uploaded
+                        ID Card Uploaded
                       </Typography>
                       <Chip
                         icon={<CheckCircle />}
-                        label={personalInfo.frontIdStatus ? 'Verified' : 'Pending Verification'}
-                        color={personalInfo.frontIdStatus ? 'success' : 'warning'}
+                        label={info.status === 'VERIFIED' ? 'Verified' : 'Pending Verification'}
+                        color={info.status === 'VERIFIED' ? 'success' : 'warning'}
                         size="small"
                         sx={{ mt: 1 }}
                       />
@@ -872,54 +1324,10 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
                     <Box>
                       <Badge color="action" sx={{ fontSize: 48 }} />
                       <Typography variant="body1" fontWeight="medium" mt={1}>
-                        Upload Front ID
+                        No ID Card Uploaded
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Click to upload front identification document
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Box
-                  sx={{
-                    border: '2px dashed',
-                    borderColor: 'grey.300',
-                    borderRadius: 2,
-                    p: 3,
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      borderColor: 'primary.main',
-                      bgcolor: 'action.hover',
-                    },
-                  }}
-                  onClick={() => handleDocumentUpload('back_id')}
-                >
-                  {personalInfo.backId ? (
-                    <Box>
-                      <CheckCircle color="success" sx={{ fontSize: 48 }} />
-                      <Typography variant="body1" fontWeight="medium" mt={1}>
-                        Back ID Uploaded
-                      </Typography>
-                      <Chip
-                        icon={<CheckCircle />}
-                        label={personalInfo.backIdStatus ? 'Verified' : 'Pending Verification'}
-                        color={personalInfo.backIdStatus ? 'success' : 'warning'}
-                        size="small"
-                        sx={{ mt: 1 }}
-                      />
-                    </Box>
-                  ) : (
-                    <Box>
-                      <Badge color="action" sx={{ fontSize: 48 }} />
-                      <Typography variant="body1" fontWeight="medium" mt={1}>
-                        Upload Back ID
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Click to upload back identification document
+                        Agent has not uploaded ID card
                       </Typography>
                     </Box>
                   )}
@@ -936,36 +1344,54 @@ const AgentPersonalInfo: React.FC<{ agent: any; details: any }> = ({ agent, deta
 // Agent Profile Modal Component
 const AgentProfileModal: React.FC<{
   open: boolean;
-  agent: any;
+  agent: AgentData | null;
   onClose: () => void;
 }> = ({ open, agent, onClose }) => {
   const [activeTab, setActiveTab] = useState(0);
-  const [agentDetails, setAgentDetails] = useState<any>(null);
+  const [agentDetails, setAgentDetails] = useState<AgentData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { token } = useAdminStore();
+  const { getAgentProfile } = useAdminStore();
 
   useEffect(() => {
     const fetchAgentDetails = async () => {
-      if (!agent?.id || !token) return;
+      if (!agent?.id) {
+        console.log('❌ No agent provided for modal');
+        return;
+      }
 
       try {
         setLoading(true);
         setError(null);
-        // Mock API call - replace with actual endpoint
-        setTimeout(() => {
-          setAgentDetails({
-            ...agent,
-            profilePicture: null,
-            totalEarnings: '₦185,950',
-            activeProperties: 12,
-          });
-          setLoading(false);
-        }, 1000);
+        
+        console.log('📤 Modal fetching agent details for:', agent.id);
+        
+        // Fetch initial agent info
+        const response = await getAgentProfile(agent.id, 'info');
+        console.log('👤 Modal raw response:', response);
+        
+        const extracted = extractAgentData(response);
+        
+        console.log('👤 Modal extracted data:', {
+          totals: extracted.totals,
+          dataLength: extracted.data?.length,
+          firstItem: extracted.data?.[0]
+        });
+        
+        if (extracted.data && extracted.data.length > 0) {
+          setAgentDetails(extracted.data[0]);
+        } else {
+          console.log('⚠️ No agent details found in modal, using basic agent data');
+          setAgentDetails(agent);
+        }
+        
+        setLoading(false);
       } catch (err: any) {
+        console.error('❌ Modal error:', err);
         setError(err.message || 'Failed to fetch agent details');
         setLoading(false);
+        setAgentDetails(agent); // Fallback to basic agent data
       }
     };
 
@@ -973,7 +1399,7 @@ const AgentProfileModal: React.FC<{
       fetchAgentDetails();
       setActiveTab(0);
     }
-  }, [open, agent, token]);
+  }, [open, agent, getAgentProfile]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -999,16 +1425,16 @@ const AgentProfileModal: React.FC<{
           <Box display="flex" alignItems="center" gap={2}>
             <Avatar
               sx={{ width: 48, height: 48, bgcolor: 'primary.main' }}
-              src={agentDetails?.profilePicture || undefined}
+              src={agentDetails?.profile_picture || agent?.profile_picture || undefined}
             >
               <Person />
             </Avatar>
             <Box>
               <Typography variant="h6" component="div">
-                {agent.name || 'Unnamed Agent'}
+                {agentDetails?.name || agent?.name || 'Unnamed Agent'}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Agent ID: {agent.id}
+                Agent ID: {agentDetails?.id || agent?.id}
               </Typography>
             </Box>
           </Box>
@@ -1022,6 +1448,9 @@ const AgentProfileModal: React.FC<{
         {loading && (
           <Box display="flex" justifyContent="center" py={4}>
             <CircularProgress />
+            <Typography variant="body2" sx={{ ml: 2 }}>
+              Loading agent profile...
+            </Typography>
           </Box>
         )}
 
@@ -1062,19 +1491,19 @@ const AgentProfileModal: React.FC<{
             {/* Tab Content */}
             <Box sx={{ px: 3, overflow: 'auto', maxHeight: '60vh' }}>
               <TabPanel value={activeTab} index={0}>
-                <AgentDashboard agent={agent} details={agentDetails} />
+                <AgentDashboard agent={agentDetails || agent} />
               </TabPanel>
 
               <TabPanel value={activeTab} index={1}>
-                <AgentPayouts agent={agent} />
+                <AgentPayouts agent={agentDetails || agent} />
               </TabPanel>
 
               <TabPanel value={activeTab} index={2}>
-                <AgentProperties agent={agent} />
+                <AgentProperties agent={agentDetails || agent} />
               </TabPanel>
 
               <TabPanel value={activeTab} index={3}>
-                <AgentPersonalInfo agent={agent} details={agentDetails} />
+                <AgentPersonalInfo agent={agentDetails || agent} />
               </TabPanel>
             </Box>
           </>
@@ -1099,14 +1528,6 @@ const AgentTable: React.FC = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [verificationDialog, setVerificationDialog] = useState<{
-    open: boolean;
-    agentId: string;
-    field: "front_id_status" | "back_id_status";
-    currentStatus: boolean;
-    agentName: string;
-    documentType: string;
-  } | null>(null);
 
   const [agentDetailModal, setAgentDetailModal] = useState<{
     open: boolean;
@@ -1116,12 +1537,10 @@ const AgentTable: React.FC = () => {
     agent: null,
   });
 
-  // const navigate = useNavigate();
   const {
     token,
     isLoading: storeLoading,
     listAgents,
-    verifyAgent,
     clearError,
   } = useAdminStore();
 
@@ -1135,10 +1554,19 @@ const AgentTable: React.FC = () => {
 
       try {
         setLoading(true);
+        console.log('📤 Fetching agents list, page:', currentPage);
         const result = await listAgents(currentPage, itemsPerPage);
+        
+        console.log('📊 Agents list response:', result);
 
         const agentsData = result?.data?.agents || [];
         const pagination = result?.data?.pagination || {};
+
+        console.log('📊 Extracted agents data:', {
+          agentsCount: agentsData.length,
+          pagination,
+          firstAgent: agentsData[0]
+        });
 
         setData(Array.isArray(agentsData) ? agentsData : []);
         setTotalAgents(pagination.totalAgents || 0);
@@ -1147,6 +1575,7 @@ const AgentTable: React.FC = () => {
         setItemsPerPage(pagination.itemsPerPage || itemsPerPage);
         setError(null);
       } catch (error: any) {
+        console.error('❌ Error fetching agents:', error);
         setError(error.message || "Failed to fetch agents data");
       } finally {
         setLoading(false);
@@ -1155,8 +1584,6 @@ const AgentTable: React.FC = () => {
 
     fetchData();
   }, [token, currentPage, itemsPerPage, listAgents]);
-
-  
 
   const openAgentDetailModal = (agent: AgentData) => {
     setAgentDetailModal({
@@ -1170,51 +1597,6 @@ const AgentTable: React.FC = () => {
       open: false,
       agent: null,
     });
-  };
-
-  // const openVerificationDialog = (
-  //   agentId: string,
-  //   field: "front_id_status" | "back_id_status",
-  //   currentStatus: boolean,
-  //   agentName: string,
-  //   documentType: string,
-  // ) => {
-  //   setVerificationDialog({
-  //     open: true,
-  //     agentId,
-  //     field,
-  //     currentStatus,
-  //     agentName,
-  //     documentType,
-  //   });
-  // };
-
-  const closeVerificationDialog = () => {
-    setVerificationDialog(null);
-  };
-
-  const handleStatusChange = async () => {
-    if (!verificationDialog) return;
-
-    const { agentId, field, currentStatus } =
-      verificationDialog;
-
-    try {
-      const newStatus = !currentStatus ? "VERIFIED" : "UNVERIFIED";
-
-      await verifyAgent(agentId, newStatus);
-
-      setData((prevData) =>
-        prevData.map((agent) =>
-          agent.id === agentId ? { ...agent, [field]: !currentStatus } : agent,
-        ),
-      );
-
-      closeVerificationDialog();
-    } catch (error) {
-      console.error("Error updating status:", error);
-      setError("Failed to update verification status");
-    }
   };
 
   const handlePageChange = (
@@ -1240,24 +1622,6 @@ const AgentTable: React.FC = () => {
     }
   };
 
-  const getVerificationStatus = (
-    frontStatus?: boolean,
-    backStatus?: boolean,
-  ) => {
-    if (frontStatus && backStatus) return "Verified";
-    if (frontStatus || backStatus) return "Partial";
-    return "Not Verified";
-  };
-
-  const getVerificationColor = (
-    frontStatus?: boolean,
-    backStatus?: boolean,
-  ) => {
-    if (frontStatus && backStatus) return "success";
-    if (frontStatus || backStatus) return "warning";
-    return "error";
-  };
-
   const defaultMaterialTheme = createTheme({
     palette: {
       mode: "light",
@@ -1277,10 +1641,14 @@ const AgentTable: React.FC = () => {
     return (
       <Box
         display="flex"
+        flexDirection="column"
         justifyContent="center"
         alignItems="center"
         minHeight="400px">
         <CircularProgress />
+        <Typography variant="body2" sx={{ mt: 2 }}>
+          Loading agents data...
+        </Typography>
       </Box>
     );
   }
@@ -1350,9 +1718,9 @@ const AgentTable: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {data.map((agent) => (
+                  {data.map((agent, index) => (
                     <TableRow
-                      key={agent.id}
+                      key={agent.id || index}
                       sx={{
                         "&:hover": {
                           backgroundColor: "grey.50",
@@ -1367,7 +1735,12 @@ const AgentTable: React.FC = () => {
                           gap={2}
                           sx={{ cursor: "pointer" }}
                           onClick={() => openAgentDetailModal(agent)}>
-                          <Person color="primary" sx={{ fontSize: 32 }} />
+                          <Avatar
+                            sx={{ width: 40, height: 40, bgcolor: 'primary.main' }}
+                            src={agent.profile_picture || undefined}
+                          >
+                            <Person />
+                          </Avatar>
                           <Box>
                             <Typography variant="body1" fontWeight="bold">
                               {agent.name || "Unnamed Agent"}
@@ -1440,12 +1813,12 @@ const AgentTable: React.FC = () => {
                           <CalendarToday fontSize="small" color="primary" />
                           <Box>
                             <Typography variant="body2" fontWeight="medium">
-                              {new Date(agent.createdAt).toLocaleDateString()}
+                              {agent.createdAt ? new Date(agent.createdAt).toLocaleDateString() : 'N/A'}
                             </Typography>
                             <Typography
                               variant="caption"
                               color="text.secondary">
-                              {new Date(agent.createdAt).toLocaleTimeString()}
+                              {agent.createdAt ? new Date(agent.createdAt).toLocaleTimeString() : ''}
                             </Typography>
                           </Box>
                         </Box>
@@ -1511,38 +1884,6 @@ const AgentTable: React.FC = () => {
           agent={agentDetailModal.agent}
           onClose={closeAgentDetailModal}
         />
-
-        {/* Verification Confirmation Dialog */}
-        <Dialog
-          open={!!verificationDialog}
-          onClose={closeVerificationDialog}
-          maxWidth="sm"
-          fullWidth>
-          <DialogTitle>
-            {verificationDialog?.currentStatus
-              ? "Revoke Verification"
-              : "Approve Verification"}
-          </DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to{" "}
-              {verificationDialog?.currentStatus ? "revoke" : "approve"} the{" "}
-              {verificationDialog?.documentType?.toLowerCase()} for agent{" "}
-              <strong>{verificationDialog?.agentName}</strong>?
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={closeVerificationDialog} color="inherit">
-              Cancel
-            </Button>
-            <Button
-              onClick={handleStatusChange}
-              color={verificationDialog?.currentStatus ? "warning" : "success"}
-              variant="contained">
-              {verificationDialog?.currentStatus ? "Revoke" : "Approve"}
-            </Button>
-          </DialogActions>
-        </Dialog>
       </div>
     </ThemeProvider>
   );

@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from "react";
 import { ErrorMessage, Field, Form, Formik } from "formik";
 import { Link, useNavigate } from "react-router-dom";
@@ -9,7 +10,8 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
-import useAgentStore from "../../../stores/agentstore"; 
+import TextField from '@mui/material/TextField';
+import useAgentStore from "../../../stores/agentstore";
 
 const LoginAgent = () => {
   const navigate = useNavigate();
@@ -17,9 +19,11 @@ const LoginAgent = () => {
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [forgotPasswordError, setForgotPasswordError] = useState("");
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState("");
   
   // Use the store
-  const { login, isLoading, error, isAuthenticated, clearError, rememberMe, setRememberMe } = useAgentStore();
+  const { login, forgotPassword, isLoading, error, isAuthenticated, clearError, rememberMe, setRememberMe } = useAgentStore();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -55,8 +59,34 @@ const LoginAgent = () => {
   };
 
   const handleForgotPasswordSubmit = async () => {
-   
-    setIsForgotPasswordOpen(false);
+    if (!forgotPasswordEmail.trim()) {
+      setForgotPasswordError("Please enter your email address");
+      return;
+    }
+
+    if (!/\S+@\S+\.\S+/.test(forgotPasswordEmail)) {
+      setForgotPasswordError("Please enter a valid email address");
+      return;
+    }
+
+    try {
+      setForgotPasswordError("");
+      setForgotPasswordSuccess("");
+      
+      const response = await forgotPassword(forgotPasswordEmail);
+      
+      setForgotPasswordSuccess("Password reset link has been sent to your email!");
+      setForgotPasswordEmail("");
+      
+      // Close the dialog after 3 seconds
+      setTimeout(() => {
+        setIsForgotPasswordOpen(false);
+        setForgotPasswordSuccess("");
+      }, 3000);
+      
+    } catch (error: any) {
+      setForgotPasswordError(error.message || "Failed to send reset link. Please try again.");
+    }
   };
 
   return (
@@ -126,10 +156,10 @@ const LoginAgent = () => {
                     </div>
                     <button
                       type="button"
-                      className="text-blue-500 text-xs mt-1"
+                      className="text-blue-500 text-xs mt-1 hover:text-blue-700 transition-colors"
                       onClick={() => setIsForgotPasswordOpen(true)}
                     >
-                      Forgotten Password?
+                      Forgot Password?
                     </button>
                   </div>
                   <Button text="Login" type="submit" disabled={isLoading} />
@@ -148,6 +178,7 @@ const LoginAgent = () => {
         </div>
       </div>
 
+      {/* Error Dialog */}
       <Dialog
         open={isModalOpen}
         onClose={() => {
@@ -171,28 +202,70 @@ const LoginAgent = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Forgot Password Dialog */}
       <Dialog
         open={isForgotPasswordOpen}
-        onClose={() => setIsForgotPasswordOpen(false)}
+        onClose={() => {
+          setIsForgotPasswordOpen(false);
+          setForgotPasswordError("");
+          setForgotPasswordSuccess("");
+          setForgotPasswordEmail("");
+        }}
         aria-labelledby="forgot-password-dialog-title"
-        aria-describedby="forgot-password-dialog-description"
       >
         <DialogTitle id="forgot-password-dialog-title">Forgot Password</DialogTitle>
         <DialogContent>
-          <DialogContentText id="forgot-password-dialog-description">
+          <DialogContentText>
             Enter your email address to receive a password reset link.
           </DialogContentText>
-          <input
+          
+          {forgotPasswordSuccess && (
+            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-green-700 text-sm">{forgotPasswordSuccess}</p>
+            </div>
+          )}
+          
+          {forgotPasswordError && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-red-700 text-sm">{forgotPasswordError}</p>
+            </div>
+          )}
+          
+          <TextField
+            autoFocus
+            margin="dense"
+            id="forgot-email"
+            label="Email Address"
             type="email"
-            className="w-full mt-2 p-2 border rounded"
+            fullWidth
+            variant="outlined"
             value={forgotPasswordEmail}
-            onChange={(e) => setForgotPasswordEmail(e.target.value)}
-            placeholder="Email"
+            onChange={(e) => {
+              setForgotPasswordEmail(e.target.value);
+              setForgotPasswordError("");
+            }}
+            disabled={isLoading}
+            error={!!forgotPasswordError && !forgotPasswordSuccess}
+            className="mt-3"
           />
         </DialogContent>
         <DialogActions>
-          <Button text="Cancel" action={() => setIsForgotPasswordOpen(false)} type="button" />
-          <Button text="Submit" action={handleForgotPasswordSubmit} type="button" />
+          <Button 
+            text="Cancel" 
+            action={() => {
+              setIsForgotPasswordOpen(false);
+              setForgotPasswordError("");
+              setForgotPasswordSuccess("");
+              setForgotPasswordEmail("");
+            }} 
+            type="button"
+          />
+          <Button 
+            text="Send Reset Link" 
+            action={handleForgotPasswordSubmit} 
+            type="button"
+            disabled={isLoading || !forgotPasswordEmail}
+          />
         </DialogActions>
       </Dialog>
     </div>
