@@ -6,6 +6,7 @@ import CardHeader from "../../UI/CardHeader";
 import Label from "../../UI/Label";
 import useAgentStore from '../../../stores/agentstore';
 import { useSearchParams, useNavigate } from 'react-router-dom'; // Change useParams to useSearchParams
+import { Eye, EyeOff } from 'lucide-react'; // Import eye icons
 
 const ResetPassword: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,6 +14,10 @@ const ResetPassword: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [token, setToken] = useState('');
   const [step, setStep] = useState(1);
+  
+  // State for showing/hiding passwords
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const { forgotPassword, resetPassword, isLoading, error, clearError } = useAgentStore();
   const [successMessage, setSuccessMessage] = useState('');
@@ -126,58 +131,90 @@ const ResetPassword: React.FC = () => {
             </form>
           ) : (
             <form onSubmit={handlePasswordReset} className="space-y-4">
+              {/* Token field removed from UI - still used in background */}
+              {searchParams.get('token') && (
+                <p className="text-green-600 text-sm mb-2 p-2 bg-green-50 rounded">
+                  ✓ Reset token loaded successfully
+                </p>
+              )}
+              
+              {!searchParams.get('token') && (
+                <div>
+                  <Label htmlFor="token">Reset Token</Label>
+                  <Input
+                    type="text"
+                    id="token"
+                    value={token}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setToken(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    placeholder="Enter the token from your email"
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
               <div>
-                <Label htmlFor="token">Reset Token</Label>
-                <Input
-                  type="text"
-                  id="token"
-                  value={token}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setToken(e.target.value)}
-                  required
-                  disabled={isLoading || !!searchParams.get('token')} // Disable if token is from URL
-                  placeholder="Enter the token from your email"
-                  className="w-full"
-                />
-                {searchParams.get('token') && (
-                  <p className="text-green-600 text-sm mt-1">Token loaded from URL</p>
+                <Label htmlFor="password">New Password</Label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    id="password"
+                    value={password}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    placeholder="Enter your new password (min. 8 characters)"
+                    className="w-full pr-10"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {password.length > 0 && password.length < 8 && (
+                  <p className="text-red-600 text-sm mt-1">Password must be at least 8 characters</p>
                 )}
               </div>
               
               <div>
-                <Label htmlFor="password">New Password</Label>
-                <Input
-                  type="password"
-                  id="password"
-                  value={password}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  placeholder="Enter your new password (min. 8 characters)"
-                  className="w-full"
-                />
-              </div>
-              
-              <div>
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input
-                  type="password"
-                  id="confirmPassword"
-                  value={confirmPassword}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  placeholder="Confirm your new password"
-                  className="w-full"
-                />
+                <div className="relative">
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    id="confirmPassword"
+                    value={confirmPassword}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    placeholder="Confirm your new password"
+                    className="w-full pr-10"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={isLoading}
+                  >
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
                 {password && confirmPassword && password !== confirmPassword && (
                   <p className="text-red-600 text-sm mt-1">Passwords do not match</p>
+                )}
+                {password && confirmPassword && password === confirmPassword && password.length >= 8 && (
+                  <p className="text-green-600 text-sm mt-1">✓ Passwords match</p>
                 )}
               </div>
               
               <Button 
                 text={isLoading ? 'Resetting...' : 'Reset Password'}
                 type="submit" 
-                disabled={isLoading || !token || !password || !confirmPassword || password !== confirmPassword}
+                disabled={isLoading || !token || !password || !confirmPassword || password !== confirmPassword || password.length < 8}
                 className="w-full"
               />
               
@@ -191,6 +228,8 @@ const ResetPassword: React.FC = () => {
                     setToken('');
                     setPassword('');
                     setConfirmPassword('');
+                    setShowPassword(false);
+                    setShowConfirmPassword(false);
                   }}
                   className="text-blue-600 hover:text-blue-800"
                 >

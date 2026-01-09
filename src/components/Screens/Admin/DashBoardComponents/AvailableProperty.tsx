@@ -61,6 +61,48 @@ const parseBackendDate = (dateStr: string): Date => {
   return new Date(year, month - 1, day);
 };
 
+// Calculate nights for a date range
+const calculateRangeNights = (start: Date, end: Date): number => {
+  const timeDiff = end.getTime() - start.getTime();
+  const dayDiff = timeDiff / (1000 * 3600 * 24);
+  return Math.floor(dayDiff) + 1; // +1 to include both start and end dates
+};
+
+// Helper function to group consecutive dates into ranges
+const groupConsecutiveDates = (dates: Date[]): {start: Date, end: Date}[] => {
+  if (dates.length === 0) return [];
+  
+  const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime());
+  const ranges: {start: Date, end: Date}[] = [];
+  
+  let currentStart = sortedDates[0];
+  let currentEnd = sortedDates[0];
+  
+  for (let i = 1; i < sortedDates.length; i++) {
+    const prevDate = new Date(sortedDates[i-1]);
+    const nextDay = new Date(prevDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    // Check if dates are consecutive (same day as next day)
+    const currentDateStr = getDateString(sortedDates[i]);
+    const nextDayStr = getDateString(nextDay);
+    
+    if (currentDateStr === nextDayStr) {
+      // Dates are consecutive
+      currentEnd = sortedDates[i];
+    } else {
+      // Break in sequence - save current range and start new one
+      ranges.push({start: currentStart, end: currentEnd});
+      currentStart = sortedDates[i];
+      currentEnd = sortedDates[i];
+    }
+  }
+  
+  // Don't forget the last range
+  ranges.push({start: currentStart, end: currentEnd});
+  return ranges;
+};
+
 const BookingModal: React.FC<{
   property: Property | null;
   isOpen: boolean;
@@ -74,6 +116,7 @@ const BookingModal: React.FC<{
   });
 
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [dateRanges, setDateRanges] = useState<{start: Date, end: Date}[]>([]);
   const [bookedDates, setBookedDates] = useState<string[]>([]);
   const [bookingRanges, setBookingRanges] = useState<BookingRange[]>([]);
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
@@ -82,6 +125,22 @@ const BookingModal: React.FC<{
 
   const { offlineBooking } = useAdminStore();
   const { fetchBookingDates, bookingDates, loading, error } = useBookingStore();
+
+  // Update date ranges whenever selectedDates changes
+  useEffect(() => {
+    if (selectedDates.length > 0) {
+      const ranges = groupConsecutiveDates(selectedDates);
+      setDateRanges(ranges);
+      
+      console.log("📅 Date ranges calculated:", ranges.map(r => ({
+        start: getDateString(r.start),
+        end: getDateString(r.end),
+        nights: calculateRangeNights(r.start, r.end)
+      })));
+    } else {
+      setDateRanges([]);
+    }
+  }, [selectedDates]);
 
   // Fetch booked dates when modal opens
   useEffect(() => {
@@ -186,6 +245,7 @@ const BookingModal: React.FC<{
   useEffect(() => {
     if (!isOpen) {
       setSelectedDates([]);
+      setDateRanges([]);
       setBookedDates([]);
       setBookingRanges([]);
     }
@@ -265,8 +325,16 @@ const BookingModal: React.FC<{
     }
   };
 
-  const calculateTotalNights = (dates: Date[]): number => {
-    return dates.length;
+  const calculateTotalNights = (): number => {
+    if (dateRanges.length === 0) return 0;
+    
+    let totalNights = 0;
+    
+    dateRanges.forEach(range => {
+      totalNights += calculateRangeNights(range.start, range.end);
+    });
+    
+    return totalNights;
   };
 
   const formatDisplayDate = (date: Date): string => {
@@ -279,33 +347,34 @@ const BookingModal: React.FC<{
   };
 
   const convertToBookingFormat = (
-    dates: Date[]
-  ): { startDate: string[]; endDate: string[] } => {
-    if (dates.length === 0) {
+    ranges: {start: Date, end: Date}[]
+  ): { startDates: string[]; endDates: string[] } => {
+    if (ranges.length === 0) {
       throw new Error("No dates selected for booking");
     }
 
-    // Sort dates chronologically
-    const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime());
-    
     const startDates: string[] = [];
     const endDates: string[] = [];
     
-    // Send each selected date as a separate booking - ONLY DATES, NO TIME
-    sortedDates.forEach((date) => {
-      const dateStr = getDateString(date); // Just YYYY-MM-DD
+    // For each range, send start and end dates
+    ranges.forEach((range, index) => {
+      const startStr = getDateString(range.start);
+      const endStr = getDateString(range.end);
+      const nights = calculateRangeNights(range.start, range.end);
       
-      // Send the same date for both start and end (backend handles duration)
-      startDates.push(dateStr);
-      endDates.push(dateStr);
+      startDates.push(startStr);
+      endDates.push(endStr);
+      
+      console.log(`📅 Range ${index + 1}: ${startStr} to ${endStr} (${nights} nights)`);
     });
     
-    console.log("📤 Sending to backend (dates only):", {
+    console.log("📤 Sending to backend as ranges:", {
       startDates,
-      endDates
+      endDates,
+      totalRanges: ranges.length
     });
     
-    return { startDate: startDates, endDate: endDates };
+    return { startDates, endDates };
   };
 
   const renderDayContents = (day: number, date: Date) => {
@@ -367,6 +436,7 @@ const BookingModal: React.FC<{
       { field: bookingData.name, message: "Full name is required" },
       { field: bookingData.phone, message: "Phone number is required" },
       { field: bookingData.email, message: "Email is required" },
+      
     ];
 
     for (const { field, message } of requiredFields) {
@@ -395,6 +465,7 @@ const BookingModal: React.FC<{
       });
       return false;
     }
+
 
     if (selectedDates.length === 0) {
       toast.error("Please select at least one date", {
@@ -445,35 +516,27 @@ const BookingModal: React.FC<{
     try {
       setIsSubmitting(true);
 
-      const totalNights = calculateTotalNights(selectedDates);
+      const totalNights = calculateTotalNights();
       const totalAmount = property.price * totalNights;
 
-      const { startDate, endDate } = convertToBookingFormat(selectedDates);
+      // Convert date ranges to booking format
+      const { startDates, endDates } = convertToBookingFormat(dateRanges);
 
-      console.log("📤 Sending offline booking data (DATES ONLY):", {
-        apartmentId: property.id,
-        startDate: startDate,  // Just YYYY-MM-DD
-        endDate: endDate,      // Just YYYY-MM-DD
+
+      // Build payload matching API structure exactly
+      const bookingPayload = {
         name: bookingData.name,
         email: bookingData.email,
-        phone: bookingData.phone,
-        totalNights,
-        totalAmount,
-        selectedDates: selectedDates.map(d => getDateString(d)),
-      });
-
-      const result = await offlineBooking({
         apartmentId: property.id,
-        startDate: startDate,
-        endDate: endDate,
-        name: bookingData.name,
-        email: bookingData.email,
-        phone: bookingData.phone,
-      });
+        startDates: startDates,
+        endDates: endDates,
+      };
 
-      console.log("✅ Offline booking successful:", result);
+      const result = await offlineBooking(bookingPayload);
 
-      toast.success(`Booking created for ${totalNights} night(s)!`, {
+      console.log("✅ Multi-date range booking successful:", result);
+
+      toast.success(`Booking created for ${totalNights} night(s) across ${dateRanges.length} range(s)!`, {
         position: "top-right",
         autoClose: 3000,
       });
@@ -483,6 +546,11 @@ const BookingModal: React.FC<{
         propertyId: property.id,
         propertyName: property.name,
         selectedDates: selectedDates.map(d => getDateString(d)),
+        dateRanges: dateRanges.map(r => ({
+          start: getDateString(r.start),
+          end: getDateString(r.end),
+          nights: calculateRangeNights(r.start, r.end)
+        })),
         totalNights: totalNights,
         totalPrice: totalAmount,
         bookingResult: result,
@@ -515,9 +583,11 @@ const BookingModal: React.FC<{
     setBookingData({
       name: "",
       phone: "",
+      
       email: "",
     });
     setSelectedDates([]);
+    setDateRanges([]);
     setBookedDates([]);
     setBookingRanges([]);
     setHoveredDate(null);
@@ -531,7 +601,7 @@ const BookingModal: React.FC<{
 
   if (!isOpen || !property) return null;
 
-  const totalNights = calculateTotalNights(selectedDates);
+  const totalNights = calculateTotalNights();
   const totalAmount = property.price * totalNights;
 
   return (
@@ -571,6 +641,7 @@ const BookingModal: React.FC<{
                 <div>Type: {property.type}</div>
                 <div>Price: NGN {property.price.toLocaleString()}/night</div>
                 <div>Booked dates: {bookedDates.length} date(s)</div>
+                <div>Selected: {selectedDates.length} date(s) in {dateRanges.length} range(s)</div>
                 {bookedDates.length > 0 && (
                   <div className="mt-2">
                     <div className="text-xs text-gray-500 mb-1">
@@ -617,10 +688,12 @@ const BookingModal: React.FC<{
                     setBookingData({ ...bookingData, phone: e.target.value })
                   }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Phone Number"
+                  placeholder="Your Phone Number"
                   disabled={isSubmitting}
                 />
               </div>
+
+             
 
               <div>
                 <input
@@ -729,32 +802,55 @@ const BookingModal: React.FC<{
               {selectedDates.length > 0 && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                   <div className="flex justify-between items-center mb-4">
-                    <span className="font-semibold text-gray-900">
-                      Booking Summary:
-                    </span>
-                    <span className="text-blue-600 font-medium">
-                      {totalNights} night{totalNights > 1 ? "s" : ""} total
-                    </span>
+                    <div>
+                      <span className="font-semibold text-gray-900">
+                        Booking Summary:
+                      </span>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {dateRanges.length} range(s) selected
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-blue-600 font-medium block">
+                        {totalNights} night{totalNights > 1 ? "s" : ""} total
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        Across {dateRanges.length} booking{dateRanges.length > 1 ? "s" : ""}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="space-y-3 mb-4">
-                    {selectedDates.map((date, index) => {
-                      const checkInDate = formatDisplayDate(date);
-                      const checkOutDate = new Date(date);
+                    {dateRanges.map((range, index) => {
+                      const checkInDate = formatDisplayDate(range.start);
+                      const checkOutDate = new Date(range.end);
                       checkOutDate.setDate(checkOutDate.getDate() + 1);
                       const checkOutDateStr = formatDisplayDate(checkOutDate);
+                      const rangeNights = calculateRangeNights(range.start, range.end);
+                      const rangeAmount = property.price * rangeNights;
                       
                       return (
                         <div
                           key={index}
                           className="p-3 bg-white rounded-lg border border-gray-200">
                           <div className="flex justify-between items-start mb-2">
-                            <span className="font-medium text-sm text-gray-700">
-                              Night {index + 1}
-                            </span>
-                            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                              {checkInDate}
-                            </span>
+                            <div>
+                              <span className="font-medium text-sm text-gray-700">
+                                Booking {index + 1}
+                              </span>
+                              <div className="text-xs text-gray-500">
+                                {rangeNights} night{rangeNights > 1 ? 's' : ''}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mb-1">
+                                {getDateString(range.start)}
+                              </span>
+                              <span className="text-xs text-gray-500">to</span>
+                              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1">
+                                {getDateString(range.end)}
+                              </span>
+                            </div>
                           </div>
 
                           <div className="space-y-2 text-sm">
@@ -772,18 +868,21 @@ const BookingModal: React.FC<{
                               </span>
                             </div>
                             
-                            {property.price && (
-                              <div className="flex justify-between pt-2 border-t border-gray-100">
-                                <span className="text-gray-600">Amount:</span>
-                                <span className="font-medium text-green-600">
-                                  {new Intl.NumberFormat("en-NG", {
-                                    style: "currency",
-                                    currency: "NGN",
-                                    minimumFractionDigits: 0,
-                                  }).format(property.price)}
-                                </span>
-                              </div>
-                            )}
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Duration:</span>
+                              <span>{rangeNights} night{rangeNights > 1 ? 's' : ''}</span>
+                            </div>
+                            
+                            <div className="flex justify-between pt-2 border-t border-gray-100">
+                              <span className="text-gray-600">Range Amount:</span>
+                              <span className="font-medium text-green-600">
+                                {new Intl.NumberFormat("en-NG", {
+                                  style: "currency",
+                                  currency: "NGN",
+                                  minimumFractionDigits: 0,
+                                }).format(rangeAmount)}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       );
@@ -804,7 +903,7 @@ const BookingModal: React.FC<{
                       </div>
 
                       <div className="flex justify-between items-center font-semibold text-lg">
-                        <span>Total Amount:</span>
+                        <span>Total Amount ({totalNights} nights):</span>
                         <span className="text-green-600">
                           {new Intl.NumberFormat("en-NG", {
                             style: "currency",
@@ -839,7 +938,7 @@ const BookingModal: React.FC<{
                     Processing...
                   </>
                 ) : (
-                  "Confirm Booking"
+                  `Book ${totalNights} Night${totalNights > 1 ? 's' : ''}`
                 )}
               </button>
             </div>

@@ -559,6 +559,7 @@ const ManageBookingModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
 }> = ({ isOpen, onClose }) => {
+
   const navigate = useNavigate();
   const { manageBooking, managedBookings, loading, error } = useBookingStore();
   const [searchPerformed, setSearchPerformed] = useState(false);
@@ -566,6 +567,13 @@ const ManageBookingModal: React.FC<{
   
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
+
+    const getGoogleMapsUrl = (address: string): string => {
+    if (!address) return '#';
+    const encodedAddress = encodeURIComponent(address.trim());
+    return `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+  };
 
 
   const initialData = {
@@ -604,11 +612,9 @@ const ManageBookingModal: React.FC<{
     try {
       setSearchPerformed(false);
 
-
       await manageBooking(values.email, values.phone);
       setSearchPerformed(true);
     } catch (error) {
-    
       toast.error("Failed to search bookings. Please try again.", {
         position: "top-right",
         autoClose: 5000,
@@ -616,6 +622,25 @@ const ManageBookingModal: React.FC<{
     }
   };
 
+  // Helper function to add +1 day to check-out date for display
+  const formatDateWithPlusOne = (dateString: string, isCheckOut: boolean = false) => {
+    if (!dateString) return "N/A";
+    
+    const date = new Date(dateString);
+    
+    // Add +1 day to check-out dates for display
+    if (isCheckOut) {
+      date.setDate(date.getDate() + 1);
+    }
+    
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  // Original formatDate function (unchanged)
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -652,13 +677,11 @@ const ManageBookingModal: React.FC<{
     );
   };
 
-
   const handleViewBookingDetails = (booking: any) => {
     setSelectedBooking(booking);
     setIsDetailsModalOpen(true);
   };
 
-  
   const handleDownloadBooking = (booking: any) => {
     const content = generateDownloadContent(booking);
     const blob = new Blob([content], { type: "text/plain" });
@@ -677,16 +700,25 @@ const ManageBookingModal: React.FC<{
     });
   };
 
-  
+  // Generate download content with agent info and adjusted check-out date
   const generateDownloadContent = (booking: any) => {
-    
-    const checkInDate =
-      booking.booking_start_date || booking.transaction?.booking_start_date;
-    const checkOutDate =
-      booking.booking_end_date || booking.transaction?.booking_end_date;
-    const duration =
-      booking.duration_days || booking.transaction?.duration_days;
+    // Get dates with +1 day for check-out in display
+    const checkInDate = booking.booking_start_date || booking.transaction?.booking_start_date;
+    const checkOutDate = booking.booking_end_date || booking.transaction?.booking_end_date;
+    const duration = booking.duration_days || booking.transaction?.duration_days;
     const amount = booking.amount || booking.transaction?.amount;
+    
+    // Get agent information from the property
+    const agentName = booking.apartment?.agent?.name || "N/A";
+    const agentEmail = booking.apartment?.agent?.email || "N/A";
+    const agentPhone = booking.apartment?.agent?.phone_number || booking.apartment?.agent?.contact || "N/A";
+    const agentStatus = booking.apartment?.agent?.status || "N/A";
+
+    // Calculate check-out date +1 for display
+    const displayCheckOutDate = checkOutDate ? new Date(checkOutDate) : null;
+    if (displayCheckOutDate) {
+      displayCheckOutDate.setDate(displayCheckOutDate.getDate() + 1);
+    }
 
     const content = `
 Booking Details Receipt
@@ -700,8 +732,16 @@ Booking Information:
 -------------------
 Status: ${booking.status}
 Check-in: ${checkInDate ? formatDate(checkInDate) : "N/A"}
-Check-out: ${checkOutDate ? formatDate(checkOutDate) : "N/A"}
+Check-out (Display): ${displayCheckOutDate ? formatDate(displayCheckOutDate.toISOString()) : "N/A"}
+Check-out (Actual): ${checkOutDate ? formatDate(checkOutDate) : "N/A"}
 Duration: ${duration || "N/A"} days
+
+Agent Information:
+------------------
+Agent Name: ${agentName}
+Agent Email: ${agentEmail}
+Agent Phone: ${agentPhone}
+Agent Status: ${agentStatus}
 
 Payment Details:
 ----------------
@@ -716,12 +756,13 @@ Phone: ${booking.transaction?.phone_number || "N/A"}
 
 Booking Date: ${booking.created_at ? formatDate(booking.created_at) : "N/A"}
 Generated on: ${new Date().toLocaleDateString()}
+
+Note: Check-out date shown includes +1 day for display purposes.
     `;
 
     return content;
   };
 
-  
   const handleCloseDetailsModal = () => {
     setIsDetailsModalOpen(false);
     setSelectedBooking(null);
@@ -743,7 +784,6 @@ Generated on: ${new Date().toLocaleDateString()}
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
-        
             <div className="flex items-center gap-4 mb-6">
               <button
                 onClick={onClose}
@@ -824,7 +864,6 @@ Generated on: ${new Date().toLocaleDateString()}
                 </div>
               </div>
 
-            
               <div className="md:col-span-7">
                 {!searchPerformed ? (
                   <div className="flex flex-col items-center justify-center h-64 text-center">
@@ -868,18 +907,10 @@ Generated on: ${new Date().toLocaleDateString()}
                     </h3>
                     <div className="space-y-4">
                       {managedBookings.map((booking) => {
-                      
-                        const checkInDate =
-                          booking.booking_start_date ||
-                          booking.transaction?.booking_start_date;
-                        const checkOutDate =
-                          booking.booking_end_date ||
-                          booking.transaction?.booking_end_date;
-                        const duration =
-                          booking.duration_days ||
-                          booking.transaction?.duration_days;
-                        const amount =
-                          booking.amount || booking.transaction?.amount;
+                        const checkInDate = booking.booking_start_date || booking.transaction?.booking_start_date;
+                        const checkOutDate = booking.booking_end_date || booking.transaction?.booking_end_date;
+                        const duration = booking.duration_days || booking.transaction?.duration_days;
+                        const amount = booking.amount || booking.transaction?.amount;
 
                         return (
                           <div
@@ -897,17 +928,13 @@ Generated on: ${new Date().toLocaleDateString()}
                               <div>
                                 <span className="font-medium">Check-in:</span>
                                 <span className="ml-1">
-                                  {checkInDate
-                                    ? formatDate(checkInDate)
-                                    : "N/A"}
+                                  {checkInDate ? formatDate(checkInDate) : "N/A"}
                                 </span>
                               </div>
                               <div>
                                 <span className="font-medium">Check-out:</span>
                                 <span className="ml-1">
-                                  {checkOutDate
-                                    ? formatDate(checkOutDate)
-                                    : "N/A"}
+                                  {checkOutDate ? formatDateWithPlusOne(checkOutDate, true) : "N/A"}
                                 </span>
                               </div>
                               <div>
@@ -946,7 +973,6 @@ Generated on: ${new Date().toLocaleDateString()}
               </div>
             </div>
 
-            
             <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
               <button
                 onClick={onClose}
@@ -958,12 +984,11 @@ Generated on: ${new Date().toLocaleDateString()}
         </div>
       </div>
 
-      
+
       {selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">
                   Booking Details
@@ -1005,9 +1030,7 @@ Generated on: ${new Date().toLocaleDateString()}
                 </div>
               </div>
 
-              
               <div className="space-y-6">
-                
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Property Information
@@ -1021,14 +1044,39 @@ Generated on: ${new Date().toLocaleDateString()}
                         {selectedBooking.apartment?.name || "N/A"}
                       </p>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">
-                        Address
-                      </label>
-                      <p className="text-gray-900">
-                        {selectedBooking.apartment?.address || "N/A"}
-                      </p>
-                    </div>
+                   <div>
+                  <label className="text-sm font-medium text-gray-500">
+                    Address
+                  </label>
+                  <div className="mt-1">
+                    {selectedBooking.apartment?.address ? (
+                      <a
+                        href={getGoogleMapsUrl(selectedBooking.apartment.address)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline transition-colors flex items-center gap-1 text-sm"
+                        title="Click to open in Google Maps"
+                      >
+                        <svg 
+                          className="w-4 h-4" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth={2} 
+                            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" 
+                          />
+                        </svg>
+                        {selectedBooking.apartment.address}
+                      </a>
+                    ) : (
+                      <span className="text-gray-500 text-sm">N/A</span>
+                    )}
+                  </div>
+                </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">
                         Price per Night
@@ -1042,7 +1090,48 @@ Generated on: ${new Date().toLocaleDateString()}
                   </div>
                 </div>
 
-                
+                {/* NEW: Agent Information Section */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    Agent Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Agent Name
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.apartment?.agent?.name || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Agent Email
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.apartment?.agent?.email || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Agent Phone
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.apartment?.agent?.phone_number || 
+                         selectedBooking.apartment?.agent?.contact || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Agent Status
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.apartment?.agent?.status || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Booking Details
@@ -1080,16 +1169,27 @@ Generated on: ${new Date().toLocaleDateString()}
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">
-                        Check-out Date
+                        Check-out Date 
                       </label>
                       <p className="text-gray-900">
                         {selectedBooking.booking_end_date ||
                         selectedBooking.transaction?.booking_end_date
-                          ? formatDate(
+                          ? formatDateWithPlusOne(
                               selectedBooking.booking_end_date ||
                                 selectedBooking.transaction?.booking_end_date,
+                              true
                             )
                           : "N/A"}
+                        <br />
+                        <span className="text-xs text-gray-500">
+                          (Actual: {selectedBooking.booking_end_date ||
+                            selectedBooking.transaction?.booking_end_date
+                              ? formatDate(
+                                  selectedBooking.booking_end_date ||
+                                    selectedBooking.transaction?.booking_end_date,
+                                )
+                              : "N/A"})
+                        </span>
                       </p>
                     </div>
                     <div>
@@ -1116,7 +1216,6 @@ Generated on: ${new Date().toLocaleDateString()}
                   </div>
                 </div>
 
-                
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Payment Information
@@ -1165,7 +1264,6 @@ Generated on: ${new Date().toLocaleDateString()}
                   </div>
                 </div>
 
-                
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Guest Information
@@ -1191,7 +1289,6 @@ Generated on: ${new Date().toLocaleDateString()}
                 </div>
               </div>
 
-              
               <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
                 <button
                   onClick={handleCloseDetailsModal}
@@ -1204,11 +1301,9 @@ Generated on: ${new Date().toLocaleDateString()}
         </div>
       )}
     </>
-    );
+  );
 };
 
-
-// ... [previous code remains the same until BookingModal component]
 
 const BookingModal: React.FC<{
   property: Property | null;
@@ -1227,14 +1322,17 @@ const BookingModal: React.FC<{
   });
 
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [dateRanges, setDateRanges] = useState<{start: Date, end: Date}[]>([]);
   const [bookedDates, setBookedDates] = useState<string[]>([]);
+  const [bookingRanges, setBookingRanges] = useState<{start_date: string, end_date: string}[]>([]);
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
   const [loadingBookedDates, setLoadingBookedDates] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { initiatePayment, isInitializingPayment, clearPaymentInitError } =
     usePaymentStore();
 
-  const { fetchBookingDates, bookingDates } = useBookingStore();
+  const { fetchBookingDates } = useBookingStore();
 
   // Helper to get date string in YYYY-MM-DD format
   const getDateString = (date: Date): string => {
@@ -1266,21 +1364,83 @@ const BookingModal: React.FC<{
     return new Date(year, month - 1, day);
   };
 
+  // Calculate nights for a date range
+  const calculateRangeNights = (start: Date, end: Date): number => {
+    const timeDiff = end.getTime() - start.getTime();
+    const dayDiff = timeDiff / (1000 * 3600 * 24);
+    return Math.floor(dayDiff) + 1; // +1 to include both start and end dates
+  };
+
+  // Helper function to group consecutive dates into ranges
+  const groupConsecutiveDates = (dates: Date[]): {start: Date, end: Date}[] => {
+    if (dates.length === 0) return [];
+    
+    const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime());
+    const ranges: {start: Date, end: Date}[] = [];
+    
+    let currentStart = sortedDates[0];
+    let currentEnd = sortedDates[0];
+    
+    for (let i = 1; i < sortedDates.length; i++) {
+      const prevDate = new Date(sortedDates[i-1]);
+      const nextDay = new Date(prevDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      // Check if dates are consecutive (same day as next day)
+      const currentDateStr = getDateString(sortedDates[i]);
+      const nextDayStr = getDateString(nextDay);
+      
+      if (currentDateStr === nextDayStr) {
+        // Dates are consecutive
+        currentEnd = sortedDates[i];
+      } else {
+        // Break in sequence - save current range and start new one
+        ranges.push({start: currentStart, end: currentEnd});
+        currentStart = sortedDates[i];
+        currentEnd = sortedDates[i];
+      }
+    }
+    
+    // Don't forget the last range
+    ranges.push({start: currentStart, end: currentEnd});
+    return ranges;
+  };
+
+  // Update date ranges whenever selectedDates changes
+  useEffect(() => {
+    if (selectedDates.length > 0) {
+      const ranges = groupConsecutiveDates(selectedDates);
+      setDateRanges(ranges);
+      
+      console.log("📅 Date ranges calculated:", ranges.map(r => ({
+        start: getDateString(r.start),
+        end: getDateString(r.end),
+        nights: calculateRangeNights(r.start, r.end)
+      })));
+    } else {
+      setDateRanges([]);
+    }
+  }, [selectedDates]);
+
   // Fetch booked dates when modal opens
   useEffect(() => {
     const fetchBookedDates = async (propertyId: string) => {
       try {
         setLoadingBookedDates(true);
-       
-        // Clear previous dates
+        console.log("🔄 Fetching booked dates for property:", propertyId);
+
         setBookedDates([]);
+        setBookingRanges([]);
         
         const dates = await fetchBookingDates(propertyId);
         
         const dateStrings: string[] = [];
+        const ranges: {start_date: string, end_date: string}[] = [];
 
-        if (dates && dates.length > 0) {          
-          dates.forEach((bookingDate: any) => {
+        if (dates && dates.length > 0) {
+          console.log("📅 Raw booking dates from API:", dates);
+          
+          dates.forEach((bookingDate: any, index: number) => {
             const startDateStr = bookingDate.start_date;
             const endDateStr = bookingDate.end_date;
             
@@ -1290,7 +1450,23 @@ const BookingModal: React.FC<{
                 const startDateLocal = parseBackendDate(startDateStr);
                 const endDateLocal = parseBackendDate(endDateStr);
                 
+                console.log(`📅 Processing booking ${index + 1}:`, {
+                  rawStart: startDateStr,
+                  rawEnd: endDateStr,
+                  startFormatted: getDateString(startDateLocal),
+                  endFormatted: getDateString(endDateLocal)
+                });
+                
                 if (!isNaN(startDateLocal.getTime()) && !isNaN(endDateLocal.getTime())) {
+                  const startDateFormatted = getDateString(startDateLocal);
+                  const endDateFormatted = getDateString(endDateLocal);
+                  
+                  // Store the range
+                  ranges.push({
+                    start_date: startDateFormatted,
+                    end_date: endDateFormatted
+                  });
+                  
                   // Generate all dates in the range
                   const currentDate = new Date(startDateLocal);
                   while (currentDate <= endDateLocal) {
@@ -1300,21 +1476,32 @@ const BookingModal: React.FC<{
                     }
                     currentDate.setDate(currentDate.getDate() + 1);
                   }
+                } else {
+                  console.warn(`❌ Invalid dates in booking ${index + 1}:`, { startDateStr, endDateStr });
                 }
               } catch (error) {
-                console.error(`Error parsing dates ${startDateStr} to ${endDateStr}:`, error);
+                console.error(`❌ Error parsing dates ${startDateStr} to ${endDateStr}:`, error);
               }
+            } else {
+              console.warn(`❌ Missing date fields in booking ${index + 1}:`, bookingDate);
             }
           });
+        } else {
+          console.log("📅 No booking dates found for this property");
         }
 
         // Remove duplicates and sort
         const uniqueDates = [...new Set(dateStrings)].sort();
         
+        console.log("📅 Final booked dates:", uniqueDates);
+        console.log("📅 Booking ranges:", ranges);
+        console.log(`📅 Total dates to block: ${uniqueDates.length}`);
+        
         setBookedDates(uniqueDates);
+        setBookingRanges(ranges);
         
       } catch (error) {
-        console.error("Error fetching booked dates:", error);
+        console.error("❌ Error fetching booked dates:", error);
         toast.warning(
           "Unable to load booked dates. Some dates may be unavailable.",
           {
@@ -1323,6 +1510,7 @@ const BookingModal: React.FC<{
           },
         );
         setBookedDates([]);
+        setBookingRanges([]);
       } finally {
         setLoadingBookedDates(false);
       }
@@ -1337,7 +1525,9 @@ const BookingModal: React.FC<{
   useEffect(() => {
     if (!isOpen) {
       setSelectedDates([]);
+      setDateRanges([]);
       setBookedDates([]);
+      setBookingRanges([]);
     }
   }, [isOpen]);
 
@@ -1347,7 +1537,30 @@ const BookingModal: React.FC<{
     }
 
     const dateStr = getDateString(date);
-    return bookedDates.includes(dateStr);
+    
+    // Check if the exact date is marked as booked
+    const isExactDateBooked = bookedDates.includes(dateStr);
+    
+    if (isExactDateBooked) {
+      return true;
+    }
+    
+    // Also check if the date falls within any booking range
+    for (const range of bookingRanges) {
+      try {
+        const rangeStart = parseBackendDate(range.start_date + 'T00:00:00');
+        const rangeEnd = parseBackendDate(range.end_date + 'T00:00:00');
+        const checkDate = parseBackendDate(dateStr + 'T00:00:00');
+        
+        if (checkDate >= rangeStart && checkDate <= rangeEnd) {
+          return true;
+        }
+      } catch (error) {
+        console.error(`Error checking date range:`, error);
+      }
+    }
+    
+    return false;
   };
 
   const isDateSelected = (date: Date) => {
@@ -1362,6 +1575,8 @@ const BookingModal: React.FC<{
     // Create a clean date without time component
     const cleanDate = normalizeDate(date);
     const dateStr = getDateString(cleanDate);
+    
+    console.log(`📅 User selected date: ${dateStr}`);
 
     if (isDateBooked(cleanDate)) {
       toast.info("This date is already booked. Please select another date.", {
@@ -1379,13 +1594,27 @@ const BookingModal: React.FC<{
       // Remove date if already selected
       const newDates = selectedDates.filter((_, index) => index !== dateIndex);
       setSelectedDates(newDates);
+      console.log(`📅 Removed date: ${dateStr}, Total selected: ${newDates.length}`);
     } else {
       // Add date
       const newDates = [...selectedDates, cleanDate].sort(
         (a, b) => a.getTime() - b.getTime(),
       );
       setSelectedDates(newDates);
+      console.log(`📅 Added date: ${dateStr}, Total selected: ${newDates.length}`);
     }
+  };
+
+  const calculateTotalNights = (): number => {
+    if (dateRanges.length === 0) return 0;
+    
+    let totalNights = 0;
+    
+    dateRanges.forEach(range => {
+      totalNights += calculateRangeNights(range.start, range.end);
+    });
+    
+    return totalNights;
   };
 
   const formatDisplayDate = (date: Date): string => {
@@ -1397,27 +1626,32 @@ const BookingModal: React.FC<{
     });
   };
 
-  // Convert dates to simple YYYY-MM-DD format for backend
   const convertToBookingFormat = (
-    dates: Date[]
+    ranges: {start: Date, end: Date}[]
   ): { startDates: string[]; endDates: string[] } => {
-    if (dates.length === 0) {
+    if (ranges.length === 0) {
       throw new Error("No dates selected for booking");
     }
 
-    // Sort dates chronologically
-    const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime());
-    
     const startDates: string[] = [];
     const endDates: string[] = [];
     
-    // Send each selected date as a separate booking - ONLY DATES, NO TIME
-    sortedDates.forEach((date) => {
-      const dateStr = getDateString(date); // Just YYYY-MM-DD
+    // For each range, send start and end dates
+    ranges.forEach((range, index) => {
+      const startStr = getDateString(range.start);
+      const endStr = getDateString(range.end);
+      const nights = calculateRangeNights(range.start, range.end);
       
-      // Send the same date for both start and end (backend handles duration)
-      startDates.push(dateStr);
-      endDates.push(dateStr);
+      startDates.push(startStr);
+      endDates.push(endStr);
+      
+      console.log(`📅 Range ${index + 1}: ${startStr} to ${endStr} (${nights} nights)`);
+    });
+    
+    console.log("📤 Sending to backend as ranges:", {
+      startDates,
+      endDates,
+      totalRanges: ranges.length
     });
     
     return { startDates, endDates };
@@ -1446,10 +1680,19 @@ const BookingModal: React.FC<{
         className={`relative flex items-center justify-center w-8 h-8 rounded-full text-sm
       ${isToday ? "bg-blue-100 font-semibold" : ""}
       ${isSelected ? "bg-blue-600 text-white" : ""}
-      ${isBooked ? "bg-red-100 text-red-600 cursor-not-allowed" : isPast ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "hover:bg-gray-100 cursor-pointer"}
-      transition-colors duration-200`}
+      ${
+        isBooked
+          ? "bg-red-100 text-red-600 cursor-not-allowed"
+          : isPast
+          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+          : "hover:bg-gray-100 cursor-pointer"
+      }
+      transition-colors duration-200
+    `}
         onClick={handleDateClick}
-        onMouseEnter={() => !isBooked && !isPast && setHoveredDate(cleanDate)}
+        onMouseEnter={() =>
+          !isBooked && !isPast && setHoveredDate(cleanDate)
+        }
         onMouseLeave={() => setHoveredDate(null)}
         title={
           isBooked
@@ -1518,19 +1761,19 @@ const BookingModal: React.FC<{
       return false;
     }
 
-    return true;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
     if (selectedDates.length === 0) {
       toast.error("Please select at least one date", {
         position: "top-right",
         autoClose: 4000,
       });
-      return;
+      return false;
     }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
     if (!property) {
       toast.error("Property information is missing", {
@@ -1539,7 +1782,6 @@ const BookingModal: React.FC<{
       });
       return;
     }
-
 
     const finalAgentId = agentData?.id || property.agentId;
 
@@ -1555,22 +1797,9 @@ const BookingModal: React.FC<{
       return;
     }
 
-    const hasBookedDate = selectedDates.some((date) => isDateBooked(date));
-    if (hasBookedDate) {
-      toast.error(
-        "Some selected dates are already booked. Please choose different dates.",
-        {
-          position: "top-right",
-          autoClose: 5000,
-        },
-      );
-      return;
-    }
-
     try {
-      const { startDates, endDates } = convertToBookingFormat(selectedDates);
-      
-      console.log("Sending dates to backend:", { startDates, endDates });
+      // Convert date ranges to booking format
+      const { startDates, endDates } = convertToBookingFormat(dateRanges);
 
       const paymentData = {
         email: bookingData.email,
@@ -1578,8 +1807,8 @@ const BookingModal: React.FC<{
         currency: "NGN",
         agentId: finalAgentId,
         apartmentId: property.id,
-        startDates: startDates,
-        endDates: endDates,
+        startDates,
+        endDates,
         phoneNumber: bookingData.phone,
         nextofKinName: bookingData.name_of_nxt_of_kin,
         nextofKinNumber: bookingData.number_of_nxt_of_kin,
@@ -1588,7 +1817,6 @@ const BookingModal: React.FC<{
 
       const toastId = toast.loading("Initializing payment...", {
         position: "top-right",
-        autoClose: 3000,
       });
 
       const paymentResult = await initiatePayment(
@@ -1618,6 +1846,11 @@ const BookingModal: React.FC<{
           propertyId: property.id,
           propertyName: property.name,
           selectedDates: selectedDates.map(d => getDateString(d)),
+          dateRanges: dateRanges.map(r => ({
+            start: getDateString(r.start),
+            end: getDateString(r.end),
+            nights: calculateRangeNights(r.start, r.end)
+          })),
           paymentReference: paymentResult.data.reference,
           agentId: finalAgentId,
           authorizationUrl:
@@ -1650,9 +1883,6 @@ const BookingModal: React.FC<{
     }
   };
 
-
-  // Also remove dateClusters logic from the form rendering
-
   // Reset form when modal closes
   useEffect(() => {
     const resetForm = () => {
@@ -1664,7 +1894,9 @@ const BookingModal: React.FC<{
         number_of_nxt_of_kin: "",
       });
       setSelectedDates([]);
+      setDateRanges([]);
       setBookedDates([]);
+      setBookingRanges([]);
       setHoveredDate(null);
       clearPaymentInitError();
     };
@@ -1676,8 +1908,7 @@ const BookingModal: React.FC<{
 
   if (!isOpen || !property) return null;
 
-  // Calculate simple totals for display only
-  const totalNights = selectedDates.length;
+  const totalNights = calculateTotalNights();
   const totalAmount = property.price * totalNights;
 
   return (
@@ -1785,9 +2016,11 @@ const BookingModal: React.FC<{
 
             {/* Date Selection Section */}
             <div className="border rounded-lg p-4 relative">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Select Dates
-              </h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Select Dates
+                </h3>
+              </div>
 
               <div className="flex flex-wrap gap-4 mb-4 text-sm">
                 <div className="flex items-center gap-2">
@@ -1876,33 +2109,55 @@ const BookingModal: React.FC<{
               {selectedDates.length > 0 && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                   <div className="flex justify-between items-center mb-4">
-                    <span className="font-semibold text-gray-900">
-                      Booking Summary:
-                    </span>
-                    <span className="text-blue-600 font-medium">
-                      {totalNights} night{totalNights > 1 ? "s" : ""} total
-                    </span>
+                    <div>
+                      <span className="font-semibold text-gray-900">
+                        Booking Summary:
+                      </span>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {dateRanges.length} range(s) selected
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-blue-600 font-medium block">
+                        {totalNights} night{totalNights > 1 ? "s" : ""} total
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        Across {dateRanges.length} booking{dateRanges.length > 1 ? "s" : ""}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Display selected dates */}
                   <div className="space-y-3 mb-4">
-                    {selectedDates.map((date, index) => {
-                      const checkInDate = formatDisplayDate(date);
-                      const checkOutDate = new Date(date);
+                    {dateRanges.map((range, index) => {
+                      const checkInDate = formatDisplayDate(range.start);
+                      const checkOutDate = new Date(range.end);
                       checkOutDate.setDate(checkOutDate.getDate() + 1);
                       const checkOutDateStr = formatDisplayDate(checkOutDate);
+                      const rangeNights = calculateRangeNights(range.start, range.end);
+                      const rangeAmount = property.price * rangeNights;
                       
                       return (
                         <div
                           key={index}
                           className="p-3 bg-white rounded-lg border border-gray-200">
                           <div className="flex justify-between items-start mb-2">
-                            <span className="font-medium text-sm text-gray-700">
-                              Night {index + 1}
-                            </span>
-                            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                              {checkInDate}
-                            </span>
+                            <div>
+                              <span className="font-medium text-sm text-gray-700">
+                                Booking {index + 1}
+                              </span>
+                              <div className="text-xs text-gray-500">
+                                {rangeNights} night{rangeNights > 1 ? 's' : ''}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mb-1">
+                                {getDateString(range.start)}
+                              </span>
+                              <span className="text-xs text-gray-500">to</span>
+                              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1">
+                                {getDateString(range.end)}
+                              </span>
+                            </div>
                           </div>
 
                           <div className="space-y-2 text-sm">
@@ -1920,25 +2175,27 @@ const BookingModal: React.FC<{
                               </span>
                             </div>
                             
-                            {property.price && (
-                              <div className="flex justify-between pt-2 border-t border-gray-100">
-                                <span className="text-gray-600">Amount:</span>
-                                <span className="font-medium text-green-600">
-                                  {new Intl.NumberFormat("en-NG", {
-                                    style: "currency",
-                                    currency: "NGN",
-                                    minimumFractionDigits: 0,
-                                  }).format(property.price)}
-                                </span>
-                              </div>
-                            )}
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Duration:</span>
+                              <span>{rangeNights} night{rangeNights > 1 ? 's' : ''}</span>
+                            </div>
+                            
+                            <div className="flex justify-between pt-2 border-t border-gray-100">
+                              <span className="text-gray-600">Range Amount:</span>
+                              <span className="font-medium text-green-600">
+                                {new Intl.NumberFormat("en-NG", {
+                                  style: "currency",
+                                  currency: "NGN",
+                                  minimumFractionDigits: 0,
+                                }).format(rangeAmount)}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Total amount */}
                   {property.price && (
                     <div className="pt-4 border-t border-gray-200">
                       <div className="flex justify-between items-center mb-2">
@@ -1953,7 +2210,7 @@ const BookingModal: React.FC<{
                       </div>
 
                       <div className="flex justify-between items-center font-semibold text-lg">
-                        <span>Total Amount:</span>
+                        <span>Total Amount ({totalNights} nights):</span>
                         <span className="text-green-600">
                           {new Intl.NumberFormat("en-NG", {
                             style: "currency",
@@ -1973,19 +2230,19 @@ const BookingModal: React.FC<{
               <button
                 type="button"
                 onClick={onClose}
-                disabled={isInitializingPayment}
+                disabled={isInitializingPayment || isSubmitting}
                 className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 font-medium">
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={
-                  isInitializingPayment ||
+                  isInitializingPayment || isSubmitting ||
                   selectedDates.length === 0 ||
                   loadingBookedDates
                 }
                 className="flex-1 px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center">
-                {isInitializingPayment ? (
+                {isInitializingPayment || isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Processing...
@@ -2001,7 +2258,6 @@ const BookingModal: React.FC<{
     </div>
   );
 };
-
 
 const AgentPropertiesGallery: React.FC = () => {
   const { personalUrl } = useParams<{ personalUrl: string }>();

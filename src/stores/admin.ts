@@ -48,8 +48,8 @@ interface UpdateApartmentData {
 
 interface OfflineBookingData {
   apartmentId: string;
-  startDate: string[];
-  endDate: string[];
+  startDates: string[];
+  endDates: string[];
   name: string;
   email: string;
   phone?: string;
@@ -861,8 +861,8 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
 
           const requestData: any = {
             apartmentId: bookingData.apartmentId,
-            startDate: bookingData.startDate,
-            endDate: bookingData.endDate,
+            startDate: bookingData.startDates,
+            endDate: bookingData.endDates,
             name: bookingData.name,
             email: bookingData.email,
           };

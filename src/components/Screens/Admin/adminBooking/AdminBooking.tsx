@@ -167,11 +167,26 @@ const AdminBooking = () => {
     }
   }, [activeTab]);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string, isCheckout: boolean = false) => {
     if (!dateString) return "N/A";
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "N/A";
+      
+      // Add +1 day to checkout date
+      if (isCheckout) {
+        date.setDate(date.getDate() + 1);
+      }
+      
+      // Set time based on check-in/checkout
+      if (isCheckout) {
+        // Checkout time: 12:00 PM
+        date.setHours(12, 0, 0, 0);
+      } else {
+        // Check-in time: 1:00 AM
+        date.setHours(1, 0, 0, 0);
+      }
+      
       return date.toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
@@ -440,7 +455,7 @@ const getPhoneNumber = (booking: any) => {
       date: formatDate(booking.created_at || ""),
       phone_number: getPhoneNumber(booking),
       check_in: formatDate(booking.booking_start_date || (booking.booking_period as any)?.start_date || ""),
-      check_out: formatDate(booking.booking_end_date || (booking.booking_period as any)?.end_date || ""),
+      check_out: formatDate(booking.booking_end_date || (booking.booking_period as any)?.end_date || "", true), // true for checkout
       apartment_agent: getApartmentAgent(booking),
       status: status.toLowerCase(),
       displayStatus: getStatusText(status, isDeleted, expired),
@@ -618,7 +633,8 @@ const getPhoneNumber = (booking: any) => {
       const newStartDate = new Date(editFormData.startDate);
       const newEndDate = new Date(editFormData.endDate);
       
-      newStartDate.setHours(12, 0, 0, 0);
+      // Set check-in time to 1:00 AM and checkout to 12:00 PM
+      newStartDate.setHours(1, 0, 0, 0);
       newEndDate.setHours(12, 0, 0, 0);
 
       if (newStartDate >= newEndDate) {
@@ -632,7 +648,8 @@ const getPhoneNumber = (booking: any) => {
           const existingStart = new Date(date.booking_start_date);
           const existingEnd = new Date(date.booking_end_date);
           
-          existingStart.setHours(12, 0, 0, 0);
+          // Apply same time settings for comparison
+          existingStart.setHours(1, 0, 0, 0);
           existingEnd.setHours(12, 0, 0, 0);
           
           return (
@@ -1345,7 +1362,7 @@ const getPhoneNumber = (booking: any) => {
                     
                     <div>
                       <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Check in
+                        Check in 
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
                         {formatDate(selectedBooking.booking_start_date || (selectedBooking.booking_period as any)?.start_date || "")}
@@ -1365,10 +1382,10 @@ const getPhoneNumber = (booking: any) => {
                     
                     <div>
                       <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Check out
+                        Check out 
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {formatDate(selectedBooking.booking_end_date || (selectedBooking.booking_period as any)?.end_date || "")}
+                        {formatDate(selectedBooking.booking_end_date || (selectedBooking.booking_period as any)?.end_date || "", true)}
                       </Typography>
                     </div>
                   </div>
@@ -1545,7 +1562,7 @@ const getPhoneNumber = (booking: any) => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-700">
-                  Start Date
+                  Check-in
                 </label>
                 <div className="relative">
                   <DatePicker
@@ -1570,7 +1587,7 @@ const getPhoneNumber = (booking: any) => {
 
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-700">
-                  End Date
+                   Check-out
                 </label>
                 <div className="relative">
                   <DatePicker
@@ -1589,7 +1606,7 @@ const getPhoneNumber = (booking: any) => {
                     disabled={!editFormData.startDate}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Current: {selectedBooking?.booking_end_date ? formatDate(selectedBooking.booking_end_date) : "N/A"}
+                    Current: {selectedBooking?.booking_end_date ? formatDate(selectedBooking.booking_end_date, true) : "N/A"}
                   </p>
                 </div>
               </div>
@@ -1611,7 +1628,7 @@ const getPhoneNumber = (booking: any) => {
                         .filter(date => date.id !== selectedBooking?.id)
                         .map((date, index) => (
                           <div key={index} className="text-xs text-red-600 mb-1">
-                            {formatDate(typeof date.booking_start_date === 'string' ? date.booking_start_date : (date.booking_start_date as any)?.toISOString() || '')} - {formatDate(typeof date.booking_end_date === 'string' ? date.booking_end_date : (date.booking_end_date as any)?.toISOString() || '')}
+                            {formatDate(typeof date.booking_start_date === 'string' ? date.booking_start_date : (date.booking_start_date as any)?.toISOString() || '')} - {formatDate(typeof date.booking_end_date === 'string' ? date.booking_end_date : (date.booking_end_date as any)?.toISOString() || '', true)}
                           </div>
                         ))
                       }

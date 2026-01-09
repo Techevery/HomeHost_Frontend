@@ -44,7 +44,7 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   const [formData, setFormData] = useState({
     name: "",
     address: "",
-
+    location: "",
     type: "",
     servicing: "",
     bedroom: "",
@@ -137,6 +137,8 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
 
     if (!formData.name?.trim()) newErrors.name = "Property name is required";
     if (!formData.address?.trim()) newErrors.address = "Address is required";
+    if (!formData.location?.trim())
+      newErrors.location = "Location/Area is required";
 
     if (!formData.type) newErrors.type = "Property type is required";
     if (!formData.servicing?.trim())
@@ -164,6 +166,7 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
       // Append form data - matching backend expectations
       submitFormData.append("name", formData.name);
       submitFormData.append("address", formData.address);
+      submitFormData.append("location", formData.location);
 
       submitFormData.append("type", formData.type);
       submitFormData.append("servicing", formData.servicing);
@@ -210,7 +213,7 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
     setFormData({
       name: "",
       address: "",
-
+      location: "",
       type: "",
       servicing: "",
       bedroom: "",
@@ -287,7 +290,7 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             />
           </Grid>
 
-          {/* <Grid item xs={12} md={6}>
+           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
               label="Location/Area *"
@@ -297,7 +300,7 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
               helperText={errors.location}
               placeholder="e.g., Lekki Phase 1"
             />
-          </Grid> */}
+          </Grid>
 
           <Grid item xs={12}>
             <TextField

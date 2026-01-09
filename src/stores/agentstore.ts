@@ -755,7 +755,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
           }
 
           const response = await axios.patch(
-            `${API_BASE_URL}/api/v1/agent/update-profile`,
+            `${API_BASE_URL}/api/v1/auth/update-agent-profile`,
             formData,
             {
               headers: {
