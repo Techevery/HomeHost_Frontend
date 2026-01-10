@@ -121,36 +121,25 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
     }
   };
 
-const formatCheckOutDate = (checkInDate: string | Date, checkOutDate: string | Date) => {
-  if (!checkInDate || !checkOutDate) return formatDate(checkOutDate);
-  
-  try {
-    const checkIn = typeof checkInDate === 'string' ? new Date(checkInDate) : checkInDate;
-    const checkOut = typeof checkOutDate === 'string' ? new Date(checkOutDate) : checkOutDate;
+  const formatCheckOutDate = (checkInDate: string | Date, checkOutDate: string | Date) => {
+    if (!checkInDate || !checkOutDate) return formatDate(checkOutDate);
     
-    // Check if check-in is at 1 PM
-    const is1PMCheckIn = checkIn.getHours() === 13 && checkIn.getMinutes() === 0;
-
-    // Check if check-out is at 12 PM (noon)
-    const is12PMCheckOut = checkOut.getHours() === 12 && checkOut.getMinutes() === 0;
-    
-    // If check-in is at 1 PM and check-out is at 12 PM, DON'T add 1 day
-    // Just ensure check-out shows as 12:00 PM
-    if (is1PMCheckIn && is12PMCheckOut) {
-      // Return check-out with 12:00 PM time
-      const checkOutWith12PM = new Date(checkOut);
-      return formatDate(checkOutWith12PM);
+    try {
+      const checkIn = typeof checkInDate === 'string' ? new Date(checkInDate) : checkInDate;
+      const checkOut = typeof checkOutDate === 'string' ? new Date(checkOutDate) : checkOutDate;
+      
+      // Always add 1 day to check-out
+      const adjustedCheckOut = new Date(checkOut);
+      adjustedCheckOut.setDate(adjustedCheckOut.getDate() + 1);
+      
+      // Set checkout time to 12:00 PM
+      adjustedCheckOut.setHours(12, 0, 0, 0);
+      
+      return formatDate(adjustedCheckOut);
+    } catch {
+      return formatDate(checkOutDate);
     }
-    
-    // For any other case, ensure check-out shows as 12:00 PM
-    const adjustedCheckOut = new Date(checkOut);
-    adjustedCheckOut.setHours(12, 0, 0, 0); // Set to 12:00 PM
-    
-    return formatDate(adjustedCheckOut);
-  } catch {
-    return formatDate(checkOutDate);
-  }
-};
+  };
 
   const formatCurrency = (amount: any) => {
     const numAmount = typeof amount === 'number' ? amount : 
@@ -338,17 +327,31 @@ const getStatusColor = (status: string = "") => {
       const apartmentName = "Apartment Name";
       const bookingDetails = getApartmentDetails(booking);
       
+      // Format check-in time to 1:00 PM
+      const checkInDate = booking.transaction?.booking_start_date || "";
+      let formattedCheckIn = "N/A";
+      if (checkInDate) {
+        try {
+          const checkIn = typeof checkInDate === 'string' ? new Date(checkInDate) : checkInDate;
+          const checkInWith1PM = new Date(checkIn);
+          checkInWith1PM.setHours(13, 0, 0, 0); // Set to 1:00 PM
+          formattedCheckIn = formatDate(checkInWith1PM);
+        } catch {
+          formattedCheckIn = formatDate(checkInDate);
+        }
+      }
+      
       return {
         id: booking.id,
         customer: getCustomerName(booking),
         apartment_booked: apartmentName,
         date: formatDate(booking.created_at || ""),
         phone_number: getPhoneNumber(booking),
-        check_in: formatDate(booking.transaction?.booking_start_date || ""),
+        check_in: formattedCheckIn, // Now shows 1:00 PM
         check_out: formatCheckOutDate(
           booking.transaction?.booking_start_date || "", 
           booking.transaction?.booking_end_date || ""
-        ),
+        ), // Shows +1 day at 12:00 PM
         apartment_agent: getApartmentAgent(booking),
         status: status,
         displayStatus: getStatusText(status),
@@ -727,59 +730,58 @@ const getStatusColor = (status: string = "") => {
               </Tabs>
               
               <div className="bg-white rounded-t-[20px] p-4 sm:p-5 mt-4">
-  <div className="flex flex-wrap gap-4 sm:gap-12">
-    <div className="bg-[#4EC368] rounded-[12px] text-white px-4 sm:px-8 py-3 text-sm sm:text-base">
-      {activeTab === 0 ? 'Successful' : 'Currently Hosting'} ({activeTab === 0 ? getFilteredCounts.successful : getFilteredCounts.currentlyHosting})
-    </div>
-    <div className={`${activeTab === 0 ? 'bg-[#FF0909]' : 'bg-[#4A90E2]'} rounded-[12px] text-white px-8 sm:px-14 py-3 text-sm sm:text-base`}>
-      {activeTab === 0 ? 'Deleted' : 'Upcoming'} ({activeTab === 0 ? getFilteredCounts.deleted : getFilteredCounts.upcoming})
-    </div>
-  </div>
-</div>
+                <div className="flex flex-wrap gap-4 sm:gap-12">
+                  <div className="bg-[#4EC368] rounded-[12px] text-white px-4 sm:px-8 py-3 text-sm sm:text-base">
+                    {activeTab === 0 ? 'Successful' : 'Currently Hosting'} ({activeTab === 0 ? getFilteredCounts.successful : getFilteredCounts.currentlyHosting})
+                  </div>
+                  <div className={`${activeTab === 0 ? 'bg-[#FF0909]' : 'bg-[#4A90E2]'} rounded-[12px] text-white px-8 sm:px-14 py-3 text-sm sm:text-base`}>
+                    {activeTab === 0 ? 'Deleted' : 'Upcoming'} ({activeTab === 0 ? getFilteredCounts.deleted : getFilteredCounts.upcoming})
+                  </div>
+                </div>
+              </div>
 
-             {showStatusFilter && (
-  <div className="flex flex-wrap items-center gap-4 p-4 bg-gray-50 mt-4">
-    <div className="flex items-center gap-2">
-      <MdFilterList className="w-5 h-5 text-gray-600" />
-      <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
-    </div>
-    <div className="flex flex-wrap gap-2">
-      {getCurrentStatusFilterOptions().map((option) => (
-        <button
-          key={option.value}
-          onClick={() => setStatusFilter(option.value)}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            statusFilter === option.value
-              ? option.value === 'ALL' 
-                ? 'bg-blue-600 text-white'
-                : option.value === BookingStatus.SUCCESSFUL
-                ? 'bg-green-600 text-white'
-                : option.value === BookingStatus.DELETED
-                ? 'bg-red-600 text-white'
-                : option.value === BookingStatus.CURRENTLY_HOSTING
-                ? 'bg-blue-500 text-white'
-                : option.value === BookingStatus.UPCOMING
-                ? 'bg-teal-500 text-white' // Changed from teal-600 to teal-500
-                : option.value === BookingStatus.PENDING
-                ? 'bg-yellow-600 text-white'
-                : 'bg-gray-600 text-white'
-              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-          }`}
-        >
-          {option.label} 
-          <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
-            statusFilter === option.value 
-              ? 'bg-white bg-opacity-20' 
-              : 'bg-gray-100'
-          }`}>
-            {option.count}
-          </span>
-        </button>
-      ))}
-    </div>
-  </div>
-)}
-              
+              {showStatusFilter && (
+                <div className="flex flex-wrap items-center gap-4 p-4 bg-gray-50 mt-4">
+                  <div className="flex items-center gap-2">
+                    <MdFilterList className="w-5 h-5 text-gray-600" />
+                    <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {getCurrentStatusFilterOptions().map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => setStatusFilter(option.value)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          statusFilter === option.value
+                            ? option.value === 'ALL' 
+                              ? 'bg-blue-600 text-white'
+                              : option.value === BookingStatus.SUCCESSFUL
+                              ? 'bg-green-600 text-white'
+                              : option.value === BookingStatus.DELETED
+                              ? 'bg-red-600 text-white'
+                              : option.value === BookingStatus.CURRENTLY_HOSTING
+                              ? 'bg-blue-500 text-white'
+                              : option.value === BookingStatus.UPCOMING
+                              ? 'bg-teal-500 text-white' // Changed from teal-600 to teal-500
+                              : option.value === BookingStatus.PENDING
+                              ? 'bg-yellow-600 text-white'
+                              : 'bg-gray-600 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {option.label} 
+                        <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
+                          statusFilter === option.value 
+                            ? 'bg-white bg-opacity-20' 
+                            : 'bg-gray-100'
+                        }`}>
+                          {option.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Main Content Area - Scrollable */}
@@ -1092,7 +1094,19 @@ const getStatusColor = (status: string = "") => {
                         Check in
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {formatDate(selectedBooking.transaction?.booking_start_date || "")}
+                        {/* Format check-in to 1:00 PM in detail modal too */}
+                        {(() => {
+                          const checkInDate = selectedBooking.transaction?.booking_start_date || "";
+                          if (!checkInDate) return "N/A";
+                          try {
+                            const checkIn = typeof checkInDate === 'string' ? new Date(checkInDate) : checkInDate;
+                            const checkInWith1PM = new Date(checkIn);
+                            checkInWith1PM.setHours(13, 0, 0, 0);
+                            return formatDate(checkInWith1PM);
+                          } catch {
+                            return formatDate(checkInDate);
+                          }
+                        })()}
                       </Typography>
                     </div>
                   </div>
