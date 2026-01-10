@@ -857,14 +857,14 @@ const BookingModal: React.FC<{
                             <div className="flex justify-between">
                               <span className="text-gray-600">Check-in:</span>
                               <span>
-                                {checkInDate} at 1:00 PM
+                                {checkInDate} at 1:00 AM
                               </span>
                             </div>
                             
                             <div className="flex justify-between">
                               <span className="text-gray-600">Check-out:</span>
                               <span>
-                                {checkOutDateStr} at 12:00 PM
+                                {checkOutDateStr} at 1:00 PM
                               </span>
                             </div>
                             

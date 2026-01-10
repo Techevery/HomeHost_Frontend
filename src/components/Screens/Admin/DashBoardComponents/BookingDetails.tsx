@@ -31,7 +31,7 @@ const BookingDetails = () => {
       if (isCheckout) {
         // For checkout: add +1 day and set time to 12 PM (noon)
         adjustedDate.setDate(adjustedDate.getDate() + 1);
-        adjustedDate.setHours(12, 0, 0, 0);
+        adjustedDate.setHours(13, 0, 0, 0);
       } else {
         // For check-in: set time to 1 AM
         adjustedDate.setHours(1, 0, 0, 0);

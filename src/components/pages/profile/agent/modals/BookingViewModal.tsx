@@ -121,31 +121,32 @@ const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) =>
     }
   };
 
-  const formatCheckOutDate = (checkInDate: string | Date, checkOutDate: string | Date) => {
-    if (!checkInDate || !checkOutDate) return formatDate(checkOutDate);
+const formatCheckOutDate = (checkInDate: string | Date, checkOutDate: string | Date) => {
+  if (!checkInDate || !checkOutDate) return formatDate(checkOutDate);
+  
+  try {
+    const checkIn = typeof checkInDate === 'string' ? new Date(checkInDate) : checkInDate;
+    const checkOut = typeof checkOutDate === 'string' ? new Date(checkOutDate) : checkOutDate;
     
-    try {
-      const checkIn = typeof checkInDate === 'string' ? new Date(checkInDate) : checkInDate;
-      const checkOut = typeof checkOutDate === 'string' ? new Date(checkOutDate) : checkOutDate;
-      
-      // Check if check-in is at 1 AM
-      const is1AMCheckIn = checkIn.getHours() === 1 && checkIn.getMinutes() === 0;
-      
-      // Check if check-out is at 12 PM (noon)
-      const is12PMCheckOut = checkOut.getHours() === 12 && checkOut.getMinutes() === 0;
-      
-      // If check-in is at 1 AM and check-out is at 12 PM, add 1 day to check-out
-      if (is1AMCheckIn && is12PMCheckOut) {
-        const adjustedCheckOut = new Date(checkOut);
-        adjustedCheckOut.setDate(adjustedCheckOut.getDate() + 1);
-        return formatDate(adjustedCheckOut);
-      }
-      
-      return formatDate(checkOut);
-    } catch {
-      return formatDate(checkOutDate);
+    // Create a new date object for the check-out
+    const adjustedCheckOut = new Date(checkOut);
+    
+    // ALWAYS set check-out time to 1 PM
+    adjustedCheckOut.setHours(13, 0, 0, 0);
+    
+    // Check if check-in is at 1 AM (for duration calculation)
+    const is1AMCheckIn = checkIn.getHours() === 1 && checkIn.getMinutes() === 0;
+    
+    // If check-in is at 1 AM, add 1 day to check-out
+    if (is1AMCheckIn) {
+      adjustedCheckOut.setDate(adjustedCheckOut.getDate() + 1);
     }
-  };
+    
+    return formatDate(adjustedCheckOut);
+  } catch {
+    return formatDate(checkOutDate);
+  }
+};
 
   const formatCurrency = (amount: any) => {
     const numAmount = typeof amount === 'number' ? amount : 

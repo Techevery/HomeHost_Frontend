@@ -182,7 +182,7 @@ const AdminBooking = () => {
       // Set time based on check-in/checkout
       if (isCheckout) {
         // Checkout time: 12:00 PM
-        date.setHours(12, 0, 0, 0);
+        date.setHours(13, 0, 0, 0);
       } else {
         // Check-in time: 1:00 AM
         date.setHours(1, 0, 0, 0);
@@ -636,7 +636,7 @@ const getPhoneNumber = (booking: any) => {
       
       // Set check-in time to 1:00 AM and checkout to 12:00 PM
       newStartDate.setHours(1, 0, 0, 0);
-      newEndDate.setHours(12, 0, 0, 0);
+      newEndDate.setHours(13, 0, 0, 0);
 
       if (newStartDate >= newEndDate) {
         throw new Error("End date must be after start date");
