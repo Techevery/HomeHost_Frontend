@@ -128,19 +128,23 @@ const formatCheckOutDate = (checkInDate: string | Date, checkOutDate: string | D
     const checkIn = typeof checkInDate === 'string' ? new Date(checkInDate) : checkInDate;
     const checkOut = typeof checkOutDate === 'string' ? new Date(checkOutDate) : checkOutDate;
     
-    // Create a new date object for the check-out
-    const adjustedCheckOut = new Date(checkOut);
+    // Check if check-in is at 1 PM
+    const is1PMCheckIn = checkIn.getHours() === 13 && checkIn.getMinutes() === 0;
+
+    // Check if check-out is at 12 PM (noon)
+    const is12PMCheckOut = checkOut.getHours() === 12 && checkOut.getMinutes() === 0;
     
-    // ALWAYS set check-out time to 1 PM
-    adjustedCheckOut.setHours(13, 0, 0, 0);
-    
-    // Check if check-in is at 1 AM (for duration calculation)
-    const is1AMCheckIn = checkIn.getHours() === 1 && checkIn.getMinutes() === 0;
-    
-    // If check-in is at 1 AM, add 1 day to check-out
-    if (is1AMCheckIn) {
-      adjustedCheckOut.setDate(adjustedCheckOut.getDate() + 1);
+    // If check-in is at 1 PM and check-out is at 12 PM, DON'T add 1 day
+    // Just ensure check-out shows as 12:00 PM
+    if (is1PMCheckIn && is12PMCheckOut) {
+      // Return check-out with 12:00 PM time
+      const checkOutWith12PM = new Date(checkOut);
+      return formatDate(checkOutWith12PM);
     }
+    
+    // For any other case, ensure check-out shows as 12:00 PM
+    const adjustedCheckOut = new Date(checkOut);
+    adjustedCheckOut.setHours(12, 0, 0, 0); // Set to 12:00 PM
     
     return formatDate(adjustedCheckOut);
   } catch {

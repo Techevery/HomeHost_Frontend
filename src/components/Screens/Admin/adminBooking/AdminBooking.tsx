@@ -182,10 +182,10 @@ const AdminBooking = () => {
       // Set time based on check-in/checkout
       if (isCheckout) {
         // Checkout time: 12:00 PM
-        date.setHours(13, 0, 0, 0);
+        date.setHours(12, 0, 0, 0);
       } else {
-        // Check-in time: 1:00 AM
-        date.setHours(1, 0, 0, 0);
+        // Check-in time: 1:00 PM
+        date.setHours(13, 0, 0, 0);
       }
       
       return date.toLocaleDateString("en-US", {
