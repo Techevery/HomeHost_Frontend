@@ -28,6 +28,7 @@ interface Transaction {
   metadata?: any;
   agent?: Agent;
   name: string;
+   
 }
 
 interface Apartment {
@@ -830,6 +831,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
             transaction: bookingData.transaction
               ? {
                   id: bookingData.transaction.id || "",
+                
                   reference: bookingData.transaction.reference || "",
                   status: bookingData.transaction.status || "",
                   amount: bookingData.transaction.amount || 0,

@@ -79,6 +79,7 @@ interface TableRowData {
   originalBooking: any;
   isDeleted: boolean;
   isEditable: boolean;
+  transaction?: string;
 }
 
 // Function to create an array of dates between start and end
@@ -801,7 +802,7 @@ const getPhoneNumber = (booking: any) => {
         <div className="flex flex-col">
           <div className="font-semibold text-gray-800 text-sm">{rowData.apartment_agent}</div>
           <div className="text-xs text-gray-600 mt-1">{rowData.apartment_booked}</div>
-          <div className="text-xs text-gray-500 mt-1">Booking: {rowData.id}</div>
+    
           <div className="text-xs text-gray-400 mt-1">({rowData.note})</div>
         </div>
       ),
@@ -859,7 +860,7 @@ const getPhoneNumber = (booking: any) => {
         <div className="flex flex-col">
           <div className="font-semibold text-gray-800 text-sm">{rowData.apartment_agent}</div>
           <div className="text-xs text-gray-600 mt-1">{rowData.apartment_booked}</div>
-          <div className="text-xs text-gray-500 mt-1">Booking: {rowData.id}</div>
+      
           <div className="text-xs text-gray-400 mt-1">({rowData.note})</div>
         </div>
       ),
@@ -1317,7 +1318,7 @@ const getPhoneNumber = (booking: any) => {
                         Phone Number
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {getPhoneNumber(selectedBooking)}
+                        {getPhoneNumber(selectedBooking.transaction?.phone_number)}
                       </Typography>
                     </div>
                   </div>
@@ -1452,17 +1453,17 @@ const getPhoneNumber = (booking: any) => {
                         Ref
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black font-mono">
-                        {selectedBooking.transaction?.reference || "N/A"}
+                        {selectedBooking.transaction?.id || "N/A"}
                       </Typography>
                     </div>
                     
                     <div>
-                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
+                      {/* <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
                         Daily price
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
                         {getBookingDetails(selectedBooking).dailyPrice}
-                      </Typography>
+                      </Typography> */}
                     </div>
                     
                     <div>

@@ -562,6 +562,7 @@ const ManageBookingModal: React.FC<{
 
   const navigate = useNavigate();
   const { manageBooking, managedBookings, loading, error } = useBookingStore();
+  console.log({managedBookings})
   const [searchPerformed, setSearchPerformed] = useState(false);
 
   
@@ -731,9 +732,8 @@ Address: ${booking.apartment?.address || "N/A"}
 Booking Information:
 -------------------
 Status: ${booking.status}
-Check-in: ${checkInDate ? formatDate(checkInDate) : "N/A"}
-Check-out (Display): ${displayCheckOutDate ? formatDate(displayCheckOutDate.toISOString()) : "N/A"}
-Check-out (Actual): ${checkOutDate ? formatDate(checkOutDate) : "N/A"}
+Check-in: ${checkInDate ? formatDate(checkInDate) : "N/A"}:1:00AM
+Check-out: ${displayCheckOutDate ? formatDate(displayCheckOutDate.toISOString()) : "N/A"}:12:00PM
 Duration: ${duration || "N/A"} days
 
 Agent Information:
@@ -747,7 +747,7 @@ Payment Details:
 ----------------
 Amount: ${amount ? formatPrice(Number(amount)) : "N/A"}
 Transaction Status: ${booking.transaction?.status || "N/A"}
-Transaction Reference: ${booking.transaction?.reference || "N/A"}
+Transaction Reference: ${booking.transaction?.transaction_id || "N/A"}
 
 Contact Information:
 -------------------
@@ -757,7 +757,6 @@ Phone: ${booking.transaction?.phone_number || "N/A"}
 Booking Date: ${booking.created_at ? formatDate(booking.created_at) : "N/A"}
 Generated on: ${new Date().toLocaleDateString()}
 
-Note: Check-out date shown includes +1 day for display purposes.
     `;
 
     return content;
@@ -953,7 +952,7 @@ Note: Check-out date shown includes +1 day for display purposes.
 
                             <div className="flex justify-between items-center text-xs text-gray-500">
                               <span>
-                                Ref: {booking.transaction?.reference || "N/A"}
+                                Ref: {booking.transaction?.id || "N/A"}
                               </span>
                               <button
                                 onClick={(e) => {
@@ -1181,15 +1180,8 @@ Note: Check-out date shown includes +1 day for display purposes.
                             )
                           : "N/A"}
                         <br />
-                        <span className="text-xs text-gray-500">
-                          (Actual: {selectedBooking.booking_end_date ||
-                            selectedBooking.transaction?.booking_end_date
-                              ? formatDate(
-                                  selectedBooking.booking_end_date ||
-                                    selectedBooking.transaction?.booking_end_date,
-                                )
-                              : "N/A"})
-                        </span>
+                       
+                       
                       </p>
                     </div>
                     <div>
@@ -1252,7 +1244,7 @@ Note: Check-out date shown includes +1 day for display purposes.
                         Transaction Reference
                       </label>
                       <p className="text-gray-900 font-mono text-sm">
-                        {selectedBooking.transaction?.reference || "N/A"}
+                        {selectedBooking.transaction?.id||"N/A"}
                       </p>
                     </div>
                     <div>
@@ -2872,7 +2864,7 @@ const AgentPropertiesGallery: React.FC = () => {
                     </div>
 
                     <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                      {property.address}
+                      {property.location}
                     </p>
 
                     <div className="flex items-center justify-between mb-3">

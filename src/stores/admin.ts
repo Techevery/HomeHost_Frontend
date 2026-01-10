@@ -177,16 +177,13 @@ const useAdminStore = create<AdminState & AdminActions>()(
           try {
             localStorage.setItem("token", token);
           } catch (storageError) {
-            console.error("Storage error:", storageError);
+            
           }
 
           try {
             await get().fetchAdminProfile();
           } catch (profileError) {
-            console.warn(
-              "Failed to fetch complete admin profile, but login was successful:",
-              profileError,
-            );
+           
           }
         } catch (error: any) {
           const errorMessage =
@@ -322,8 +319,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
             dataToSend = { name, address, password, confirmPassword };
           }
 
-          console.log("🔄 Updating admin profile:", dataToSend);
-
+         
           const response = await adminAxios.patch(
             `/api/v1/admin/edit-profile`,
             dataToSend,
@@ -342,14 +338,10 @@ const useAdminStore = create<AdminState & AdminActions>()(
             error: null,
           }));
 
-          console.log("✅ Admin profile updated successfully:", data);
+        
           return response.data;
         } catch (error: any) {
-          console.error("❌ Update admin profile error:", {
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message,
-          });
+         
           
           const errorMessage =
             error.response?.data?.message ||

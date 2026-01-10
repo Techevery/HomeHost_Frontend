@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Paper, ThemeProvider, createTheme } from "@mui/material";
 import MaterialTable from "material-table";
 import { useLocation } from "react-router-dom";
-import useBookingStore from "../../../../stores/bookingStore"; 
+import useBookingStore from "../../../../stores/bookingStore";
 
 const BookingDetails = () => {
   const url = useLocation();
@@ -17,47 +17,27 @@ const BookingDetails = () => {
     fetchBookings();
   }, [fetchBookings]);
 
-  // Safe data transformation with validation
-  const transformBookingData = () => {
-    if (!bookings || !Array.isArray(bookings)) {
-      return [];
-    }
-
-    return bookings.map((booking) => ({
-      id: booking?.id || `temp-${Math.random()}`,
-      customer: booking?.guest_name || "Customer", 
-      apartment_booked: booking?.apartment?.name || "Apartment",
-      date: formatDate(booking?.created_at),
-      phone_number: booking?.guest_phone || "N/A",
-      check_in: formatDate(booking?.booking_start_date),
-      check_out: formatDate(booking?.booking_end_date),
-      apartment_agent: "Agent", 
-      status: mapStatus(booking?.status),
-    }));
-  };
-
-  const mapStatus = (status: string) => {
-    if (!status) return "Unavailable";
-    
-    const statusMap: { [key: string]: string } = {
-      booked: "Booked",
-      unavailable: "Unavailable",
-      pending: "Pending",
-      cancelled: "Cancelled",
-      rejected: "Rejected",
-    };
-    return statusMap[status] || "Unavailable";
-  };
-
-  // Helper function to format dates
-  const formatDate = (dateString: string) => {
+  // Modified helper function to format dates with specific requirements
+  const formatDate = (dateString: string, isCheckout = false) => {
     if (!dateString) return "N/A";
 
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "Invalid Date";
+
+      // Clone the date to avoid mutating the original
+      const adjustedDate = new Date(date);
       
-      return date.toLocaleDateString("en-US", {
+      if (isCheckout) {
+        // For checkout: add +1 day and set time to 12 PM (noon)
+        adjustedDate.setDate(adjustedDate.getDate() + 1);
+        adjustedDate.setHours(12, 0, 0, 0);
+      } else {
+        // For check-in: set time to 1 AM
+        adjustedDate.setHours(1, 0, 0, 0);
+      }
+
+      return adjustedDate.toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -70,14 +50,46 @@ const BookingDetails = () => {
     }
   };
 
+  // Safe data transformation with validation
+  const transformBookingData = () => {
+    if (!bookings || !Array.isArray(bookings)) {
+      return [];
+    }
+
+    return bookings.map((booking) => ({
+      id: booking?.id || `temp-${Math.random()}`,
+      customer: booking?.guest_name || "Customer",
+      apartment_booked: booking?.apartment?.name || "Apartment",
+      date: formatDate(booking?.created_at),
+      phone_number: booking?.guest_phone || "N/A",
+      check_in: formatDate(booking?.booking_start_date, false), // Not checkout
+      check_out: formatDate(booking?.booking_end_date, true), // Is checkout
+      apartment_agent: "Agent",
+      status: mapStatus(booking?.status),
+    }));
+  };
+
+  const mapStatus = (status: string) => {
+    if (!status) return "Unavailable";
+
+    const statusMap: { [key: string]: string } = {
+      booked: "Booked",
+      unavailable: "Unavailable",
+      pending: "Pending",
+      cancelled: "Cancelled",
+      rejected: "Rejected",
+    };
+    return statusMap[status] || "Unavailable";
+  };
+
   // Filter data based on selected status with validation
   const filteredData = React.useMemo(() => {
     const transformedData = transformBookingData();
-    
+
     if (selectedStatus === "all") {
       return transformedData;
     }
-    
+
     return transformedData.filter(
       (booking) =>
         booking.status.toLowerCase() === selectedStatus.toLowerCase(),
