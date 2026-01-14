@@ -301,7 +301,7 @@ const AdminBooking = () => {
   }
 };
   const getCustomerName = (booking: any) => {
-    return booking?.transaction?.metadata?.fullName || booking.guest_name || "N/A";
+    return booking?.transaction?.metadata?.name || booking.guest_name ||  booking?.transaction?.name   || "N/A";
   };
 
 const getPhoneNumber = (booking: any) => {
@@ -1309,7 +1309,7 @@ const getPhoneNumber = (booking: any) => {
                         Guest Name
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {getCustomerName(selectedBooking.transaction?.name)}
+                        {getCustomerName(selectedBooking)}
                       </Typography>
                     </div>
                     
@@ -1409,14 +1409,7 @@ const getPhoneNumber = (booking: any) => {
                       </Typography>
                     </div>
                     
-                    <div>
-                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Type
-                      </Typography>
-                      <Typography variant="body1" className="font-semibold text-black">
-                        {typeof selectedBooking.apartment === 'object' ? selectedBooking.apartment?.type : "N/A"}
-                      </Typography>
-                    </div>
+                   
                   </div>
                   
                   <div className="space-y-4">
@@ -1429,14 +1422,7 @@ const getPhoneNumber = (booking: any) => {
                       </Typography>
                     </div>
                     
-                    <div>
-                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Amenities
-                      </Typography>
-                      <Typography variant="body1" className="font-semibold text-black">
-                        {typeof selectedBooking.apartment === 'object' ? selectedBooking.apartment?.servicing : "N/A"}
-                      </Typography>
-                    </div>
+                   
                   </div>
                 </div>
               </div>
