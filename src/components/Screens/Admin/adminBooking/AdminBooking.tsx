@@ -495,7 +495,7 @@ const getPhoneNumber = (booking: any) => {
         row.originalBooking?.transaction?.reference || '',
         row.originalBooking?.transaction?.email || '',
         row.originalBooking?.guest_name || '',
-        row.originalBooking?.guest_phone || '',
+        row.originalBooking?.guest_phone || row.originalBooking?.transaction?.phone_number || '',
     
         typeof row.originalBooking?.apartment === 'object' ? row.originalBooking?.apartment?.address || '' : '',
         typeof row.originalBooking?.apartment === 'object' ? row.originalBooking?.apartment?.type || '' : '',
@@ -1309,7 +1309,7 @@ const getPhoneNumber = (booking: any) => {
                         Guest Name
                       </Typography>
                       <Typography variant="body1" className="font-semibold text-black">
-                        {getCustomerName(selectedBooking)}
+                        {getCustomerName(selectedBooking.transaction?.name)}
                       </Typography>
                     </div>
                     

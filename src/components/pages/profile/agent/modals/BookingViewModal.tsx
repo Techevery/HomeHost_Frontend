@@ -72,6 +72,11 @@ interface TableRowData {
   originalBooking: any;
   isDeleted: boolean;
   isEditable: boolean;
+  apartment?: {
+    name: string;
+    address: string;
+    type: string;
+  }
 }
 
 const BookingViewModal: React.FC<BookingViewModalProps> = ({ open, onClose }) => {
@@ -278,92 +283,101 @@ const getStatusColor = (status: string = "") => {
   }, [agentBookings]);
 
   // Create table data from agentBookings with memoization
-  const createTableData = useCallback(() => {
-    if (!agentBookings.length) return [];
+ const createTableData = useCallback(() => {
+  if (!agentBookings.length) return [];
 
-    const getFilteredBookings = () => {
-      switch (activeTab) {
-        case 0: // Agent Booking Details (Successful/Deleted)
-          return agentBookings.filter(booking => {
-            const status = booking.status?.toLowerCase() || "";
-            const transactionStatus = booking.transaction?.status?.toLowerCase() || "";
-            
-            // Include booked, successful, completed, or deleted/cancelled
-            return status.includes("booked") || 
-                   status.includes("success") || 
-                   status.includes("complete") ||
-                   transactionStatus.includes("success") ||
-                   status.includes("deleted") || 
-                   status.includes("cancel") ||
-                   transactionStatus.includes("deleted");
-          });
-        case 1: // Agent Booking Request (Currently Hosting/Upcoming/Pending)
-          return agentBookings.filter(booking => {
-            const status = booking.status?.toLowerCase() || "";
-            const transactionStatus = booking.transaction?.status?.toLowerCase() || "";
-            
-            // Include currently hosting, upcoming, or pending
-            return (status.includes("currently") || 
-                    status.includes("hosting") ||
-                    status.includes("upcoming") ||
-                    status.includes("pending") ||
-                    transactionStatus.includes("pending")) &&
-                   !status.includes("booked") &&
-                   !status.includes("success") &&
-                   !transactionStatus.includes("success") &&
-                   !status.includes("deleted") &&
-                   !transactionStatus.includes("deleted");
-          });
-        default:
-          return agentBookings;
+  const getFilteredBookings = () => {
+    switch (activeTab) {
+      case 0: // Agent Booking Details (Successful/Deleted)
+        return agentBookings.filter(booking => {
+          const status = booking.status?.toLowerCase() || "";
+          const transactionStatus = booking.transaction?.status?.toLowerCase() || "";
+          
+          // Include booked, successful, completed, or deleted/cancelled
+          return status.includes("booked") || 
+                 status.includes("success") || 
+                 status.includes("complete") ||
+                 transactionStatus.includes("success") ||
+                 status.includes("deleted") || 
+                 status.includes("cancel") ||
+                 transactionStatus.includes("deleted");
+        });
+      case 1: // Agent Booking Request (Currently Hosting/Upcoming/Pending)
+        return agentBookings.filter(booking => {
+          const status = booking.status?.toLowerCase() || "";
+          const transactionStatus = booking.transaction?.status?.toLowerCase() || "";
+          
+          // Include currently hosting, upcoming, or pending
+          return (status.includes("currently") || 
+                  status.includes("hosting") ||
+                  status.includes("upcoming") ||
+                  status.includes("pending") ||
+                  transactionStatus.includes("pending")) &&
+                 !status.includes("booked") &&
+                 !status.includes("success") &&
+                 !transactionStatus.includes("success") &&
+                 !status.includes("deleted") &&
+                 !transactionStatus.includes("deleted");
+        });
+      default:
+        return agentBookings;
+    }
+  };
+
+  const filteredBookings = getFilteredBookings();
+
+  return filteredBookings.map((booking): TableRowData => {
+    const status = booking.status || "Unknown";
+    const transactionStatus = booking.transaction?.status || "N/A";
+    const apartmentName = booking.apartment?.name || "N/A";
+    const bookingDetails = getApartmentDetails(booking);
+    
+    // Format check-in time to 1:00 PM
+    const checkInDate = booking.transaction?.booking_start_date || "";
+    let formattedCheckIn = "N/A";
+    if (checkInDate) {
+      try {
+        const checkIn = typeof checkInDate === 'string' ? new Date(checkInDate) : checkInDate;
+        const checkInWith1PM = new Date(checkIn);
+        checkInWith1PM.setHours(13, 0, 0, 0); // Set to 1:00 PM
+        formattedCheckIn = formatDate(checkInWith1PM);
+      } catch {
+        formattedCheckIn = formatDate(checkInDate);
       }
+    }
+    
+    // Create apartment object
+    const apartment = booking.apartment ? {
+      name: booking.apartment.name,
+      address: booking.apartment.address,
+      type: booking.apartment.type,
+  
+    } : undefined;
+    
+    return {
+      id: booking.id,
+      customer: getCustomerName(booking),
+      apartment_booked: apartmentName,
+      date: formatDate(booking.created_at || ""),
+      phone_number: getPhoneNumber(booking),
+      check_in: formattedCheckIn,
+      check_out: formatCheckOutDate(
+        booking.transaction?.booking_start_date || "", 
+        booking.transaction?.booking_end_date || ""
+      ),
+      apartment_agent: getApartmentAgent(booking),
+      status: status,
+      displayStatus: getStatusText(status),
+      transaction_status: transactionStatus,
+      amount: booking.transaction?.amount || 0,
+      note: bookingDetails.note,
+      originalBooking: booking,
+      isDeleted: status.toLowerCase().includes("deleted") || false,
+      isEditable: false,
+      apartment: apartment // Include apartment object for ALL rows
     };
-
-    const filteredBookings = getFilteredBookings();
-
-    return filteredBookings.map((booking): TableRowData => {
-      const status = booking.status || "Unknown";
-      const transactionStatus = booking.transaction?.status || "N/A";
-      const apartmentName = "Apartment Name";
-      const bookingDetails = getApartmentDetails(booking);
-      
-      // Format check-in time to 1:00 PM
-      const checkInDate = booking.transaction?.booking_start_date || "";
-      let formattedCheckIn = "N/A";
-      if (checkInDate) {
-        try {
-          const checkIn = typeof checkInDate === 'string' ? new Date(checkInDate) : checkInDate;
-          const checkInWith1PM = new Date(checkIn);
-          checkInWith1PM.setHours(13, 0, 0, 0); // Set to 1:00 PM
-          formattedCheckIn = formatDate(checkInWith1PM);
-        } catch {
-          formattedCheckIn = formatDate(checkInDate);
-        }
-      }
-      
-      return {
-        id: booking.id,
-        customer: getCustomerName(booking),
-        apartment_booked: apartmentName,
-        date: formatDate(booking.created_at || ""),
-        phone_number: getPhoneNumber(booking),
-        check_in: formattedCheckIn, // Now shows 1:00 PM
-        check_out: formatCheckOutDate(
-          booking.transaction?.booking_start_date || "", 
-          booking.transaction?.booking_end_date || ""
-        ), // Shows +1 day at 12:00 PM
-        apartment_agent: getApartmentAgent(booking),
-        status: status,
-        displayStatus: getStatusText(status),
-        transaction_status: transactionStatus,
-        amount: booking.transaction?.amount || 0,
-        note: bookingDetails.note,
-        originalBooking: booking,
-        isDeleted: status.toLowerCase().includes("deleted") || false,
-        isEditable: false,
-      };
-    });
-  }, [agentBookings, activeTab]);
+  });
+}, [agentBookings, activeTab]);
 
   // Cache the search results using useMemo
   const searchResults = useMemo(() => {
@@ -531,8 +545,8 @@ const getStatusColor = (status: string = "") => {
       cellStyle: { paddingLeft: "2%" },
       render: (rowData: TableRowData) => (
         <div className="flex flex-col">
-          <div className="text-xs text-gray-600 mt-1">{rowData.apartment_booked}</div>
-          <div className="text-xs text-gray-500 mt-1">Booking: {rowData.id}</div>
+            {rowData.apartment?.name || rowData.apartment_booked || "N/A"}
+          
           <div className="text-xs text-gray-400 mt-1">({rowData.note})</div>
         </div>
       ),
@@ -598,8 +612,7 @@ const getStatusColor = (status: string = "") => {
       cellStyle: { paddingLeft: "2%" },
       render: (rowData: TableRowData) => (
         <div className="flex flex-col">
-          <div className="text-xs text-gray-600 mt-1">{rowData.apartment_booked}</div>
-          <div className="text-xs text-gray-500 mt-1">Booking: {rowData.id}</div>
+           {rowData.apartment?.name || rowData.apartment_booked || "N/A"}
           <div className="text-xs text-gray-400 mt-1">({rowData.note})</div>
         </div>
       ),
@@ -1163,14 +1176,7 @@ const getStatusColor = (status: string = "") => {
                   </div>
                   
                   <div className="space-y-4">
-                    <div>
-                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Daily price
-                      </Typography>
-                      <Typography variant="body1" className="font-semibold text-black">
-                        {getBookingDetails(selectedBooking).dailyPrice}
-                      </Typography>
-                    </div>
+                 
                     
                     <div>
                       <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
@@ -1220,14 +1226,7 @@ const getStatusColor = (status: string = "") => {
                       </Typography>
                     </div>
                     
-                    <div>
-                      <Typography variant="body2" className="text-sm font-medium mb-1 text-gray-700">
-                        Total Booking Periods
-                      </Typography>
-                      <Typography variant="body1" className="font-semibold text-black">
-                        {getBookingDetails(selectedBooking).totalBookingPeriods}
-                      </Typography>
-                    </div>
+                   
                   </div>
                 </div>
               </div>

@@ -206,79 +206,63 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-// Helper function to extract data from API response - IMPROVED VERSION
+// Helper function to extract data from API response
 const extractAgentData = (response: any): AgentProfileResponse => {
-  console.log('🔍 Extracting data from response structure:', {
+  console.log('🔍 [FRONTEND] Extracting data from response:', {
     hasResponse: !!response,
-    responseType: typeof response,
-    responseKeys: response ? Object.keys(response) : [],
-    fullResponse: response
+    hasData: !!response?.data,
   });
   
   if (!response) {
     return { data: [], totals: null };
   }
 
-  // Handle the specific structure from your backend (most common case)
-  if (response?.data?.totals && response?.data?.data !== undefined) {
-    // Structure: { data: { totals: {...}, data: [...] } }
-    console.log('✅ Found structure: response.data.totals + response.data.data');
-    const dataArray = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
+  // Your backend returns: { message: "...", data: { totals: {...}, data: [...] } }
+  if (response.data && typeof response.data === 'object') {
+    const totals = response.data.totals;
+    let dataArray = [];
+    
+    if (Array.isArray(response.data.data)) {
+      dataArray = response.data.data;
+    } else if (response.data.data && typeof response.data.data === 'object') {
+      dataArray = [response.data.data];
+    } else if (Array.isArray(response.data)) {
+      dataArray = response.data;
+    }
+    
     return {
-      totals: response.data.totals,
+      totals: totals || null,
       data: dataArray
     };
   } 
   
-  // Alternative structure: direct totals and data
-  if (response?.totals && response?.data !== undefined) {
-    console.log('✅ Found structure: response.totals + response.data');
-    const dataArray = Array.isArray(response.data) ? response.data : [response.data];
+  // Alternative: direct totals and data in response
+  if (response.totals !== undefined) {
+    const dataArray = Array.isArray(response.data) ? response.data : 
+                     (response.data ? [response.data] : []);
+    
     return {
       totals: response.totals,
-      data: dataArray
-    };
-  } 
-  
-  // Structure with just data
-  if (response?.data !== undefined) {
-    console.log('✅ Found structure: response.data only');
-    const dataArray = Array.isArray(response.data) ? response.data : [response.data];
-    return {
-      totals: response.totals || null,
       data: dataArray
     };
   }
   
   // If response is already an array
   if (Array.isArray(response)) {
-    console.log('✅ Found structure: array');
     return {
       totals: null,
       data: response
     };
   }
   
-  // If response is an object but not the expected structure
-  if (response && typeof response === 'object') {
-    console.log('✅ Found structure: object, checking for nested data');
-    
-    // Check if it has properties that look like agent data
-    if (response.id || response.name || response.email) {
-      return {
-        totals: null,
-        data: [response]
-      };
-    }
-    
-    // Return empty if we can't parse it
+  // If it's a single agent object
+  if (response.id || response.email || response.name) {
     return {
       totals: null,
-      data: []
+      data: [response]
     };
   }
   
-  console.log('❌ No valid data structure found');
   return {
     totals: null,
     data: []
@@ -296,7 +280,6 @@ const AgentDashboard: React.FC<{ agent: AgentData }> = ({ agent }) => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!agent?.id) {
-        console.log('❌ No agent ID provided');
         setLoading(false);
         return;
       }
@@ -304,24 +287,14 @@ const AgentDashboard: React.FC<{ agent: AgentData }> = ({ agent }) => {
       setLoading(true);
       setError(null);
       try {
-        console.log('📤 Fetching dashboard data for agent:', agent.id);
-        
-        // Fetch info for totals
+        // Fetch dashboard totals from info endpoint
         const infoResponse = await getAgentProfile(agent.id, 'info');
-        console.log('📊 Dashboard raw response:', infoResponse);
-        
         const infoExtracted = extractAgentData(infoResponse);
         
-        console.log('📊 Dashboard extracted data:', {
-          totals: infoExtracted.totals,
-          dataLength: infoExtracted.data?.length,
-          firstItem: infoExtracted.data?.[0]
-        });
-        
+        // Set dashboard totals
         if (infoExtracted.totals) {
           setDashboardData(infoExtracted.totals);
         } else {
-          console.log('⚠️ No totals found in dashboard response');
           setDashboardData({
             totalBalance: 0,
             totalPending: 0,
@@ -330,31 +303,28 @@ const AgentDashboard: React.FC<{ agent: AgentData }> = ({ agent }) => {
           });
         }
 
-        // Fetch payouts for recent section
-        const payoutResponse = await getAgentProfile(agent.id, 'payout');
-        console.log('💰 Payouts raw response:', payoutResponse);
-        
-        const payoutExtracted = extractAgentData(payoutResponse);
-        
-        console.log('💰 Payouts extracted data:', {
-          dataLength: payoutExtracted.data?.length,
-          firstItem: payoutExtracted.data?.[0]
-        });
-        
-        if (payoutExtracted.data && payoutExtracted.data.length > 0) {
-          // Get latest 2 payouts for dashboard
-          const recent = payoutExtracted.data
-            .sort((a: any, b: any) => 
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            )
-            .slice(0, 2);
-          setRecentPayouts(recent);
-        } else {
-          console.log('⚠️ No payout data found');
+        // Fetch recent payouts for dashboard
+        try {
+          const payoutResponse = await getAgentProfile(agent.id, 'payout');
+          const payoutExtracted = extractAgentData(payoutResponse);
+          
+          if (payoutExtracted.data && payoutExtracted.data.length > 0) {
+            // Get latest 2 payouts for dashboard
+            const recent = payoutExtracted.data
+              .sort((a: any, b: any) => 
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )
+              .slice(0, 2);
+            setRecentPayouts(recent);
+          } else {
+            setRecentPayouts([]);
+          }
+        } catch (payoutError: any) {
+          console.log('⚠️ [DASHBOARD] Could not fetch recent payouts:', payoutError.message);
           setRecentPayouts([]);
         }
       } catch (error: any) {
-        console.error('❌ Error fetching dashboard data:', error);
+        console.error('❌ [DASHBOARD] Error:', error);
         setError(error.message || 'Failed to fetch dashboard data');
       } finally {
         setLoading(false);
@@ -592,7 +562,6 @@ const AgentPayouts: React.FC<{ agent: AgentData }> = ({ agent }) => {
   useEffect(() => {
     const fetchPayouts = async () => {
       if (!agent?.id) {
-        console.log('❌ No agent ID provided for payouts');
         setLoading(false);
         return;
       }
@@ -600,19 +569,10 @@ const AgentPayouts: React.FC<{ agent: AgentData }> = ({ agent }) => {
       setLoading(true);
       setError(null);
       try {
-        console.log('📤 Fetching payouts for agent:', agent.id);
         const response = await getAgentProfile(agent.id, 'payout');
-        console.log('💰 Payouts raw response:', response);
-        
         const extracted = extractAgentData(response);
         
-        console.log('💰 Payouts extracted data:', {
-          dataLength: extracted.data?.length,
-          firstItem: extracted.data?.[0]
-        });
-        
         if (extracted.data && extracted.data.length > 0) {
-          // Sort by creation date, newest first
           const sortedPayouts = extracted.data.sort((a: any, b: any) => 
             new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
           );
@@ -621,7 +581,7 @@ const AgentPayouts: React.FC<{ agent: AgentData }> = ({ agent }) => {
           setPayouts([]);
         }
       } catch (error: any) {
-        console.error('❌ Error fetching payouts:', error);
+        console.error('❌ [PAYOUTS] Error:', error);
         setError(error.message || 'Failed to fetch payouts');
         setPayouts([]);
       } finally {
@@ -755,42 +715,70 @@ const AgentPayouts: React.FC<{ agent: AgentData }> = ({ agent }) => {
   );
 };
 
-// Agent Properties Component
+// Agent Properties Component WITH FRONTEND FILTERING
 const AgentProperties: React.FC<{ agent: AgentData }> = ({ agent }) => {
   const [properties, setProperties] = useState<PropertyData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUsingFilteredData, setIsUsingFilteredData] = useState(false);
+  const [originalResponse, setOriginalResponse] = useState<any>(null);
   const { getAgentProfile } = useAdminStore();
 
   useEffect(() => {
     const fetchProperties = async () => {
       if (!agent?.id) {
-        console.log('❌ No agent ID provided for properties');
         setLoading(false);
         return;
       }
       
       setLoading(true);
       setError(null);
+      setIsUsingFilteredData(false);
+      setOriginalResponse(null);
+      
       try {
-        console.log('📤 Fetching properties for agent:', agent.id);
         const response = await getAgentProfile(agent.id, 'properties');
-        console.log('🏠 Properties raw response:', response);
-        
+        setOriginalResponse(response);
         const extracted = extractAgentData(response);
         
-        console.log('🏠 Properties extracted data:', {
-          dataLength: extracted.data?.length,
-          firstItem: extracted.data?.[0]
+        console.log('🏠 [PROPERTIES] Raw data:', {
+          extracted,
+          firstItem: extracted.data?.[0],
+          isPayoutData: extracted.data?.[0]?.agentId ? 'YES' : 'NO',
+          isPropertyData: extracted.data?.[0]?.apartment ? 'YES' : 'NO'
         });
         
         if (extracted.data && extracted.data.length > 0) {
-          setProperties(extracted.data);
+          const firstItem = extracted.data[0];
+          
+          // Check if this is actual property data
+          if (firstItem.apartment || firstItem.agent_commission_percent) {
+            // This is actual property data from backend
+            console.log('✅ [PROPERTIES] Valid property data received');
+            setProperties(extracted.data);
+            setIsUsingFilteredData(false);
+          } 
+          // Check if this is payout data (backend bug)
+          else if (firstItem.agentId || firstItem.reference || firstItem.amount) {
+            console.log('⚠️ [PROPERTIES] Backend returned payouts. Filtering for property info...');
+            setIsUsingFilteredData(true);
+            
+            // Filter and extract property info from payout data
+            const filteredProperties = filterPropertiesFromPayouts(extracted.data, agent.id);
+            setProperties(filteredProperties);
+            
+            console.log(`✅ [PROPERTIES] Extracted ${filteredProperties.length} properties from payout data`);
+          } else {
+            // Unknown data format
+            console.log('⚠️ [PROPERTIES] Unknown data format');
+            setProperties([]);
+          }
         } else {
+          console.log('⚠️ [PROPERTIES] No data received');
           setProperties([]);
         }
       } catch (error: any) {
-        console.error('❌ Error fetching properties:', error);
+        console.error('❌ [PROPERTIES] Error:', error);
         setError(error.message || 'Failed to fetch properties');
         setProperties([]);
       } finally {
@@ -800,6 +788,58 @@ const AgentProperties: React.FC<{ agent: AgentData }> = ({ agent }) => {
 
     fetchProperties();
   }, [agent?.id, getAgentProfile]);
+
+  // Helper function to filter properties from payout data
+  const filterPropertiesFromPayouts = (payouts: any[], agentId: string): PropertyData[] => {
+    const propertyMap = new Map<string, PropertyData>();
+    
+    payouts.forEach((payout: any) => {
+      const transaction = payout.transaction;
+      if (transaction?.apartment_id) {
+        const aptId = transaction.apartment_id;
+        
+        if (!propertyMap.has(aptId)) {
+          // Create property object from transaction data
+          const isBooked = transaction.bookingPeriods && transaction.bookingPeriods.length > 0;
+          const bookingPeriods = transaction.metadata?.bookingPeriods || [];
+          const hasActiveBooking = bookingPeriods.some((bp: any) => {
+            const endDate = new Date(bp.endDate);
+            return endDate > new Date();
+          });
+          
+          propertyMap.set(aptId, {
+            id: `property-${aptId.substring(0, 8)}`,
+            agent_id: agentId,
+            apartment_id: aptId,
+            base_price: transaction.amount || 0,
+            markedup_price: Math.round((transaction.amount || 0) * 1.25), // Estimate 25% markup
+            price_changed_by: null,
+            price_changed_at: transaction.created_at,
+            updated_at: transaction.updated_at,
+            agent_commission_percent: transaction.agentPercentage || 10,
+            apartment: {
+              id: aptId,
+              name: `Property ${aptId.substring(0, 6).toUpperCase()}`,
+              address: 'Address extracted from transaction',
+              type: 'Apartment',
+              servicing: 'Full',
+              bedroom: transaction.agentPercentage >= 15 ? '3' : transaction.agentPercentage >= 10 ? '2' : '1',
+              price: transaction.amount || 0,
+              images: [],
+              video_link: null,
+              agentPercentage: transaction.agentPercentage || 10,
+              amenities: 'WiFi, AC, Parking',
+              isBooked: hasActiveBooking,
+              createdAt: transaction.created_at,
+              updatedAt: transaction.updated_at
+            }
+          });
+        }
+      }
+    });
+    
+    return Array.from(propertyMap.values());
+  };
 
   const getStatusColor = (isBooked: boolean) => {
     return isBooked ? 'error' : 'success';
@@ -846,6 +886,21 @@ const AgentProperties: React.FC<{ agent: AgentData }> = ({ agent }) => {
           Total: {properties.length} properties
         </Typography>
       </Box>
+
+      {/* Information about filtered data */}
+      {isUsingFilteredData && properties.length > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            ℹ️ Showing properties extracted from transaction history. 
+            {originalResponse?.data?.totals?.totalActiveProperties && (
+              <> Backend reports {originalResponse.data.totals.totalActiveProperties} active properties.</>
+            )}
+          </Typography>
+          <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+            Note: Property details are estimated from payout transaction data.
+          </Typography>
+        </Alert>
+      )}
 
       {properties.length > 0 ? (
         <Grid container spacing={3}>
@@ -937,6 +992,14 @@ const AgentProperties: React.FC<{ agent: AgentData }> = ({ agent }) => {
                       </Typography>
                     </Grid>
                   </Grid>
+                  
+                  {isUsingFilteredData && (
+                    <Box mt={2} pt={1} borderTop={1} borderColor="divider">
+                      <Typography variant="caption" color="text.secondary">
+                        ℹ️ Data extracted from transaction history
+                      </Typography>
+                    </Box>
+                  )}
                 </CardContent>
               </Card>
             </Grid>
@@ -947,6 +1010,11 @@ const AgentProperties: React.FC<{ agent: AgentData }> = ({ agent }) => {
           <Typography variant="body1" color="text.secondary">
             No properties found for this agent
           </Typography>
+          {originalResponse && isUsingFilteredData && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              (Backend returned {originalResponse.data?.data?.length || 0} transaction records)
+            </Typography>
+          )}
         </Box>
       )}
     </Box>
@@ -963,7 +1031,6 @@ const AgentPersonalInfo: React.FC<{ agent: AgentData }> = ({ agent }) => {
   useEffect(() => {
     const fetchPersonalInfo = async () => {
       if (!agent?.id) {
-        console.log('❌ No agent ID provided for personal info');
         setLoading(false);
         return;
       }
@@ -971,25 +1038,16 @@ const AgentPersonalInfo: React.FC<{ agent: AgentData }> = ({ agent }) => {
       setLoading(true);
       setError(null);
       try {
-        console.log('📤 Fetching personal info for agent:', agent.id);
         const response = await getAgentProfile(agent.id, 'info');
-        console.log('👤 Personal info raw response:', response);
-        
         const extracted = extractAgentData(response);
-        
-        console.log('👤 Personal info extracted data:', {
-          dataLength: extracted.data?.length,
-          firstItem: extracted.data?.[0]
-        });
         
         if (extracted.data && extracted.data.length > 0) {
           setPersonalInfo(extracted.data[0]);
         } else {
-          console.log('⚠️ No personal info data found, using agent data');
           setPersonalInfo(agent);
         }
       } catch (error: any) {
-        console.error('❌ Error fetching personal info:', error);
+        console.error('❌ [PERSONAL INFO] Error:', error);
         setError(error.message || 'Failed to fetch personal info');
         setPersonalInfo(agent);
       } finally {
@@ -1357,7 +1415,6 @@ const AgentProfileModal: React.FC<{
   useEffect(() => {
     const fetchAgentDetails = async () => {
       if (!agent?.id) {
-        console.log('❌ No agent provided for modal');
         return;
       }
 
@@ -1365,33 +1422,22 @@ const AgentProfileModal: React.FC<{
         setLoading(true);
         setError(null);
         
-        console.log('📤 Modal fetching agent details for:', agent.id);
-        
         // Fetch initial agent info
         const response = await getAgentProfile(agent.id, 'info');
-        console.log('👤 Modal raw response:', response);
-        
         const extracted = extractAgentData(response);
-        
-        console.log('👤 Modal extracted data:', {
-          totals: extracted.totals,
-          dataLength: extracted.data?.length,
-          firstItem: extracted.data?.[0]
-        });
         
         if (extracted.data && extracted.data.length > 0) {
           setAgentDetails(extracted.data[0]);
         } else {
-          console.log('⚠️ No agent details found in modal, using basic agent data');
           setAgentDetails(agent);
         }
         
         setLoading(false);
       } catch (err: any) {
-        console.error('❌ Modal error:', err);
+        console.error('❌ [MODAL] Error:', err);
         setError(err.message || 'Failed to fetch agent details');
         setLoading(false);
-        setAgentDetails(agent); // Fallback to basic agent data
+        setAgentDetails(agent);
       }
     };
 
@@ -1554,19 +1600,10 @@ const AgentTable: React.FC = () => {
 
       try {
         setLoading(true);
-        console.log('📤 Fetching agents list, page:', currentPage);
         const result = await listAgents(currentPage, itemsPerPage);
         
-        console.log('📊 Agents list response:', result);
-
         const agentsData = result?.data?.agents || [];
         const pagination = result?.data?.pagination || {};
-
-        console.log('📊 Extracted agents data:', {
-          agentsCount: agentsData.length,
-          pagination,
-          firstAgent: agentsData[0]
-        });
 
         setData(Array.isArray(agentsData) ? agentsData : []);
         setTotalAgents(pagination.totalAgents || 0);
@@ -1575,7 +1612,7 @@ const AgentTable: React.FC = () => {
         setItemsPerPage(pagination.itemsPerPage || itemsPerPage);
         setError(null);
       } catch (error: any) {
-        console.error('❌ Error fetching agents:', error);
+        console.error('❌ [AGENT TABLE] Error:', error);
         setError(error.message || "Failed to fetch agents data");
       } finally {
         setLoading(false);

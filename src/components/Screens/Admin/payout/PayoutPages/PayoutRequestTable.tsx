@@ -1,4 +1,4 @@
-// PayoutRequestTable.tsx
+// PayoutRequestTable.tsx - Updated version
 import React, { useState, useEffect } from 'react'
 import { Paper } from "@material-ui/core";
 import { ThemeProvider, createTheme } from "@mui/material";
@@ -30,6 +30,8 @@ interface RowData {
   chargeId?: string;
   chargeStatus?: "active" | "inactive";
   chargeDescription?: string;
+  // Add action status to track what action was performed
+  actionStatus?: "pending" | "approved" | "rejected";
 }
 
 interface ChargeData {
@@ -68,6 +70,9 @@ const PayoutRequestTable = () => {
     } | null>(null);
     const [isChargeStatusModalOpen, setIsChargeStatusModalOpen] = useState(false);
     const [newChargeStatus, setNewChargeStatus] = useState<"active" | "inactive">("active");
+
+    // Track action status for rows
+    const [actionStatusMap, setActionStatusMap] = useState<Record<string, "pending" | "approved" | "rejected">>({});
 
     const { 
       payouts, 
@@ -173,7 +178,9 @@ const PayoutRequestTable = () => {
         // Add charge info - you may need to adjust based on your actual data structure
         chargeId: payout.chargeId, // Adjust this based on your actual data
         chargeStatus: payout.chargeStatus || "active", // Adjust this based on your actual data
-        chargeDescription: payout.chargeDescription // Adjust this based on your actual data
+        chargeDescription: payout.chargeDescription, // Adjust this based on your actual data
+        // Get action status from our tracking map
+        actionStatus: actionStatusMap[payout.id] || "pending"
       };
     };
 
@@ -202,19 +209,29 @@ const PayoutRequestTable = () => {
       }
 
       setFilteredData(result);
-    }, [payouts, statusFilter, searchText]);
+    }, [payouts, statusFilter, searchText, actionStatusMap]);
 
     const handleApproveClick = (rowData: RowData) => {
         setSelectedRow(rowData);
         setIsApproveModalOpen(true);
         setApproveRemark('');
         setUploadedFile(null);
+        // Update action status to show processing
+        setActionStatusMap(prev => ({
+          ...prev,
+          [rowData.id]: "approved"
+        }));
     };
 
     const handleRejectClick = (rowData: RowData) => {
         setSelectedRow(rowData);
         setIsRejectModalOpen(true);
         setRejectReason('');
+        // Update action status to show processing
+        setActionStatusMap(prev => ({
+          ...prev,
+          [rowData.id]: "rejected"
+        }));
     };
 
     const handleOpenAddChargeModal = () => {
@@ -318,36 +335,50 @@ const PayoutRequestTable = () => {
                 files
             });
 
-          
-            handleCloseModals();
+          toast.success('Payout approved successfully!');
+          handleCloseModals();
             
             // Refresh the payouts list
             await getAllPayouts();
             
         } catch (error) {
-         
-            toast.error('Failed to approve payout. Please try again.');
+          // Reset action status on error
+          setActionStatusMap(prev => ({
+            ...prev,
+            [selectedRow.id]: "pending"
+          }));
+          toast.error('Failed to approve payout. Please try again.');
         }
     };
 
+    // FIXED: Using reasson to match backend expectation
     const handleRejectSubmit = async () => {
-        if (!selectedRow || !rejectReason.trim()) return;
+        if (!selectedRow || !rejectReason.trim()) {
+            toast.error('Please provide a reason for rejection');
+            return;
+        }
 
         try {
+            // Backend expects 'reasson' (typo)
             await rejectPayout({
                 payoutId: selectedRow.id,
-                reason: rejectReason
+                reasson: rejectReason  // Use 'reasson' not 'reason'
             });
 
-           
+            toast.success('Payout rejected successfully!');
             handleCloseModals();
             
             // Refresh the payouts list
             await getAllPayouts();
             
-        } catch (error) {
-           
-            toast.error('Failed to reject payout. Please try again.');
+        } catch (error: any) {
+            // Reset action status on error
+            setActionStatusMap(prev => ({
+              ...prev,
+              [selectedRow.id]: "pending"
+            }));
+            console.error('Reject error:', error);
+            toast.error(error.message || 'Failed to reject payout. Please try again.');
         }
     };
     
@@ -426,6 +457,33 @@ const PayoutRequestTable = () => {
       { value: PayoutStatus.SUCCESS, label: 'Approved', count: data.filter(row => row.originalStatus === PayoutStatus.SUCCESS).length },
       { value: PayoutStatus.CANCELLED, label: 'Rejected', count: data.filter(row => row.originalStatus === PayoutStatus.CANCELLED).length },
     ];
+
+    // Helper function to get status badge text based on action
+    const getStatusBadgeText = (rowData: RowData) => {
+      // If we have an action status, use that
+      if (rowData.actionStatus === "approved") {
+        return "Approved";
+      } else if (rowData.actionStatus === "rejected") {
+        return "Rejected";
+      }
+      // Otherwise use the original status
+      return rowData.status;
+    };
+
+    // Helper function to get status badge color
+    const getStatusBadgeColor = (rowData: RowData) => {
+      const status = rowData.actionStatus === "approved" ? "approved" : 
+                    rowData.actionStatus === "rejected" ? "rejected" : 
+                    rowData.status.toLowerCase();
+      
+      if (status === 'approved') {
+        return 'bg-green-100 text-green-800';
+      } else if (status === 'rejected') {
+        return 'bg-red-100 text-red-800';
+      } else {
+        return 'bg-yellow-100 text-yellow-800';
+      }
+    };
 
     const COLUMNS = [
       {
@@ -534,12 +592,9 @@ const PayoutRequestTable = () => {
         cellStyle: { textAlign: 'center' as const },
         render: (rowData: RowData) => (
           <div className="flex flex-col gap-2">
-            {/* Status Badge */}
-            <div className={`px-3 py-1 rounded-full text-xs font-medium ${rowData.status === 'Approved' ? 'bg-green-100 text-green-800' :
-              rowData.status === 'Rejected' ? 'bg-red-100 text-red-800' : 
-              'bg-yellow-100 text-yellow-800'
-            }`}>
-              {rowData.status}
+            {/* Status Badge - Shows action status instead of just "Pending" */}
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(rowData)}`}>
+              {getStatusBadgeText(rowData)}
             </div>
             
             {/* Action Buttons - Only show for pending payouts */}
@@ -548,19 +603,21 @@ const PayoutRequestTable = () => {
                 <div className="flex gap-2">
                   <button 
                     onClick={() => handleApproveClick(rowData)}
-                    disabled={isProcessingPayout}
+                    disabled={isProcessingPayout || rowData.actionStatus !== "pending"}
                     className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     <MdCheck className="w-4 h-4" />
-                    {isProcessingPayout ? 'Processing...' : 'Approve'}
+                    {rowData.actionStatus === "approved" ? 'Approved' : 
+                     isProcessingPayout ? 'Processing...' : 'Approve'}
                   </button>
                   <button 
                     onClick={() => handleRejectClick(rowData)}
-                    disabled={isProcessingPayout}
+                    disabled={isProcessingPayout || rowData.actionStatus !== "pending"}
                     className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     <MdCancel className="w-4 h-4" />
-                    {isProcessingPayout ? 'Processing...' : 'Reject'}
+                    {rowData.actionStatus === "rejected" ? 'Rejected' : 
+                     isProcessingPayout ? 'Processing...' : 'Reject'}
                   </button>
                 </div>
                 
@@ -1386,7 +1443,7 @@ const PayoutRequestTable = () => {
                         </button>
 
                         {/* Add Charge Button */}
-                        <button
+                        <button 
                           onClick={handleOpenAddChargeModal}
                           className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
                         >

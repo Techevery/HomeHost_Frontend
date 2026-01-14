@@ -1274,7 +1274,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
               ? prop.images
               : ["/images/house1.svg"],
             status: prop.status === "unavailable" ? "unavailable" : "available",
-            location: prop.location || prop.address || "",
+            location: prop.location ||  "",
             amenities: getAmenitiesArray(prop.amenities),
             agentPercentage: prop.agentPercentage || 10,
           }));

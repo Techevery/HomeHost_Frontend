@@ -679,6 +679,8 @@ const ManageBookingModal: React.FC<{
   };
 
   const handleViewBookingDetails = (booking: any) => {
+    console.log("Booking data:", booking);
+    console.log("Agent data:", booking.agent);
     setSelectedBooking(booking);
     setIsDetailsModalOpen(true);
   };
@@ -709,11 +711,11 @@ const ManageBookingModal: React.FC<{
     const duration = booking.duration_days || booking.transaction?.duration_days;
     const amount = booking.amount || booking.transaction?.amount;
     
-    // Get agent information from the property
-    const agentName = booking.apartment?.agent?.name || "N/A";
-    const agentEmail = booking.apartment?.agent?.email || "N/A";
-    const agentPhone = booking.apartment?.agent?.phone_number || booking.apartment?.agent?.contact || "N/A";
-    const agentStatus = booking.apartment?.agent?.status || "N/A";
+    // Get agent information from booking.agent (from backend response)
+    const agentName = booking.agent?.name || "N/A";
+    const agentEmail = booking.agent?.email || "N/A";
+    const agentPhone = booking.agent?.phone_number || booking.agent?.contact || "N/A";
+
 
     // Calculate check-out date +1 for display
     const displayCheckOutDate = checkOutDate ? new Date(checkOutDate) : null;
@@ -741,13 +743,13 @@ Agent Information:
 Agent Name: ${agentName}
 Agent Email: ${agentEmail}
 Agent Phone: ${agentPhone}
-Agent Status: ${agentStatus}
+
 
 Payment Details:
 ----------------
 Amount: ${amount ? formatPrice(Number(amount)) : "N/A"}
 Transaction Status: ${booking.transaction?.status || "N/A"}
-Transaction Reference: ${booking.transaction?.transaction_id || "N/A"}
+Transaction Reference: ${booking.transaction?.id || "N/A"}
 
 Contact Information:
 -------------------
@@ -1089,7 +1091,7 @@ Generated on: ${new Date().toLocaleDateString()}
                   </div>
                 </div>
 
-                {/* NEW: Agent Information Section */}
+                {/* Agent Information Section - UPDATED */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Agent Information
@@ -1100,7 +1102,7 @@ Generated on: ${new Date().toLocaleDateString()}
                         Agent Name
                       </label>
                       <p className="text-gray-900">
-                        {selectedBooking.apartment?.agent?.name || "N/A"}
+                        {selectedBooking.agent?.name || "N/A"}
                       </p>
                     </div>
                     <div>
@@ -1108,7 +1110,7 @@ Generated on: ${new Date().toLocaleDateString()}
                         Agent Email
                       </label>
                       <p className="text-gray-900">
-                        {selectedBooking.apartment?.agent?.email || "N/A"}
+                        {selectedBooking.agent?.email || "N/A"}
                       </p>
                     </div>
                     <div>
@@ -1116,16 +1118,7 @@ Generated on: ${new Date().toLocaleDateString()}
                         Agent Phone
                       </label>
                       <p className="text-gray-900">
-                        {selectedBooking.apartment?.agent?.phone_number || 
-                         selectedBooking.apartment?.agent?.contact || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">
-                        Agent Status
-                      </label>
-                      <p className="text-gray-900">
-                        {selectedBooking.apartment?.agent?.status || "N/A"}
+                        {selectedBooking.agent?.phone_number || "N/A"}
                       </p>
                     </div>
                   </div>
@@ -1163,7 +1156,7 @@ Generated on: ${new Date().toLocaleDateString()}
                               selectedBooking.booking_start_date ||
                                 selectedBooking.transaction?.booking_start_date,
                             )
-                          : "N/A"}  1:00AM
+                          : "N/A"}  1:00PM
                       </p>
                     </div>
                     <div>
@@ -1178,10 +1171,8 @@ Generated on: ${new Date().toLocaleDateString()}
                                 selectedBooking.transaction?.booking_end_date,
                               true
                             )
-                          : "N/A"}  1:00PM
+                          : "N/A"}  12:00PM
                         <br />
-                       
-                       
                       </p>
                     </div>
                     <div>
@@ -2858,21 +2849,24 @@ const AgentPropertiesGallery: React.FC = () => {
                       <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">
                         {property.name}
                       </h3>
+                    
                       <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
                         {property.type}
                       </span>
                     </div>
 
                     <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                      <span className="font-medium">Location:</span>
                       {property.location}
                     </p>
 
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <span>{getBedroomText(property.bedroom)} Beds</span>
-                        <span>{property.servicing}</span>
+                         <span className="font-medium">Bedrooms:{getBedroomText(property.bedroom)}</span>
+                        <span className="font-medium"> Services:{property.servicing}</span>
                       </div>
                       <div className="text-right">
+                    
                         <div className="text-lg font-bold text-blue-600">
                           {formatPrice(property.price)}
                         </div>

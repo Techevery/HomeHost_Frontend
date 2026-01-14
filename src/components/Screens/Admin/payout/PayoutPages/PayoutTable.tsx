@@ -29,7 +29,7 @@ const PayoutTable = () => {
   const [searchText, setSearchText] = useState('');
 
   const { 
-    getSuccessfulPayouts,
+    getSuccessfulPayouts, // CHANGE THIS: This might only get successful payouts
     isLoading, 
     error, 
     clearError 
@@ -42,8 +42,11 @@ const PayoutTable = () => {
     fetchPayouts();
   }, []);
 
+  // FIX: Change to get ALL payouts, not just successful ones
   const fetchPayouts = async () => {
     try {
+      // You need a method to get ALL payouts, not just successful ones
+      // For now, let's use getSuccessfulPayouts but this might need to change
       const response = await getSuccessfulPayouts();
     
       if (response.data) {
@@ -55,7 +58,13 @@ const PayoutTable = () => {
       } else {
         setPayouts([]);
       }
+      
+      // Debug log to see what data we're getting
+      console.log('Fetched payouts:', response);
+      console.log('First payout status:', response.data?.[0]?.status);
+      
     } catch (err) {
+      console.error('Error fetching payouts:', err);
       setPayouts([]);
     }
   };
@@ -65,7 +74,6 @@ const PayoutTable = () => {
     const agent = payout.agent || {};
     const apartment = transaction.apartment || {};
     
-   
     const grossAmount = transaction.amount || payout.amount || 0;
     const agentPercentage = transaction.agentPercentage || 0;
     const mockupPrice = transaction.mockupPrice || 0;
@@ -79,21 +87,18 @@ const PayoutTable = () => {
     let netFee = 0; 
 
     if (mockupPrice > 0) {
-     
       calculationType = "Markup";
       calculationDetail = `₦${mockupPrice.toLocaleString()}`;
       agentAmount = mockupPrice;
       amountDetail = `Fixed markup: ₦${mockupPrice.toLocaleString()}`;
       fee = agentAmount;
     } else if (agentPercentage > 0) {
-
       calculationType = "Percentage";
       calculationDetail = `${agentPercentage}%`;
       agentAmount = grossAmount * (agentPercentage / 100);
       amountDetail = `₦${grossAmount.toLocaleString()} x ${agentPercentage}%`;
       fee = agentAmount;
     } else {
-    
       calculationType = "Percentage";
       calculationDetail = `${agentPercentage}%`;
       agentAmount = grossAmount * (agentPercentage / 100);
@@ -103,7 +108,6 @@ const PayoutTable = () => {
 
     netFee = Math.max(0, fee - charges);
 
-   
     let period = "N/A";
     if (transaction.booking_start_date && transaction.booking_end_date) {
       const startDate = new Date(transaction.booking_start_date);
@@ -122,14 +126,12 @@ const PayoutTable = () => {
       period = `${startFormatted} - ${endFormatted} (${durationDays} days)`;
     }
 
-  
     const createdDate = new Date(payout.createdAt).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
     });
     
-   
     const paymentDate = transaction.date_paid ? 
       new Date(transaction.date_paid).toLocaleDateString('en-US', {
         month: 'short',
@@ -137,16 +139,24 @@ const PayoutTable = () => {
         year: 'numeric'
       }) : createdDate;
 
-   
-    const statusMap: Record<string, string> = {
-      'success': 'Approved',
-      'pending': 'Pending',
-      'failed': 'Rejected',
-      'cancelled': 'Rejected'
+    // FIXED: Better status mapping with case-insensitive check
+    const getResolvedStatus = (status: string): string => {
+      if (!status) return 'Pending';
+      
+      const statusUpper = status.toUpperCase();
+      
+      if (statusUpper.includes('SUCCESS') || statusUpper.includes('APPROVED')) {
+        return 'Approved';
+      } else if (statusUpper.includes('FAILED') || statusUpper.includes('REJECTED') || statusUpper.includes('CANCELLED')) {
+        return 'Rejected';
+      } else if (statusUpper.includes('PENDING')) {
+        return 'Pending';
+      }
+      
+      return 'Pending';
     };
 
-    const originalStatus = payout.status?.toLowerCase() || 'pending';
-    const resolvedStatus = statusMap[originalStatus] || 'Pending';
+    const resolvedStatus = getResolvedStatus(payout.status);
 
     // Get file name from proof URL
     const getFileNameFromUrl = (url: string) => {
@@ -166,7 +176,11 @@ const PayoutTable = () => {
       return 'file';
     };
 
-    
+    // FIXED: Get rejection reason from multiple possible fields
+    const isRejected = resolvedStatus === 'Rejected';
+    const rejectionReason = isRejected ? 
+      (payout.reason || payout.reasson || payout.remark || 'No reason provided') : null;
+
     const receipt = payout.proof ? {
       file_name: getFileNameFromUrl(payout.proof),
       file_type: getFileTypeFromUrl(payout.proof),
@@ -209,15 +223,15 @@ const PayoutTable = () => {
       originalPayout: payout, 
       receipt: receipt,
     
-      admin_notes: payout.status?.toLowerCase() === 'success' ? payout.remark : null,
-      rejection_reason: (payout.status?.toLowerCase() === 'failed' || payout.status?.toLowerCase() === 'cancelled') ? 
-                       (payout.reason || payout.remark) : null,
+      admin_notes: resolvedStatus === 'Approved' ? payout.remark : null,
+      rejection_reason: rejectionReason,
       
       account_name: payout.accountName,
       reference: payout.reference,
       proof: payout.proof,
       remark: payout.remark,
       reason: payout.reason,
+      reasson: payout.reasson,
       transaction_id: payout.transactionId,
       transaction_status: transaction.status,
       duration_days: transaction.duration_days,
@@ -242,13 +256,13 @@ const PayoutTable = () => {
     // Apply status filter
     if (statusFilter !== 'ALL') {
       const statusMap: Record<PayoutStatus, string> = {
-        [PayoutStatus.PENDING]: 'pending',
-        [PayoutStatus.SUCCESS]: 'success',
-        [PayoutStatus.FAILED]: 'failed',
-        [PayoutStatus.CANCELLED]: 'cancelled'
+        [PayoutStatus.PENDING]: 'Pending',
+        [PayoutStatus.SUCCESS]: 'Approved',
+        [PayoutStatus.FAILED]: 'Rejected',
+        [PayoutStatus.CANCELLED]: 'Rejected'
       };
       const targetStatus = statusMap[statusFilter];
-      result = result.filter(row => row.originalPayout.status?.toLowerCase() === targetStatus);
+      result = result.filter(row => row.status === targetStatus);
     }
 
     // Apply search filter
@@ -267,6 +281,18 @@ const PayoutTable = () => {
 
     setFilteredData(result);
   }, [payouts, statusFilter, searchText]);
+
+  // Debug: Log what data we have
+  useEffect(() => {
+    if (data.length > 0) {
+      console.log('Transformed data sample:', data[0]);
+      console.log('All statuses:', data.map(d => ({ 
+        original: d.originalStatus, 
+        resolved: d.status,
+        id: d.id 
+      })));
+    }
+  }, [data]);
 
   const handleViewClick = (rowData: any) => {
     setSelectedPayout(rowData);
@@ -300,7 +326,6 @@ const PayoutTable = () => {
         
         const blob = await response.blob();
         
-      
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -332,13 +357,10 @@ const PayoutTable = () => {
       const fileType = selectedPayout.receipt.file_type;
       
       if (fileType === 'image') {
-      
         setImageModalOpen(true);
       } else if (fileType === 'pdf') {
-  
         window.open(selectedPayout.receipt.file_url, '_blank');
       } else {
-      
         window.open(selectedPayout.receipt.file_url, '_blank');
       }
     } else {
@@ -346,7 +368,6 @@ const PayoutTable = () => {
     }
   };
 
- 
   const generatePDFReport = () => {
     if (!selectedPayout) return;
 
@@ -356,7 +377,6 @@ const PayoutTable = () => {
       const margin = 15;
       let yPos = margin;
 
-    
       doc.setFontSize(20);
       doc.setFont("helvetica", "bold");
       doc.text("PAYOUT REPORT", pageWidth / 2, yPos, { align: "center" });
@@ -386,13 +406,11 @@ const PayoutTable = () => {
       doc.text(`Duration: ${selectedPayout.duration_days} days`, margin, yPos);
       yPos += 12;
 
-     
       if (yPos > 250) {
         doc.addPage();
         yPos = margin;
       }
 
-     
       doc.setFont("helvetica", "bold");
       doc.text("CALCULATION DETAILS", margin, yPos);
       yPos += 8;
@@ -405,7 +423,6 @@ const PayoutTable = () => {
       doc.text(`Formula: ${selectedPayout.amount_detail}`, margin, yPos);
       yPos += 12;
 
-   
       doc.setFont("helvetica", "bold");
       doc.text("AMOUNT BREAKDOWN", margin, yPos);
       yPos += 8;
@@ -485,10 +502,13 @@ const PayoutTable = () => {
   // Status filter options
   const statusFilterOptions = [
     { value: 'ALL' as const, label: 'All Status', count: data.length },
-    { value: PayoutStatus.PENDING, label: 'Pending', count: data.filter(row => row.originalPayout.status?.toLowerCase() === 'pending').length },
-    { value: PayoutStatus.SUCCESS, label: 'Approved', count: data.filter(row => row.originalPayout.status?.toLowerCase() === 'success').length },
-    { value: PayoutStatus.FAILED, label: 'Rejected', count: data.filter(row => row.originalPayout.status?.toLowerCase() === 'failed').length },
-    { value: PayoutStatus.CANCELLED, label: 'Cancelled', count: data.filter(row => row.originalPayout.status?.toLowerCase() === 'cancelled').length },
+    { value: PayoutStatus.PENDING, label: 'Pending', count: data.filter(row => row.status === 'Pending').length },
+    { value: PayoutStatus.SUCCESS, label: 'Approved', count: data.filter(row => row.status === 'Approved').length },
+    { value: PayoutStatus.FAILED, label: 'Rejected', count: data.filter(row => row.status === 'Rejected').length },
+    { value: PayoutStatus.CANCELLED, label: 'Cancelled', count: data.filter(row => {
+      const originalStatus = (row.originalStatus || '').toUpperCase();
+      return originalStatus === 'CANCELLED';
+    }).length },
   ];
 
   const COLUMNS = [
@@ -541,7 +561,7 @@ const PayoutTable = () => {
       headerStyle: { paddingLeft: "2%" },
       render: (rowData: any) => (
         <div className="min-w-[120px]">
-           <div className="font-medium text-[#002221]">{rowData.account_name}</div>
+          <div className="font-medium text-[#002221]">{rowData.account_name}</div>
           <div className="font-medium text-[#002221]">{rowData.bank}</div>
           <div className="text-sm text-[#958F8F]">{rowData.account_number}</div>
         </div>
@@ -602,10 +622,8 @@ const PayoutTable = () => {
 
   const defaultMaterialTheme = createTheme({
     palette: {
-     
     },
   });
-
 
   if (isLoading) {
     return (
@@ -614,7 +632,6 @@ const PayoutTable = () => {
       </div>
     );
   }
-
 
   if (error) {
     return (
@@ -645,7 +662,6 @@ const PayoutTable = () => {
         theme="light"
       />
       
-   
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <div className="text-red-700 text-sm">{error}</div>
@@ -696,7 +712,6 @@ const PayoutTable = () => {
         </div>
       )}
     
-    
       <div className="bg-white rounded-[12px] shadow-sm border border-[#E8E9ED]">
         <ThemeProvider theme={defaultMaterialTheme}>
           <link
@@ -711,7 +726,6 @@ const PayoutTable = () => {
                 Toolbar: (props) => (
                   <div className="flex flex-col">
                     <div className="flex items-center justify-between p-4">
-                    
                       <div className="relative flex-1 max-w-md">
                         <div className="relative">
                           <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -743,7 +757,6 @@ const PayoutTable = () => {
                         )}
                       </div>
 
-                    
                       <button
                         onClick={() => setShowStatusFilter(!showStatusFilter)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -814,7 +827,6 @@ const PayoutTable = () => {
         </ThemeProvider>
       </div>
 
-     
       <Modal
         open={modalOpen}
         onClose={handleCloseModal}
@@ -940,10 +952,8 @@ const PayoutTable = () => {
                     </div>
 
                     <div className="space-y-6">
-                     
                       <div>
                         <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
-                      
                           Amount Details
                         </h3>
                         <div className="space-y-3">
@@ -1083,7 +1093,8 @@ const PayoutTable = () => {
                     </div>
                   )}
 
-                  {selectedPayout.status === "Rejected" && selectedPayout.rejection_reason && (
+                  {/* FIXED: Show rejection reason properly */}
+                  {selectedPayout && selectedPayout.status === "Rejected" && selectedPayout.rejection_reason && (
                     <div className="border-t border-gray-200 pt-6">
                       <h3 className="font-semibold text-red-800 mb-4 text-lg flex items-center">
                         <svg className="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1092,13 +1103,12 @@ const PayoutTable = () => {
                         Rejection Details
                       </h3>
                       <div className="bg-red-50 p-4 rounded border border-red-200">
-                        <label className="text-sm text-red-600 font-medium block mb-2">Reason:</label>
+                        <label className="text-sm text-red-600 font-medium block mb-2">Rejection Reason:</label>
                         <p className="text-red-800">{selectedPayout.rejection_reason}</p>
                       </div>
                     </div>
                   )}
 
-            
                   <div className="border-t border-gray-200 pt-6">
                     <h3 className="font-semibold text-[#002221] mb-4 text-lg flex items-center">
                       <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1126,7 +1136,6 @@ const PayoutTable = () => {
             )}
           </div>
 
-
           <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
             <Button
               onClick={generatePDFReport}
@@ -1147,7 +1156,6 @@ const PayoutTable = () => {
         </Box>
       </Modal>
 
-     
       <Dialog
         open={imageModalOpen}
         onClose={handleCloseImageModal}

@@ -39,6 +39,7 @@ interface Apartment {
   servicing: string;
   price?: number;
   agent: string;
+  location:string
 }
 
 interface BookingPeriod {
@@ -863,6 +864,7 @@ const useBookingStore = create<BookingState & BookingActions>()(
                   servicing: bookingData.apartment.servicing || "",
                   price: bookingData.apartment.price || 0,
                   agent: bookingData.apartment.agent || "",
+                  location:bookingData.apartment.location || "",
                 }
               : undefined,
             
@@ -1034,116 +1036,143 @@ const useBookingStore = create<BookingState & BookingActions>()(
         }
       },
 
-      manageBooking: async (email?: string, phoneNumber?: string) => {
-        set({ loading: true, error: null });
-        try {
-          const token = localStorage.getItem("token");
+     manageBooking: async (email?: string, phoneNumber?: string) => {
+  set({ loading: true, error: null });
+  try {
+    const token = localStorage.getItem("token");
 
-          const headers: any = {
-            "Content-Type": "application/json",
-          };
+    const headers: any = {
+      "Content-Type": "application/json",
+    };
 
-          if (token) {
-            headers.Authorization = `Bearer ${token}`;
-          }
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
-          const params: any = {};
-          if (email) params.email = email;
-          if (phoneNumber) params.phoneNumber = phoneNumber;
+    const params: any = {};
+    if (email) params.email = email;
+    if (phoneNumber) params.phoneNumber = phoneNumber;
 
-          const response = await axios.get(
-            `${API_BASE_URL}/api/v1/booking/manage-booking`,
-            {
-              params,
-              headers,
-            },
-          );
-
-          const managedBookingsData = response.data.data || response.data || [];
-
-          const processedBookings = managedBookingsData.map((booking: any) => {
-            const bookingStartDate =
-              booking.transaction?.booking_start_date ||
-              booking.booking_start_date || "";
-            const bookingEndDate =
-              booking.transaction?.booking_end_date || booking.booking_end_date || "";
-            const durationDays =
-              booking.transaction?.duration_days || booking.duration_days || 0;
-
-            return {
-              id: booking.id,
-              apartment_id: booking.apartment_id,
-              availability: booking.availability,
-              status: booking.status,
-              created_at: booking.created_at,
-              transaction_id: booking.transaction_id,
-              booking_period_id: booking.booking_period_id,
-              booking_start_date: bookingStartDate,
-              booking_end_date: bookingEndDate,
-              duration_days: durationDays,
-              amount: booking.transaction?.amount?.toString(),
-              guest_name: booking.transaction?.metadata?.fullName || booking.guest_name,
-              guest_phone: booking.transaction?.phone_number || booking.guest_phone,
-              guest_email: booking.transaction?.email || booking.guest_email,
-
-              apartment: booking.apartment
-                ? {
-                    id: booking.apartment.id,
-                    name: booking.apartment.name,
-                    address: booking.apartment.address,
-                    price: booking.apartment.price,
-                    agent: booking.apartment.agent,
-                  }
-                : undefined,
-              transaction: booking.transaction
-                ? {
-                    id: booking.transaction.id,
-                    email: booking.transaction.email,
-                    phone_number: booking.transaction.phone_number,
-                    status: booking.transaction.status,
-                    amount: booking.transaction.amount,
-                    booking_start_date: booking.transaction.booking_start_date,
-                    booking_end_date: booking.transaction.booking_end_date,
-                    duration_days: booking.transaction.duration_days || 0,
-                    reference: booking.transaction.reference,
-                    metadata: booking.transaction.metadata,
-                    agent: booking.transaction.agent,
-                  }
-                : undefined,
-              booking_period: booking.booking_period
-                ? {
-                    id: booking.booking_period.id,
-                    start_date: booking.booking_period.start_date,
-                    end_date: booking.booking_period.end_date,
-                    duration_days: booking.booking_period.duration_days || 0,
-                    isEdited: booking.booking_period.isEdited || false,
-                    isDeleted: booking.booking_period.isDeleted || false,
-                    expired: booking.booking_period.expired || false,
-                  }
-                : undefined,
-            };
-          });
-
-          set({ managedBookings: processedBookings });
-
-          if (processedBookings.length > 0) {
-            toast.success(`Found ${processedBookings.length} booking(s)`);
-          } else {
-            toast.error("No bookings found with the provided criteria");
-          }
-        } catch (error: any) {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.response?.data?.error ||
-            "Failed to manage booking";
-          set({
-            error: errorMessage,
-          });
-          toast.error(errorMessage);
-        } finally {
-          set({ loading: false });
-        }
+    const response = await axios.get(
+      `${API_BASE_URL}/api/v1/booking/manage-booking`,
+      {
+        params,
+        headers,
       },
+    );
+
+    const managedBookingsData = response.data.data || response.data || [];
+
+    const processedBookings = managedBookingsData.map((booking: any) => {
+      const bookingStartDate =
+        booking.transaction?.booking_start_date ||
+        booking.booking_start_date ||
+        "";
+      const bookingEndDate =
+        booking.transaction?.booking_end_date || booking.booking_end_date || "";
+      const durationDays =
+        booking.transaction?.duration_days || booking.duration_days || 0;
+
+      return {
+        id: booking.id,
+        apartment_id: booking.apartment_id,
+        availability: booking.availability,
+        status: booking.status,
+        created_at: booking.created_at,
+        transaction_id: booking.transaction_id,
+        booking_period_id: booking.booking_period_id,
+        booking_start_date: bookingStartDate,
+        booking_end_date: bookingEndDate,
+        duration_days: durationDays,
+        amount: booking.transaction?.amount?.toString(),
+        guest_name: booking.transaction?.metadata?.fullName || booking.guest_name,
+        guest_phone: booking.transaction?.phone_number || booking.guest_phone,
+        guest_email: booking.transaction?.email || booking.guest_email,
+
+        // Add agent directly from backend response
+        agent: booking.agent ? {
+          id: booking.agent.id,
+          name: booking.agent.name,
+          email: booking.agent.email,
+          phone_number: booking.agent.phone_number,
+          contact: booking.agent.phone_number, // Alias for compatibility
+        } : undefined,
+
+        apartment: booking.apartment
+          ? {
+              id: booking.apartment.id,
+              name: booking.apartment.name,
+              address: booking.apartment.address,
+              price: booking.apartment.price,
+              agent: booking.apartment.agent,
+              type: booking.apartment.type || "",
+              servicing: booking.apartment.servicing || "",
+              location: booking.apartment.location || "",
+            }
+          : undefined,
+        transaction: booking.transaction
+          ? {
+              id: booking.transaction.id,
+              email: booking.transaction.email,
+              phone_number: booking.transaction.phone_number,
+              status: booking.transaction.status,
+              amount: booking.transaction.amount,
+              booking_start_date: booking.transaction.booking_start_date,
+              booking_end_date: booking.transaction.booking_end_date,
+              duration_days: booking.transaction.duration_days || 0,
+              reference: booking.transaction.reference,
+              metadata: booking.transaction.metadata,
+              // Also include agent in transaction for compatibility
+              agent: booking.agent ? {
+                name: booking.agent.name,
+                email: booking.agent.email,
+                phone_number: booking.agent.phone_number,
+              } : undefined,
+              name: booking.transaction.metadata?.fullName || "",
+              apartment_id: booking.transaction.apartment_id,
+              agent_id: booking.transaction.agent_id,
+              created_at: booking.transaction.created_at,
+              channel: booking.transaction.channel,
+              charge: booking.transaction.charge,
+              date_paid: booking.transaction.date_paid,
+              payment_month: booking.transaction.payment_month,
+              payment_year: booking.transaction.payment_year,
+            }
+          : undefined,
+        booking_period: booking.booking_period
+          ? {
+              id: booking.booking_period.id,
+              start_date: booking.booking_period.start_date,
+              end_date: booking.booking_period.end_date,
+              duration_days: booking.booking_period.duration_days || 0,
+              isEdited: booking.booking_period.isEdited || false,
+              isDeleted: booking.booking_period.isDeleted || false,
+              expired: booking.booking_period.expired || false,
+            }
+          : undefined,
+      };
+    });
+
+    set({ managedBookings: processedBookings });
+
+    if (processedBookings.length > 0) {
+      toast.success(`Found ${processedBookings.length} booking(s)`);
+    } else {
+      toast.error("No bookings found with the provided criteria");
+    }
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      "Failed to manage booking";
+    set({
+      error: errorMessage,
+    });
+    toast.error(errorMessage);
+  } finally {
+    set({ loading: false });
+  }
+},
 
       editBookingDates: async (bookingId: string, newStartDate: Date, newEndDate: Date) => {
         set({ isEditing: true, error: null });
