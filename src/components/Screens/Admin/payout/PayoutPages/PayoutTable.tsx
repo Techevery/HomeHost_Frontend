@@ -521,8 +521,8 @@ const PayoutTable = () => {
         <div className="min-w-[200px]">
           <div className="font-semibold text-[#002221]">{rowData.agent}</div>
           <div className="text-sm text-[#958F8F]">{rowData.property}</div>
-          <div className="text-sm text-[#958F8F]">Booking: {rowData.booking}</div>
-          <div className="text-sm text-[#958F8F]">{rowData.period}</div>
+         
+     
         </div>
       ),
     },

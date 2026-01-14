@@ -494,7 +494,7 @@ const PayoutRequestTable = () => {
           <div className="py-3">
             <div className="font-semibold text-[#333]">{rowData.agent}</div>
             <div className="text-sm text-gray-600">{rowData.property}</div>
-            <div className="text-sm text-gray-500">Booking: {rowData.booking}</div>
+          
             {/* Show charge status if available */}
             {rowData.chargeId && (
               <div className="mt-1">
@@ -592,11 +592,7 @@ const PayoutRequestTable = () => {
         cellStyle: { textAlign: 'center' as const },
         render: (rowData: RowData) => (
           <div className="flex flex-col gap-2">
-            {/* Status Badge - Shows action status instead of just "Pending" */}
-            <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(rowData)}`}>
-              {getStatusBadgeText(rowData)}
-            </div>
-            
+          
             {/* Action Buttons - Only show for pending payouts */}
             {rowData.originalStatus === PayoutStatus.PENDING && (
               <div className="flex flex-col gap-2">
