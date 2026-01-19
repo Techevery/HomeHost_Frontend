@@ -31,7 +31,9 @@ import {
   TrendingUp as EarningsIcon,
   Home as PropertiesIcon,
   AttachMoney as ChargesIcon,
-  Receipt as ProofIcon
+  Receipt as ProofIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
 import useAgentStore from '../../../../../../stores/agentstore'; // Updated import path
 
@@ -41,7 +43,7 @@ interface Payout {
   agentId: string;
   transactionId?: string;
   amount: number;
-  status: "pending" | "success" | "cancelled";
+  status: "pending" | "success" | "cancelled" | "rejected"; // Added "rejected"
   proof?: string;
   remark?: string;
   reason?: string;
@@ -314,7 +316,7 @@ const PayoutsSection: React.FC<{
   title: string;
   description: string;
   payouts: Payout[];
-  status: "pending" | "success" | "cancelled";
+  status: "pending" | "success" | "cancelled" | "rejected";
   onViewDetails: (payout: Payout) => void;
   page: number;
   onPageChange: (event: React.ChangeEvent<unknown>, value: number) => void;
@@ -332,6 +334,8 @@ const PayoutsSection: React.FC<{
         return 'warning';
       case "cancelled":
         return 'error';
+      case "rejected":
+        return 'error';
       default:
         return 'default';
     }
@@ -345,6 +349,8 @@ const PayoutsSection: React.FC<{
         return 'Pending';
       case "cancelled":
         return 'Cancelled';
+      case "rejected":
+        return 'Rejected';
       default:
         return status;
     }
@@ -451,8 +457,17 @@ const PayoutsSection: React.FC<{
                       )}
                       {payout.accountNumber && (
                         <Typography variant="body2" color="text.secondary" fontSize="0.8rem">
-                          Account: ****{payout.accountNumber.slice(-4)}
+                          Account: {payout.accountNumber}
                         </Typography>
+                      )}
+                      {/* Show rejection reason if available in list view */}
+                      {payout.status === "rejected" && payout.reason && (
+                        <Box mt={1}>
+                          <Typography variant="body2" color="error" fontSize="0.8rem" fontWeight="medium">
+                            <ErrorIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                            Reason: {payout.reason}
+                          </Typography>
+                        </Box>
                       )}
                     </Box>
                   </Grid>
@@ -506,7 +521,7 @@ const BankDetailsSection: React.FC<{
               Account
             </Typography>
             <Typography variant="body1" fontWeight="medium">
-              {agentInfo.account_number ? `****${agentInfo.account_number.slice(-4)}` : 'N/A'}
+              {agentInfo.account_number || 'N/A'}
             </Typography>
           </Box>
           <Box mb={2}>
@@ -617,6 +632,7 @@ const WalletDashboard: React.FC = () => {
   const calculateWalletStats = (): WalletStats => {
     const successfulPayouts = agentPayouts.filter(p => p.status === "success");
     const pendingPayouts = agentPayouts.filter(p => p.status === "pending");
+    const rejectedPayouts = agentPayouts.filter(p => p.status === "rejected");
     
     const totalEarnings = successfulPayouts.reduce((sum, payout) => sum + calculateNetAmount(payout), 0);
     const totalPending = pendingPayouts.reduce((sum, payout) => sum + calculateNetAmount(payout), 0);
@@ -631,7 +647,7 @@ const WalletDashboard: React.FC = () => {
     return {
       totalEarnings,
       totalPending,
-      totalSuccess: successfulPayouts.length,
+      totalSuccess: successfulPayouts.length + rejectedPayouts.length,
       pendingPayout: totalPending,
       upcomingPayout: totalPending,
       activeProperties: uniqueProperties,
@@ -644,8 +660,9 @@ const WalletDashboard: React.FC = () => {
 
   const walletStats = calculateWalletStats();
 
-
-  const processedPayouts = agentPayouts.filter(p => p.status === "success" || p.status === "cancelled");
+  const processedPayouts = agentPayouts.filter(p => 
+    p.status === "success" || p.status === "cancelled" || p.status === "rejected"
+  );
 
   const pendingPayouts = agentPayouts.filter(p => p.status === "pending");
 
@@ -654,7 +671,6 @@ const WalletDashboard: React.FC = () => {
     return transactionStatus === "upcoming" || transactionStatus === "ongoing" || 
            transactionStatus === "booked" || transactionStatus === "pending";
   });
-
 
   useEffect(() => {
     if (walletModalOpen) {
@@ -785,7 +801,7 @@ const WalletDashboard: React.FC = () => {
                 <Box>
                   <PayoutsSection 
                     title="Processed Payouts"
-                    description="Successfully processed and cancelled payouts"
+                    description="Successfully processed, cancelled, and rejected payouts"
                     payouts={processedPayouts}
                     status={"success"}
                     onViewDetails={handleViewDetails}
@@ -894,8 +910,16 @@ const WalletDashboard: React.FC = () => {
                         <Typography variant="body2" color="text.secondary">
                           Status
                         </Typography>
-                        <Typography variant="body1" gutterBottom fontWeight="medium">
+                        <Typography 
+                          variant="body1" 
+                          gutterBottom 
+                          fontWeight="medium"
+                          sx={{
+                            color: selectedPayout.status === "rejected" ? "error.main" : "inherit"
+                          }}
+                        >
                           {selectedPayout.status.charAt(0).toUpperCase() + selectedPayout.status.slice(1)}
+                          {selectedPayout.status === "rejected" && " ⚠️"}
                         </Typography>
                       </Grid>
                       
@@ -1038,7 +1062,83 @@ const WalletDashboard: React.FC = () => {
 
                   {/* Remarks & Reasons */}
                   <Box>
-                    {selectedPayout.remark && (
+                    {/* Enhanced Rejection Details Section */}
+                    {selectedPayout.status === "rejected" && (
+                      <Box mb={4}>
+                        <Typography variant="subtitle1" fontWeight="bold" mb={2} color="error">
+                          <ErrorIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                          Rejection Details
+                        </Typography>
+                        
+                        {selectedPayout.reason ? (
+                          <>
+                            <Card variant="outlined" sx={{ 
+                              p: 2, 
+                              mb: 2,
+                              bgcolor: 'error.light',
+                              borderColor: 'error.main',
+                              borderWidth: 2
+                            }}>
+                              <Box display="flex" alignItems="flex-start">
+                                <ErrorIcon sx={{ mr: 1, mt: 0.5, color: 'error.main' }} />
+                                <Box>
+                                  <Typography variant="subtitle2" fontWeight="bold" mb={1} color="error.dark">
+                                    Reason for Rejection
+                                  </Typography>
+                                  <Typography variant="body2" color="error.dark">
+                                    {selectedPayout.reason}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Card>
+                            
+                            {selectedPayout.remark && (
+                              <Card variant="outlined" sx={{ p: 2, bgcolor: 'warning.light', borderColor: 'warning.main' }}>
+                                <Box display="flex" alignItems="flex-start">
+                                  <InfoIcon sx={{ mr: 1, mt: 0.5, color: 'warning.dark' }} />
+                                  <Box>
+                                    <Typography variant="subtitle2" fontWeight="bold" mb={1} color="warning.dark">
+                                      Additional Remarks
+                                    </Typography>
+                                    <Typography variant="body2" color="warning.dark">
+                                      {selectedPayout.remark}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              </Card>
+                            )}
+                          </>
+                        ) : (
+                          <Card variant="outlined" sx={{ 
+                            p: 2, 
+                            bgcolor: 'error.light',
+                            borderColor: 'error.main'
+                          }}>
+                            <Box display="flex" alignItems="flex-start">
+                              <ErrorIcon sx={{ mr: 1, mt: 0.5, color: 'error.main' }} />
+                              <Box>
+                            
+                                <Typography variant="body2" color="error.dark">
+                                  This payout has been rejected. Please contact support for more information.
+                                </Typography>
+                                {selectedPayout.remark && (
+                                  <>
+                                    <Typography variant="body2" color="error.dark">
+                                      {selectedPayout.remark}
+                                    </Typography>
+                                  </>
+                                )}
+                              </Box>
+                            </Box>
+                          </Card>
+                        )}
+                        
+                     
+                      </Box>
+                    )}
+
+                    {/* Original remarks for non-rejected payouts */}
+                    {selectedPayout.remark && selectedPayout.status !== "rejected" && (
                       <Box mb={4}>
                         <Typography variant="subtitle1" fontWeight="bold" mb={2}>
                           Remarks
@@ -1051,7 +1151,8 @@ const WalletDashboard: React.FC = () => {
                       </Box>
                     )}
 
-                    {selectedPayout.reason && (
+                    {/* Original reason for non-rejected payouts */}
+                    {selectedPayout.reason && selectedPayout.status !== "rejected" && (
                       <Box mb={4}>
                         <Typography variant="subtitle1" fontWeight="bold" mb={2}>
                           Reason

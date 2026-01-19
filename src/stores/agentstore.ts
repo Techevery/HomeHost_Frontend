@@ -120,13 +120,13 @@ interface UnlistedPropertiesResponse {
   message: string;
 }
 
-// Payout related interfaces
+// Payout related interfaces - UPDATED with "rejected" status
 interface Payout {
   id: string;
   agentId: string;
   transactionId?: string;
   amount: number;
-  status: "pending" | "success" | "cancelled";
+  status: "pending" | "success" | "cancelled" | "rejected"; // Added "rejected"
   proof?: string;
   remark?: string;
   reason?: string;
@@ -150,6 +150,12 @@ interface Payout {
     };
     bookingPeriods?: BookingPeriod[];
   };
+  // Add these fields to match backend
+  accountNumber?: string;
+  accountName?: string;
+  bankName?: string;
+  reference?: string;
+  charges?: number;
 }
 
 interface BookingPeriod {
@@ -215,6 +221,7 @@ interface AgentTransactionsResponse {
       totalEarnings: number;
       totalPending: number;
       totalSuccess: number;
+      totalRejected?: number;
     };
   };
 }
@@ -227,6 +234,7 @@ interface AgentPayoutByIdResponse {
       totalEarning: number;
       totalPending: number;
       totalSuccess: number;
+      totalRejected?: number;
     };
     payout: Payout;
   };
@@ -311,6 +319,7 @@ interface AgentState {
     totalEarnings: number;
     totalPending: number;
     totalSuccess: number;
+    totalRejected?: number;
   };
 }
 
@@ -368,8 +377,8 @@ interface AgentActions {
   clearBanners: () => void;
   
   // NEW: Payout and Booking methods
-  fetchAgentTransactions: (status?: "pending" | "success") => Promise<AgentTransactionsResponse>;
-  fetchAgentPayoutById: (payoutId: string, status?: "pending" | "success") => Promise<AgentPayoutByIdResponse>;
+  fetchAgentTransactions: (status?: "pending" | "success" | "rejected") => Promise<AgentTransactionsResponse>;
+  fetchAgentPayoutById: (payoutId: string, status?: "pending" | "success" | "rejected") => Promise<AgentPayoutByIdResponse>;
   fetchAgentBookings: () => Promise<AgentBookingsResponse>;
   fetchAgentPayouts: () => Promise<AgentPayoutResponse>;
   clearAgentTransactions: () => void;
@@ -416,7 +425,8 @@ const initialState: AgentState = {
   payoutStatistics: {
     totalEarnings: 0,
     totalPending: 0,
-    totalSuccess: 0
+    totalSuccess: 0,
+    totalRejected: 0
   }
 };
 
@@ -1871,7 +1881,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
       // ========== NEW: PAYOUT AND BOOKING METHODS ==========
 
-      fetchAgentTransactions: async (status?: "pending" | "success") => {
+      fetchAgentTransactions: async (status?: "pending" | "success" | "rejected") => {
         set({ transactionsLoading: true, error: null });
         try {
           const { token, isAuthenticated } = get();
@@ -1906,7 +1916,8 @@ const useAgentStore = create<AgentState & AgentActions>()(
           const totals = result.data?.totals || {
             totalEarnings: 0,
             totalPending: 0,
-            totalSuccess: 0
+            totalSuccess: 0,
+            totalRejected: 0
           };
 
           set({
@@ -1929,7 +1940,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
         }
       },
 
-      fetchAgentPayoutById: async (payoutId: string, status?: "pending" | "success") => {
+      fetchAgentPayoutById: async (payoutId: string, status?: "pending" | "success" | "rejected") => {
         set({ transactionsLoading: true, error: null });
         try {
           const { token, isAuthenticated } = get();
@@ -2086,7 +2097,8 @@ const useAgentStore = create<AgentState & AgentActions>()(
           payoutStatistics: {
             totalEarnings: 0,
             totalPending: 0,
-            totalSuccess: 0
+            totalSuccess: 0,
+            totalRejected: 0
           }
         });
       },
