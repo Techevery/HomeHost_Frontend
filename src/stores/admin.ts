@@ -523,66 +523,52 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
   set({ isLoading: true, error: null });
   
   try {
-    // Get token
     const token = get().token || localStorage.getItem("token");
     if (!token) {
       throw new Error("Authentication token not found. Please log in again.");
     }
 
-    console.log('📤 [FRONTEND] Fetching agent profile:', {
-      agentId,
-      status,
-      tokenPreview: token.substring(0, 20) + '...'
-    });
-
-    // Construct URL - IMPORTANT: Use the adminAxios instance
+    // CORRECTED: Always include status parameter, even for 'info'
     const url = `/api/v1/admin/agent-profile/${agentId}`;
-    const params = { status };
     
-    console.log('🔗 [FRONTEND] Request details:', {
+    const params: any = {};
+    // Always include the status parameter
+    if (status) {
+      params.status = status;
+    }
+    
+    console.log('🔍 [FRONTEND] Fetching agent profile:', {
       url,
       params,
-      fullUrl: `${API_BASE_URL}${url}?status=${status}`
+      agentId,
+      status,
+      fullUrl: `${url}?status=${status}`
     });
 
-    // Make the request
     const response = await adminAxios.get(url, {
-      params,
+      params,  // This will add ?status=info/payout/properties
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
       },
-      timeout: 20000, // 20 seconds timeout
+      timeout: 20000,
     });
 
-    console.log('✅ [FRONTEND] Response received:', {
+    console.log('✅ [FRONTEND] Agent Profile Response:', {
       status: response.status,
-      statusText: response.statusText,
-      dataKeys: Object.keys(response.data || {}),
-      success: response.data?.success,
+      data: response.data,
+      hasData: !!response.data?.data,
       message: response.data?.message
     });
 
     set({ isLoading: false });
     
-    // Return the data part
-    return response.data?.data || response.data;
+    // Return the entire response for extractAgentData to process
+    return response.data;
 
   } catch (error: any) {
-    console.error('❌ [FRONTEND] Agent Profile Error Details:', {
-      name: error.name,
-      message: error.message,
-      code: error.code,
-      isAxiosError: error.isAxiosError,
-      responseStatus: error.response?.status,
-      responseData: error.response?.data,
-      config: {
-        url: error.config?.url,
-        params: error.config?.params,
-        headers: error.config?.headers
-      }
-    });
-
+    console.error('❌ [FRONTEND] Agent Profile Error:', error);
+    
     let errorMessage = "Failed to fetch agent profile";
     
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
@@ -603,7 +589,6 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
     throw new Error(errorMessage);
   }
 },
-
       getDashboardStats: async () => {
         set({ isLoading: true });
         try {

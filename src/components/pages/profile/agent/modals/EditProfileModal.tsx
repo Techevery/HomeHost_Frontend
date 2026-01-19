@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
@@ -236,10 +235,10 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
       const formData = new FormData();
       
-      // Append all profile data
+      // Append all profile data with correct backend field names
       formData.append('name', profileForm.name.trim());
       formData.append('email', profileForm.email.trim());
-      formData.append('phone_number', profileForm.phoneNumber.trim());
+      formData.append('phone_number', profileForm.phoneNumber.trim()); // Changed to phone_number
       
       if (profileForm.address.trim()) {
         formData.append('address', profileForm.address.trim());
@@ -258,15 +257,15 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
       }
       
       if (profileForm.nextOfkinEmail.trim()) {
-        formData.append('nextOfkinEmail', profileForm.nextOfkinEmail.trim());
+        formData.append('nextOfKinEmail', profileForm.nextOfkinEmail.trim()); // Important: backend expects 'nextOfKinEmail'
       }
       
       if (profileForm.bankName.trim()) {
-        formData.append('bank_name', profileForm.bankName.trim());
+        formData.append('bank_name', profileForm.bankName.trim()); // Changed to bank_name
       }
       
       if (profileForm.accountNumber.trim()) {
-        formData.append('account_number', profileForm.accountNumber.trim());
+        formData.append('account_number', profileForm.accountNumber.trim()); // Changed to account_number
       }
       
       // Append profile picture if changed

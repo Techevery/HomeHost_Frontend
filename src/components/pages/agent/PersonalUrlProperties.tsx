@@ -562,20 +562,16 @@ const ManageBookingModal: React.FC<{
 
   const navigate = useNavigate();
   const { manageBooking, managedBookings, loading, error } = useBookingStore();
-  console.log({managedBookings})
   const [searchPerformed, setSearchPerformed] = useState(false);
-
   
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
-
-    const getGoogleMapsUrl = (address: string): string => {
+  const getGoogleMapsUrl = (address: string): string => {
     if (!address) return '#';
     const encodedAddress = encodeURIComponent(address.trim());
     return `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
   };
-
 
   const initialData = {
     email:
@@ -612,7 +608,6 @@ const ManageBookingModal: React.FC<{
   const onSubmit = async (values: { email: string; phone: string }) => {
     try {
       setSearchPerformed(false);
-
       await manageBooking(values.email, values.phone);
       setSearchPerformed(true);
     } catch (error) {
@@ -679,8 +674,6 @@ const ManageBookingModal: React.FC<{
   };
 
   const handleViewBookingDetails = (booking: any) => {
-    console.log("Booking data:", booking);
-    console.log("Agent data:", booking.agent);
     setSelectedBooking(booking);
     setIsDetailsModalOpen(true);
   };
@@ -705,23 +698,16 @@ const ManageBookingModal: React.FC<{
 
   // Generate download content with agent info and adjusted check-out date
   const generateDownloadContent = (booking: any) => {
-    // Get dates with +1 day for check-out in display
+    // Get main transaction dates
     const checkInDate = booking.booking_start_date || booking.transaction?.booking_start_date;
     const checkOutDate = booking.booking_end_date || booking.transaction?.booking_end_date;
     const duration = booking.duration_days || booking.transaction?.duration_days;
     const amount = booking.amount || booking.transaction?.amount;
     
-    // Get agent information from booking.agent (from backend response)
-    const agentName = booking.agent?.name || "N/A";
-    const agentEmail = booking.agent?.email || "N/A";
+    // Get agent information
+    const agentName = booking.agent?.name || booking.transaction?.agent?.name || "N/A";
+    const agentEmail = booking.agent?.email || booking.transaction?.agent?.email||"N/A";
     const agentPhone = booking.agent?.phone_number || booking.agent?.contact || "N/A";
-
-
-    // Calculate check-out date +1 for display
-    const displayCheckOutDate = checkOutDate ? new Date(checkOutDate) : null;
-    if (displayCheckOutDate) {
-      displayCheckOutDate.setDate(displayCheckOutDate.getDate() + 1);
-    }
 
     const content = `
 Booking Details Receipt
@@ -734,9 +720,19 @@ Address: ${booking.apartment?.address || "N/A"}
 Booking Information:
 -------------------
 Status: ${booking.status}
-Check-in: ${checkInDate ? formatDate(checkInDate) : "N/A"}  1:00PM
-Check-out: ${displayCheckOutDate ? formatDate(displayCheckOutDate.toISOString()) : "N/A"}  12:00PM
-Duration: ${duration || "N/A"} days
+Total Periods: ${booking.booking_periods?.length || 1}
+Total Duration: ${duration || "N/A"} days
+
+${booking.booking_periods && booking.booking_periods.length > 0 ? `
+Booking Periods:
+----------------
+${booking.booking_periods.map((period: any, index: number) => `
+Period ${index + 1}:
+  Check-in: ${period.start_date ? formatDate(period.start_date) : "N/A"} at 1:00 PM
+  Check-out: ${period.end_date ? formatDateWithPlusOne(period.end_date, true) : "N/A"} at 12:00 PM
+  Duration: ${period.duration_days || 1} day${period.duration_days > 1 ? 's' : ''}
+`).join('\n')}
+` : ''}
 
 Agent Information:
 ------------------
@@ -744,10 +740,9 @@ Agent Name: ${agentName}
 Agent Email: ${agentEmail}
 Agent Phone: ${agentPhone}
 
-
 Payment Details:
 ----------------
-Amount: ${amount ? formatPrice(Number(amount)) : "N/A"}
+Total Amount: ${amount ? formatPrice(Number(amount)) : "N/A"}
 Transaction Status: ${booking.transaction?.status || "N/A"}
 Transaction Reference: ${booking.transaction?.id || "N/A"}
 
@@ -908,10 +903,14 @@ Generated on: ${new Date().toLocaleDateString()}
                     </h3>
                     <div className="space-y-4">
                       {managedBookings.map((booking) => {
+                        // Use the main transaction dates or the first booking period
                         const checkInDate = booking.booking_start_date || booking.transaction?.booking_start_date;
                         const checkOutDate = booking.booking_end_date || booking.transaction?.booking_end_date;
                         const duration = booking.duration_days || booking.transaction?.duration_days;
                         const amount = booking.amount || booking.transaction?.amount;
+                        
+                        // Count total booking periods
+                        const totalPeriods = booking.booking_periods?.length || 1;
 
                         return (
                           <div
@@ -947,7 +946,7 @@ Generated on: ${new Date().toLocaleDateString()}
                               <div>
                                 <span className="font-medium">Duration:</span>
                                 <span className="ml-1">
-                                  {duration || "N/A"} days
+                                  {duration || "N/A"} days ({totalPeriods} period{totalPeriods > 1 ? 's' : ''})
                                 </span>
                               </div>
                             </div>
@@ -985,8 +984,8 @@ Generated on: ${new Date().toLocaleDateString()}
         </div>
       </div>
 
-
-      {selectedBooking && (
+      {/* Booking Details Modal */}
+      {selectedBooking && isDetailsModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
@@ -1032,6 +1031,7 @@ Generated on: ${new Date().toLocaleDateString()}
               </div>
 
               <div className="space-y-6">
+                {/* Property Information Section */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Property Information
@@ -1045,39 +1045,37 @@ Generated on: ${new Date().toLocaleDateString()}
                         {selectedBooking.apartment?.name || "N/A"}
                       </p>
                     </div>
-                   <div>
-                  <label className="text-sm font-medium text-gray-500">
-                    Address
-                  </label>
-                  <div className="mt-1">
-                    {selectedBooking.apartment?.address ? (
-                      <a
-                        href={getGoogleMapsUrl(selectedBooking.apartment.address)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 hover:underline transition-colors flex items-center gap-1 text-sm"
-                        title="Click to open in Google Maps"
-                      >
-                        <svg 
-                          className="w-4 h-4" 
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" 
-                          />
-                        </svg>
-                        {selectedBooking.apartment.address}
-                      </a>
-                    ) : (
-                      <span className="text-gray-500 text-sm">N/A</span>
-                    )}
-                  </div>
-                </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Address
+                      </label>
+                      <div className="mt-1">
+                        {selectedBooking.apartment?.address ? (
+                          <a
+                            href={getGoogleMapsUrl(selectedBooking.apartment.address)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 hover:underline transition-colors flex items-center gap-1 text-sm"
+                            title="Click to open in Google Maps">
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                              />
+                            </svg>
+                            {selectedBooking.apartment.address}
+                          </a>
+                        ) : (
+                          <span className="text-gray-500 text-sm">N/A</span>
+                        )}
+                      </div>
+                    </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">
                         Price per Night
@@ -1088,10 +1086,46 @@ Generated on: ${new Date().toLocaleDateString()}
                           : "N/A"}
                       </p>
                     </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">
+                        Location
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.apartment?.location || "N/A"}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Agent Information Section - UPDATED */}
+                {/* Booking Periods Section */}
+                {selectedBooking.booking_periods && selectedBooking.booking_periods.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      Booking Periods ({selectedBooking.booking_periods.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {selectedBooking.booking_periods.map((period: any, index: number) => (
+                        <div key={period.id} className="flex justify-between items-center p-2 bg-white rounded border">
+                          <div>
+                            <span className="font-medium text-sm">Period {index + 1}:</span>
+                            <span className="text-sm text-gray-600 ml-2">
+                              {period.start_date ? formatDate(period.start_date) : "N/A"}
+                            </span>
+                            <span className="mx-2">→</span>
+                            <span className="text-sm text-gray-600">
+                              {period.end_date ? formatDateWithPlusOne(period.end_date, true) : "N/A"}
+                            </span>
+                          </div>
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            {period.duration_days} day{period.duration_days > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Agent Information Section */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Agent Information
@@ -1102,7 +1136,7 @@ Generated on: ${new Date().toLocaleDateString()}
                         Agent Name
                       </label>
                       <p className="text-gray-900">
-                        {selectedBooking.agent?.name || "N/A"}
+                        {selectedBooking.agent?.name || selectedBooking.transaction?.agent?.name || "N/A"}
                       </p>
                     </div>
                     <div>
@@ -1118,12 +1152,13 @@ Generated on: ${new Date().toLocaleDateString()}
                         Agent Phone
                       </label>
                       <p className="text-gray-900">
-                        {selectedBooking.agent?.phone_number || "N/A"}
+                        {selectedBooking.agent?.phone_number || selectedBooking.agent?.contact || "N/A"}
                       </p>
                     </div>
                   </div>
                 </div>
 
+                {/* Booking Details Section */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Booking Details
@@ -1177,7 +1212,7 @@ Generated on: ${new Date().toLocaleDateString()}
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">
-                        Duration
+                        Total Duration
                       </label>
                       <p className="text-gray-900">
                         {selectedBooking.duration_days ||
@@ -1199,6 +1234,7 @@ Generated on: ${new Date().toLocaleDateString()}
                   </div>
                 </div>
 
+                {/* Payment Information Section */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Payment Information
@@ -1247,6 +1283,7 @@ Generated on: ${new Date().toLocaleDateString()}
                   </div>
                 </div>
 
+                {/* Guest Information Section */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Guest Information
@@ -2561,7 +2598,7 @@ const AgentPropertiesGallery: React.FC = () => {
       });
     }
   };
-
+ 
   const handleCloseDetailView = () => {
     setIsDetailViewOpen(false);
     setSelectedProperty(null);
@@ -2854,16 +2891,84 @@ const AgentPropertiesGallery: React.FC = () => {
                         {property.type}
                       </span>
                     </div>
-
-                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                      <span className="font-medium">Location:</span>
-                      {property.location}
-                    </p>
+<div className="flex items-center gap-2 group">
+    <div className="relative">
+      <div className="p-2 bg-gradient-to-br from-rose-50 to-blue-100 rounded-lg">
+        <svg
+          className="w-4 h-4 text-blue-600 transition-transform group-hover:scale-110"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+        </svg>
+      </div>
+      <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></div>
+    </div>
+    <div className="flex-1 min-w-0">
+     
+      <div className="font-medium text-gray-800 truncate">{property.location}</div>
+    </div>
+  </div>
 
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
-                         <span className="font-medium">Bedrooms:{getBedroomText(property.bedroom)}</span>
-                        <span className="font-medium"> Services:{property.servicing}</span>
+                         <div className="flex items-center space-x-6 text-sm text-gray-600">
+  {/* Bedrooms with luxury bed icon */}
+  <div className="flex items-center gap-2">
+    <div className="relative">
+      <svg
+        className="w-5 h-5 text-blue-600"
+        fill="currentColor"
+        viewBox="0 0 20 20"
+      >
+        <path
+          fillRule="evenodd"
+          d="M11 3a1 1 0 00-2 0v2a1 1 0 002 0V3zm4.707 4.707a1 1 0 00-1.414-1.414l-1.5 1.5a1 1 0 001.414 1.414l1.5-1.5zM18 10a1 1 0 00-1-1h-2a1 1 0 100 2h2a1 1 0 001-1zM5.05 6.464A1 1 0 106.464 5.05l-1.5-1.5a1 1 0 10-1.414 1.414l1.5 1.5zm1.414 8.486l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5a1 1 0 10-1.414-1.414zM17 11a1 1 0 100 2h2a1 1 0 100-2h-2zm-7 4a1 1 0 011 1v2a1 1 0 11-2 0v-2a1 1 0 011-1zM5.05 16.95a1 1 0 011.414 0l1.5 1.5a1 1 0 11-1.414 1.414l-1.5-1.5a1 1 0 010-1.414z"
+          clipRule="evenodd"
+        />
+      </svg>
+      <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></div>
+    </div>
+    <div className="flex flex-col">
+      <span className="text-xs text-gray-400 font-medium">BEDROOMS</span>
+      <span className="font-semibold text-gray-900">{getBedroomText(property.bedroom)}</span>
+    </div>
+  </div>
+
+  {/* Services with premium service icon */}
+  <div className="flex items-center gap-2">
+    <div className="relative">
+      <svg
+        className="w-5 h-5 text-purple-600"
+        fill="currentColor"
+        viewBox="0 0 20 20"
+      >
+        <path
+          fillRule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
+          clipRule="evenodd"
+        />
+      </svg>
+      <div className="absolute -top-1 -right-1 w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+    </div>
+    <div className="flex flex-col">
+      <span className="text-xs text-gray-400 font-medium">SERVICES</span>
+      <span className="font-semibold text-gray-900">{property.servicing}</span>
+    </div>
+  </div>
+</div>
                       </div>
                       <div className="text-right">
                     

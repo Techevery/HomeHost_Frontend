@@ -1,3 +1,4 @@
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
@@ -48,9 +49,11 @@ interface ConfirmPayoutData {
   remark: string;
   files?: File[];
 }
+
+// FIXED: Use correct spelling 'reason' instead of 'reasson'
 interface RejectPayoutData {
   payoutId: string;
- reasson: string;
+  reason: string;  // Fixed: Changed from 'reasson' to 'reason'
 }
 
 interface CreateChargesData {
@@ -241,51 +244,53 @@ const useWalletStore = create<WalletState & WalletActions>()(
         }
       },
 
+      // FIXED: Send 'reason' instead of 'reasson'
       rejectPayout: async (rejectData: RejectPayoutData) => {
-  set({ isProcessingPayout: true, error: null });
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      throw new Error("Authentication token not found");
-    }
+        set({ isProcessingPayout: true, error: null });
+        try {
+          const token = localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Authentication token not found");
+          }
 
-    const response = await axios.patch(
-      `${API_BASE_URL}/api/v1/wallet/reject-payout`,
-      {
-        payoutId: rejectData.payoutId,
-        reasson: rejectData.reasson, // Map 'reason' to 'reasson'
+          const response = await axios.patch(
+            `${API_BASE_URL}/api/v1/wallet/reject-payout`,
+            {
+              payoutId: rejectData.payoutId,
+              reason: rejectData.reason,  // Fixed: Changed from 'reasson' to 'reason'
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            },
+          );
+
+          set({ isProcessingPayout: false });
+
+          // Refresh pending payouts after rejection
+          try {
+            await get().getAllPayouts();
+          } catch (refreshError) {
+            console.warn("Failed to refresh payouts after rejection:", refreshError);
+          }
+
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to reject payout";
+
+          set({
+            error: errorMessage,
+            isProcessingPayout: false,
+          });
+          throw error;
+        }
       },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      },
-    );
 
-    set({ isProcessingPayout: false });
-
-    // Refresh pending payouts after rejection
-    try {
-      await get().getAllPayouts();
-    } catch (refreshError) {
-      console.warn("Failed to refresh payouts after rejection:", refreshError);
-    }
-
-    return response.data;
-  } catch (error: any) {
-    const errorMessage =
-      error.response?.data?.message ||
-      error.message ||
-      "Failed to reject payout";
-
-    set({
-      error: errorMessage,
-      isProcessingPayout: false,
-    });
-    throw error;
-  }
-},
       getAgentTransactions: async (status?: "pending" | "success") => {
         set({ isLoading: true, error: null });
         try {

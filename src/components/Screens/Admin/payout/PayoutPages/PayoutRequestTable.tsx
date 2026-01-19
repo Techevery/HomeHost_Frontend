@@ -1,4 +1,4 @@
-// PayoutRequestTable.tsx - Updated version
+
 import React, { useState, useEffect } from 'react'
 import { Paper } from "@material-ui/core";
 import { ThemeProvider, createTheme } from "@mui/material";
@@ -351,7 +351,7 @@ const PayoutRequestTable = () => {
         }
     };
 
-    // FIXED: Using reasson to match backend expectation
+    // FIXED: Using 'reason' instead of 'reasson'
     const handleRejectSubmit = async () => {
         if (!selectedRow || !rejectReason.trim()) {
             toast.error('Please provide a reason for rejection');
@@ -359,10 +359,10 @@ const PayoutRequestTable = () => {
         }
 
         try {
-            // Backend expects 'reasson' (typo)
+          
             await rejectPayout({
                 payoutId: selectedRow.id,
-                reasson: rejectReason  // Use 'reasson' not 'reason'
+                reason: rejectReason  
             });
 
             toast.success('Payout rejected successfully!');
@@ -498,11 +498,10 @@ const PayoutRequestTable = () => {
             {/* Show charge status if available */}
             {rowData.chargeId && (
               <div className="mt-1">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${
-                  rowData.chargeStatus === "active" 
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${rowData.chargeStatus === "active" 
                     ? "bg-green-100 text-green-800" 
                     : "bg-gray-100 text-gray-800"
-                }`}>
+                  }`}>
                   {rowData.chargeStatus === "active" ? (
                     <MdToggleOn className="w-3 h-3 mr-1" />
                   ) : (
@@ -1055,241 +1054,242 @@ const PayoutRequestTable = () => {
           </div>
         )}
 
-  {isApproveModalOpen && selectedRow && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-      {/* Modal Header */}
-      <div className="flex justify-between items-center p-6 border-b border-gray-200">
-        <h3 className="text-xl font-bold text-gray-800">Approve Payout</h3>
-        <button 
-          onClick={handleCloseModals}
-          className="text-gray-500 hover:text-gray-700 transition-colors"
-          disabled={isProcessingPayout}
-        >
-          <MdClose className="w-6 h-6" />
-        </button>
-      </div>
-
-      {/* Modal Body */}
-      <div className="p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Left Column - Payout Information */}
-          <div>
-            <h4 className="text-lg font-semibold mb-4">Payout Information</h4>
-            <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Agent Name</p>
-                  <p className="font-medium text-gray-800">{selectedRow.agent}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Property</p>
-                  <p className="font-medium text-gray-800">{selectedRow.property}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Booking Reference</p>
-                  <p className="font-medium text-gray-800">{selectedRow.booking}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Amount to Pay</p>
-                  <p className="font-medium text-green-600">₦{selectedRow.agentAmount.toLocaleString()}</p>
-                </div>
-              </div>
-              
-              <div className="pt-4 border-t border-gray-200">
-                <h5 className="text-sm font-semibold text-gray-700 mb-3">Bank Details</h5>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Account Number</p>
-                    <p className="font-medium text-gray-800">{selectedRow.accountNumber || 'Not available'}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Bank Name</p>
-                      <p className="font-medium text-gray-800">{selectedRow.bankName || 'Not available'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Account Name</p>
-                      <p className="font-medium text-gray-800">{selectedRow.accountName || 'Not available'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Remark and Upload */}
-          <div>
-            {/* Remark Input Section */}
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold mb-4">Approval Remark</h4>
-              <textarea
-                value={approveRemark}
-                onChange={(e) => setApproveRemark(e.target.value)}
-                placeholder="Enter approval remark... This will be included in the notification to the agent."
-                className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50"
-                disabled={isProcessingPayout}
-              />
-            </div>
-
-            {/* Document Upload Section */}
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Upload Payment Proof</h4>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
-                <input
-                  type="file"
-                  id="document-upload"
-                  className="hidden"
-                  accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
-                  onChange={handleFileUpload}
+        {/* Approve Modal */}
+        {isApproveModalOpen && selectedRow && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <h3 className="text-xl font-bold text-gray-800">Approve Payout</h3>
+                <button 
+                  onClick={handleCloseModals}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
                   disabled={isProcessingPayout}
-                />
-                <label htmlFor="document-upload" className="cursor-pointer flex flex-col items-center">
-                  <MdCloudUpload className="w-10 h-10 text-gray-400 mb-2" />
-                  <p className="text-gray-600 text-sm mb-1">
-                    {uploadedFile ? 'File selected: ' + uploadedFile.name : 'Click to upload payment proof'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Supports JPG, PNG, PDF, DOC (Max: 10MB)
-                  </p>
-                </label>
+                >
+                  <MdClose className="w-6 h-6" />
+                </button>
               </div>
-              
-              {/* Image/File Preview */}
-              {uploadedFile && (
-                <div className="mt-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    {uploadedFile.type.startsWith('image/') ? (
-                      <div className="relative">
-                        <div 
-                          className="w-full h-48 cursor-pointer overflow-hidden bg-gray-100"
-                          onClick={() => setIsFullScreenPreviewOpen(true)}
-                        >
-                          <img 
-                            src={URL.createObjectURL(uploadedFile)} 
-                            alt="Preview" 
-                            className="w-full h-full object-contain hover:scale-105 transition-transform duration-200"
-                          />
+
+              {/* Modal Body */}
+              <div className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  {/* Left Column - Payout Information */}
+                  <div>
+                    <h4 className="text-lg font-semibold mb-4">Payout Information</h4>
+                    <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Agent Name</p>
+                          <p className="font-medium text-gray-800">{selectedRow.agent}</p>
                         </div>
-                        <div className="absolute top-2 right-2 flex gap-2">
-                          <button
-                            onClick={() => setIsFullScreenPreviewOpen(true)}
-                            className="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors shadow-md"
-                            type="button"
-                            title="View full screen"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => setUploadedFile(null)}
-                            className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-md"
-                            type="button"
-                            title="Remove file"
-                          >
-                            <MdClose className="w-4 h-4" />
-                          </button>
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Property</p>
+                          <p className="font-medium text-gray-800">{selectedRow.property}</p>
                         </div>
                       </div>
-                    ) : (
-                      <div className="flex items-center justify-between p-4 bg-gray-50">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 flex items-center justify-center bg-blue-100 rounded-lg mr-3">
-                            <span className="text-blue-600 font-bold">
-                              {uploadedFile.name.split('.').pop()?.toUpperCase()}
-                            </span>
-                          </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Booking Reference</p>
+                          <p className="font-medium text-gray-800">{selectedRow.booking}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Amount to Pay</p>
+                          <p className="font-medium text-green-600">₦{selectedRow.agentAmount.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-4 border-t border-gray-200">
+                        <h5 className="text-sm font-semibold text-gray-700 mb-3">Bank Details</h5>
+                        <div className="space-y-3">
                           <div>
-                            <p className="font-medium text-gray-800 text-sm">{uploadedFile.name}</p>
-                            <p className="text-xs text-gray-600">
-                              {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
-                            </p>
+                            <p className="text-sm text-gray-600 mb-1">Account Number</p>
+                            <p className="font-medium text-gray-800">{selectedRow.accountNumber || 'Not available'}</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-gray-600 mb-1">Bank Name</p>
+                              <p className="font-medium text-gray-800">{selectedRow.bankName || 'Not available'}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-600 mb-1">Account Name</p>
+                              <p className="font-medium text-gray-800">{selectedRow.accountName || 'Not available'}</p>
+                            </div>
                           </div>
                         </div>
-                        <button
-                          onClick={() => setUploadedFile(null)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                          type="button"
-                        >
-                          <MdClose className="w-5 h-5" />
-                        </button>
                       </div>
-                    )}
+                    </div>
                   </div>
-                  <div className="mt-2 flex items-center text-green-600 text-sm">
-                    <MdCheck className="w-4 h-4 mr-1" />
-                    File ready for upload
+
+                  {/* Right Column - Remark and Upload */}
+                  <div>
+                    {/* Remark Input Section */}
+                    <div className="mb-6">
+                      <h4 className="text-lg font-semibold mb-4">Approval Remark</h4>
+                      <textarea
+                        value={approveRemark}
+                        onChange={(e) => setApproveRemark(e.target.value)}
+                        placeholder="Enter approval remark... This will be included in the notification to the agent."
+                        className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50"
+                        disabled={isProcessingPayout}
+                      />
+                    </div>
+
+                    {/* Document Upload Section */}
+                    <div>
+                      <h4 className="text-lg font-semibold mb-4">Upload Payment Proof</h4>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                        <input
+                          type="file"
+                          id="document-upload"
+                          className="hidden"
+                          accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                          onChange={handleFileUpload}
+                          disabled={isProcessingPayout}
+                        />
+                        <label htmlFor="document-upload" className="cursor-pointer flex flex-col items-center">
+                          <MdCloudUpload className="w-10 h-10 text-gray-400 mb-2" />
+                          <p className="text-gray-600 text-sm mb-1">
+                            {uploadedFile ? 'File selected: ' + uploadedFile.name : 'Click to upload payment proof'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Supports JPG, PNG, PDF, DOC (Max: 10MB)
+                          </p>
+                        </label>
+                      </div>
+                      
+                      {/* Image/File Preview */}
+                      {uploadedFile && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+                          <div className="border border-gray-200 rounded-lg overflow-hidden">
+                            {uploadedFile.type.startsWith('image/') ? (
+                              <div className="relative">
+                                <div 
+                                  className="w-full h-48 cursor-pointer overflow-hidden bg-gray-100"
+                                  onClick={() => setIsFullScreenPreviewOpen(true)}
+                                >
+                                  <img 
+                                    src={URL.createObjectURL(uploadedFile)} 
+                                    alt="Preview" 
+                                    className="w-full h-full object-contain hover:scale-105 transition-transform duration-200"
+                                  />
+                                </div>
+                                <div className="absolute top-2 right-2 flex gap-2">
+                                  <button
+                                    onClick={() => setIsFullScreenPreviewOpen(true)}
+                                    className="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors shadow-md"
+                                    type="button"
+                                    title="View full screen"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => setUploadedFile(null)}
+                                    className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-md"
+                                    type="button"
+                                    title="Remove file"
+                                  >
+                                    <MdClose className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between p-4 bg-gray-50">
+                                <div className="flex items-center">
+                                  <div className="w-10 h-10 flex items-center justify-center bg-blue-100 rounded-lg mr-3">
+                                    <span className="text-blue-600 font-bold">
+                                      {uploadedFile.name.split('.').pop()?.toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-800 text-sm">{uploadedFile.name}</p>
+                                    <p className="text-xs text-gray-600">
+                                      {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => setUploadedFile(null)}
+                                  className="text-red-500 hover:text-red-700 p-1"
+                                  type="button"
+                                >
+                                  <MdClose className="w-5 h-5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-2 flex items-center text-green-600 text-sm">
+                            <MdCheck className="w-4 h-4 mr-1" />
+                            File ready for upload
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
+
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-green-800 text-sm">
+                    Approving this payout will notify the agent and mark this transaction as completed. The payment proof will be attached to the notification.
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+                <button
+                  onClick={handleCloseModals}
+                  disabled={isProcessingPayout}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleApproveSubmit}
+                  disabled={isProcessingPayout}
+                  className={`px-6 py-2 rounded-lg text-white transition-colors ${!isProcessingPayout
+                      ? 'bg-green-600 hover:bg-green-700' 
+                      : 'bg-gray-400 cursor-not-allowed'
+                    }`}
+                >
+                  {isProcessingPayout ? 'Processing...' : 'Approve Payout'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <p className="text-green-800 text-sm">
-            Approving this payout will notify the agent and mark this transaction as completed. The payment proof will be attached to the notification.
-          </p>
-        </div>
-      </div>
-
-      {/* Modal Footer */}
-      <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
-        <button
-          onClick={handleCloseModals}
-          disabled={isProcessingPayout}
-          className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleApproveSubmit}
-          disabled={isProcessingPayout}
-          className={`px-6 py-2 rounded-lg text-white transition-colors ${!isProcessingPayout
-              ? 'bg-green-600 hover:bg-green-700' 
-              : 'bg-gray-400 cursor-not-allowed'
-            }`}
-        >
-          {isProcessingPayout ? 'Processing...' : 'Approve Payout'}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-{/* Full Screen Image Preview Modal */}
-{isFullScreenPreviewOpen && uploadedFile && uploadedFile.type.startsWith('image/') && (
-  <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4">
-    <div className="relative w-full h-full flex items-center justify-center">
-      <button
-        onClick={() => setIsFullScreenPreviewOpen(false)}
-        className="absolute top-4 right-4 bg-white text-gray-800 p-3 rounded-full hover:bg-gray-100 transition-colors z-10 shadow-lg"
-        type="button"
-      >
-        <MdClose className="w-6 h-6" />
-      </button>
-      
-      <div className="max-w-full max-h-full overflow-auto">
-        <img 
-          src={URL.createObjectURL(uploadedFile)} 
-          alt="Full screen preview" 
-          className="max-w-full max-h-full object-contain"
-        />
-      </div>
-      
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
-        <p className="text-sm">
-          {uploadedFile.name} • {(uploadedFile.size / 1024).toFixed(1)} KB
-        </p>
-      </div>
-    </div>
-  </div>
-)}
+        {/* Full Screen Image Preview Modal */}
+        {isFullScreenPreviewOpen && uploadedFile && uploadedFile.type.startsWith('image/') && (
+          <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4">
+            <div className="relative w-full h-full flex items-center justify-center">
+              <button
+                onClick={() => setIsFullScreenPreviewOpen(false)}
+                className="absolute top-4 right-4 bg-white text-gray-800 p-3 rounded-full hover:bg-gray-100 transition-colors z-10 shadow-lg"
+                type="button"
+              >
+                <MdClose className="w-6 h-6" />
+              </button>
+              
+              <div className="max-w-full max-h-full overflow-auto">
+                <img 
+                  src={URL.createObjectURL(uploadedFile)} 
+                  alt="Full screen preview" 
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+              
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
+                <p className="text-sm">
+                  {uploadedFile.name} • {(uploadedFile.size / 1024).toFixed(1)} KB
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Reject Modal */}
         {isRejectModalOpen && selectedRow && (
@@ -1324,7 +1324,6 @@ const PayoutRequestTable = () => {
                       <p className="text-sm text-gray-600">Amount</p>
                       <p className="font-medium">₦{selectedRow.agentAmount.toLocaleString()}</p>
                     </div>
-                   
                   </div>
                 </div>
 
@@ -1443,7 +1442,7 @@ const PayoutRequestTable = () => {
                           onClick={handleOpenAddChargeModal}
                           className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
                         >
-                         
+                          <MdAdd className="w-4 h-4" />
                           Add Charge
                         </button>
                       </div>
@@ -1499,4 +1498,4 @@ const PayoutRequestTable = () => {
     );
 }
 
-export default PayoutRequestTable
+export default PayoutRequestTable;

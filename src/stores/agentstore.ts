@@ -1,4 +1,3 @@
-
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
@@ -281,7 +280,7 @@ interface AgentState {
   enlistedProperties: EnlistedProperty[];
   currentPropertyPage: number;
   totalProperties: number;
-  hasMoreProperties: boolean;
+  hasMoreProperties: false;
   agents: AgentData[];
   totalAgents: number;
   totalPages: number;
@@ -290,17 +289,17 @@ interface AgentState {
   publicProperties: PublicProperty[];
   currentPublicPage: number;
   totalPublicProperties: number;
-  hasMorePublicProperties: boolean;
+  hasMorePublicProperties: false;
   loading: boolean;
   agentBanners: AgentBanner[];
   currentBannerPage: number;
   totalBanners: number;
-  hasMoreBanners: boolean;
+  hasMoreBanners: false;
   unlistedProperties: UnlistedProperty[];
   unlistedPropertiesLoading: boolean;
   unlistedPropertiesError: string | null;
   unlistedPropertiesCursor: string | null;
-  hasMoreUnlistedProperties: boolean;
+  hasMoreUnlistedProperties: false;
   
   // New state for payouts and bookings
   agentPayouts: Payout[];
@@ -732,35 +731,48 @@ const useAgentStore = create<AgentState & AgentActions>()(
 
           // Handle FormData for file uploads
           let formData: FormData;
-          let isFormData = false;
-
+          
           if (updatedData instanceof FormData) {
             formData = updatedData;
-            isFormData = true;
           } else {
             // Convert regular object to FormData for file uploads
             formData = new FormData();
             
-            // Add all fields to FormData
+            // Map frontend field names to backend field names
+            const fieldMapping: Record<string, string> = {
+              name: 'name',
+              email: 'email',
+              phoneNumber: 'phone_number',
+              address: 'address',
+              gender: 'gender',
+              personalUrl: 'personalUrl',
+              nextOfKinName: 'nextOfKinName',
+              nextOfkinEmail: 'nextOfKinEmail', // Note: backend expects 'nextOfKinEmail'
+              bankName: 'bank_name',
+              accountNumber: 'account_number',
+            };
+
+            // Add all mapped fields to FormData
             Object.entries(updatedData).forEach(([key, value]) => {
               if (value !== undefined && value !== null) {
+                const backendKey = fieldMapping[key] || key;
                 if (value instanceof File) {
-                  formData.append(key, value);
+                  formData.append(backendKey, value);
                 } else {
-                  formData.append(key, String(value));
+                  formData.append(backendKey, String(value));
                 }
               }
             });
-            isFormData = true;
           }
 
+          // Use the correct endpoint from auth.routes.ts
           const response = await axios.patch(
             `${API_BASE_URL}/api/v1/auth/update-agent-profile`,
             formData,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
-                "Content-Type": isFormData ? "multipart/form-data" : "application/json",
+                "Content-Type": "multipart/form-data",
               },
               timeout: 30000,
             },
@@ -788,7 +800,7 @@ const useAgentStore = create<AgentState & AgentActions>()(
                 personalUrl: data.personalUrl || currentAgentInfo.personalUrl,
                 profile_picture: data.profile_picture || data.avatar || currentAgentInfo.profile_picture,
                 next_of_kin_full_name: data.nextOfKinName || data.next_of_kin_full_name || currentAgentInfo.next_of_kin_full_name,
-                next_of_kin_email: data.nextOfkinEmail || data.next_of_kin_email || currentAgentInfo.next_of_kin_email,
+                next_of_kin_email: data.nextOfKinEmail || data.next_of_kin_email || currentAgentInfo.next_of_kin_email,
                 id_card: data.id_card || currentAgentInfo.id_card,
               },
             });
