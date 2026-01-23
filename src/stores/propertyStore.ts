@@ -13,7 +13,7 @@ interface Property {
   bedroom: string;
   price: string;
   images: string[];
-
+  location: string;
   amenities: string[];
   agentPercentage: string;
   adminId: string;

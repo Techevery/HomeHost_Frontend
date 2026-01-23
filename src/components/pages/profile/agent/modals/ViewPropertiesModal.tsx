@@ -126,6 +126,7 @@ const ViewPropertiesModal: React.FC<ViewPropertiesModalProps> = ({
           (property.location && property.location.toLowerCase().includes(searchLower)) ||
           (property.type && property.type.toLowerCase().includes(searchLower)) ||
           (property.price && property.price.toLowerCase().includes(searchLower))
+
         );
       });
     }
@@ -356,7 +357,14 @@ const ViewPropertiesModal: React.FC<ViewPropertiesModalProps> = ({
                           <Box display="flex" alignItems="center" gap={1} sx={{ mb: 2 }}>
                             <LocationIcon color="action" fontSize="small" />
                             <Typography variant="body2" color="text.secondary">
-                              {property.location || property.address}
+                              {property.address}
+                            </Typography>
+
+                          </Box>
+                            <Box display="flex" alignItems="center" gap={1} sx={{ mb: 2 }}>
+                            <LocationIcon color="action" fontSize="small" />
+                            <Typography variant="body2" color="text.secondary">
+                              {property.location}
                             </Typography>
                           </Box>
 

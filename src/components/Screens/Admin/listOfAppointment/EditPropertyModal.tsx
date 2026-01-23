@@ -52,6 +52,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     type: "",
     servicing: "",
     bedroom: "",
+    location: "",
     price: "",
     agentPercentage: "",
     amenities: "",
@@ -81,6 +82,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
         servicing: property.servicing || "",
         bedroom: property.bedroom?.toString() || "",
         price: property.price ? property.price.toString() : "",
+        location: property.location || "",
         agentPercentage: property.agentPercentage ? property.agentPercentage.toString() : "",
         amenities: Array.isArray(property.amenities)
           ? property.amenities.join(", ")
@@ -187,7 +189,8 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     if (!formData.address?.trim()) newErrors.address = "Address is required";
     if (!formData.type) newErrors.type = "Property type is required";
     if (!formData.servicing?.trim()) newErrors.servicing = "Services information is required";
-    
+    if (!formData.location?.trim()) newErrors.location = "Location is required";
+
     if (!formData.bedroom || parseInt(formData.bedroom) <= 0) {
       newErrors.bedroom = "Valid number of bedrooms is required";
     }
@@ -215,6 +218,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     const updateData: any = {
       name: formData.name.trim(),
       address: formData.address.trim(),
+      location: formData.location.trim(),
       type: formData.type,
       servicing: formData.servicing.trim(),
       bedroom: formData.bedroom,
@@ -253,6 +257,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       formData.type !== property?.type ||
       formData.servicing !== property?.servicing ||
       formData.bedroom !== property?.bedroom?.toString() ||
+      formData.location !== property?.location ||
       parseFloat(formData.price) !== property?.price ||
       parseFloat(formData.agentPercentage) !== property?.agentPercentage ||
       formData.amenities !== (Array.isArray(property?.amenities) ? property.amenities.join(", ") : property?.amenities);
@@ -335,6 +340,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       price: "",
       agentPercentage: "",
       amenities: "",
+      location:""
     });
     setImages([]);
     setImagePreviews([]);
@@ -475,6 +481,17 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               error={!!errors.bedroom}
               helperText={errors.bedroom}
               inputProps={{ min: 0 }}
+              disabled={isLoading}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Location"
+              value={formData.location}
+              onChange={handleInputChange("location")}
+              placeholder="e.g., City, Neighborhood"
               disabled={isLoading}
             />
           </Grid>

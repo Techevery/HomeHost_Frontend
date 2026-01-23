@@ -839,9 +839,28 @@ const ApartmentsList: React.FC = () => {
                       }}>
                       {safeString(property.address, "Address not specified")}
                     </Typography>
+    
                   </Box>
+
+ <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ 
+                        lineHeight: 1.4,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}>
+                      {safeString(property.location, "Location not specified")}
+                    </Typography>
+
                 </Box>
 
+
+                
+  
+                    
                 {/* Property Features */}
                 <Box
                   sx={{
