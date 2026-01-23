@@ -21,7 +21,6 @@ import {
   InputAdornment,
   MenuItem,
   FormControl,
-  InputLabel,
   Select,
 } from "@mui/material";
 import {
@@ -139,21 +138,43 @@ const ApartmentsList: React.FC = () => {
         setLoading(true);
         setError(null);
 
+        console.log('🔍 Fetching properties...');
         const result = await listProperties(1, 50);
-      
+        
+        console.log('📦 API Response:', result);
+        console.log('📦 Response structure:', {
+          hasData: !!result?.data,
+          hasDataData: !!result?.data?.data,
+          hasApartments: !!result?.data?.data?.apartments,
+          isArrayResult: Array.isArray(result),
+          isArrayData: Array.isArray(result?.data),
+          isArrayDataData: Array.isArray(result?.data?.data),
+        });
+        
         let propertiesData: Property[] = [];
 
-        if (result?.data?.apartments) {
+        // CORRECTED: Match the actual API response structure from admin.controller.ts
+        if (result?.data?.data?.apartments) {
+          console.log('✅ Found data.data.apartments');
+          propertiesData = result.data.data.apartments;
+        } else if (result?.data?.apartments) {
+          console.log('⚠️ Found data.apartments (fallback)');
           propertiesData = result.data.apartments;
-        } else if (result?.data) {
-          propertiesData = result.data;
         } else if (result?.apartments) {
+          console.log('⚠️ Found apartments (direct)');
           propertiesData = result.apartments;
+        } else if (Array.isArray(result?.data)) {
+          console.log('⚠️ data is array');
+          propertiesData = result.data;
         } else if (Array.isArray(result)) {
+          console.log('⚠️ result is array');
           propertiesData = result;
         } else {
+          console.warn('⚠️ Unexpected response structure:', result);
           propertiesData = [];
         }
+
+        console.log(`📊 Loaded ${propertiesData.length} properties`);
 
         const propertiesWithRatings = propertiesData.map((property) => ({
           ...property,
@@ -165,26 +186,40 @@ const ApartmentsList: React.FC = () => {
           amenities: safeArray(property.amenities),
           images: safeArray(property.images),
           
+          // Use ApartmentLog status if available, otherwise use property status
           status: property.ApartmentLog?.[0]?.status || property.status || "available",
         }));
 
         setProperties(propertiesWithRatings);
         setFilteredProperties(propertiesWithRatings);
       } catch (error: any) {
+        console.error('❌ Fetch error:', error);
         const errorMessage =
           error.response?.data?.message ||
+          error.response?.data?.error ||
           error.message ||
           "Failed to load properties";
+        console.error('❌ Error details:', errorMessage);
         setError(errorMessage);
       } finally {
         setLoading(false);
       }
     };
 
+    // Debug authentication state
+    console.log('🔐 Authentication state:', {
+      token: token,
+      localStorageToken: localStorage.getItem("token"),
+      storeLoading,
+      storeError
+    });
+
     const currentToken = token || localStorage.getItem("token");
     if (currentToken) {
+      console.log('✅ Token found, fetching properties...');
       fetchProperties();
     } else {
+      console.warn('❌ No token found');
       setError("Authentication required. Please log in.");
       setLoading(false);
     }
@@ -272,9 +307,26 @@ const ApartmentsList: React.FC = () => {
 
     // Refresh the entire list from server for new properties to ensure we have all data
     const result = await listProperties(1, 50);
-    if (result?.data?.apartments) {
+    
+    let propertiesData: Property[] = [];
+    
+    if (result?.data?.data?.apartments) {
+      propertiesData = result.data.data.apartments;
+    } else if (result?.data?.apartments) {
+      propertiesData = result.data.apartments;
+    } else if (result?.apartments) {
+      propertiesData = result.apartments;
+    } else if (Array.isArray(result?.data)) {
+      propertiesData = result.data;
+    } else if (Array.isArray(result)) {
+      propertiesData = result;
+    } else {
+      propertiesData = [];
+    }
+    
+    if (propertiesData.length > 0) {
       setProperties(
-        result.data.apartments.map((property: Property) => ({
+        propertiesData.map((property: Property) => ({
           ...property,
           rating: Math.random() * 2 + 3,
           reviews: Math.floor(Math.random() * 100) + 1,
@@ -347,9 +399,6 @@ const ApartmentsList: React.FC = () => {
     
     setEditModalOpen(false);
     setSelectedProperty(null);
-    
-    // Optional: Show success message
-    // You can add a snackbar or toast notification here
     
   } catch (error) {
     console.error('❌ Failed to update property in local state:', error);

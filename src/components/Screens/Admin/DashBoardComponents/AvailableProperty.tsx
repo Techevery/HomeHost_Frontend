@@ -1091,23 +1091,51 @@ const AvailableProperty = () => {
                     <span className="text-sm">{property.address}</span>
                   </div>
 
-                  <div className="flex flex-wrap gap-1">
-                    {property.amenities &&
-                      property.amenities.slice(0, 2).map((amenity, index) => (
-                        <span
-                          key={index}
-                          className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded"
-                        >
-                          {amenity}
-                        </span>
-                      ))}
-                    {property.amenities && property.amenities.length > 2 && (
-                      <span className="text-xs text-gray-500">
-                        +{property.amenities.length - 2} more
-                      </span>
-                    )}
-                  </div>
-
+<div className="flex flex-wrap gap-2">
+  {(() => {
+    // Try to parse amenities if they're a JSON string
+    let amenitiesArray: string[] = [];
+    
+    if (property.amenities) {
+      if (typeof property.amenities === 'string') {
+        try {
+          amenitiesArray = JSON.parse(property.amenities);
+        } catch (e) {
+          // If parsing fails, treat it as a string array or split by comma
+          amenitiesArray = (property.amenities as string).split(',').map((a: string) => a.trim().replace(/["']/g, ''));
+        }
+      } else if (Array.isArray(property.amenities)) {
+        amenitiesArray = property.amenities;
+      }
+    }
+    
+    if (amenitiesArray.length === 0) {
+      return (
+        <span className="text-xs text-gray-400 italic">No amenities listed</span>
+      );
+    }
+    
+    return (
+      <>
+        {amenitiesArray.slice(0, 3).map((amenity, index) => (
+          <div
+            key={index}
+            className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 px-3 py-1.5 rounded-full"
+          >
+            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+            {amenity}
+          </div>
+        ))}
+        {amenitiesArray.length > 3 && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full">
+            <span className="text-gray-400">+</span>
+            {amenitiesArray.length - 3}
+          </div>
+        )}
+      </>
+    );
+  })()}
+</div>
                   <div className="flex justify-between items-center pt-2">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />

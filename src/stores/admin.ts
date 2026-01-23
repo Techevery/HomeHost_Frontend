@@ -131,76 +131,86 @@ const useAdminStore = create<AdminState & AdminActions>()(
     (set, get) => ({
       ...initialState,
 
-      login: async (email, password) => {
-        set({ isLoading: true, error: null });
-        try {
-          const response = await adminAxios.post(
-            `/api/v1/auth/admin-login`,
-            { email, password },
-          );
+    login: async (email, password) => {
+  set({ isLoading: true, error: null });
+  try {
+    const response = await adminAxios.post(
+      `/api/v1/auth/admin-login`,
+      { email, password },
+    );
 
-          const responseData = response.data;
-          const token =
-            responseData.token ||
-            responseData.data?.token ||
-            responseData.accessToken;
-          const adminData =
-            responseData.data || responseData.user || responseData.admin;
+    const responseData = response.data;
+    
+    // CORRECTED: Extract token from the correct nested structure
+    const token = responseData.data?.token;
+    const adminData = responseData.data?.admin;
 
-          if (!token) {
-            throw new Error("No Access received from server");
-          }
+    console.log("✅ Login response:", {
+      hasToken: !!token,
+      tokenLength: token?.length,
+      adminData
+    });
 
-          set({
-            token,
-            adminInfo: {
-              id: adminData?.id || adminData?._id || "",
-              name: adminData?.name || "",
-              email: adminData?.email || "",
-              role: adminData?.role || "admin",
-              permissions: adminData?.permissions || [],
-              profilePicture: adminData?.profilePicture || "",
-              isSuperAdmin:
-                adminData?.isSuperAdmin ||
-                adminData?.is_super_admin ||
-                adminData?.superAdmin ||
-                false,
-              createdAt: adminData?.createdAt || new Date().toISOString(),
-              address: adminData?.address,
-              gender: adminData?.gender,
-              phoneNumber: adminData?.phoneNumber || adminData?.phonenumber || "",
-            },
-            isAuthenticated: true,
-            isLoading: false,
-          });
+    if (!token) {
+      throw new Error("No access token received from server");
+    }
 
-          try {
-            localStorage.setItem("token", token);
-          } catch (storageError) {
-            
-          }
-
-          try {
-            await get().fetchAdminProfile();
-          } catch (profileError) {
-           
-          }
-        } catch (error: any) {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.response?.data?.error ||
-            error.message ||
-            "Login failed. Please check your credentials.";
-
-          set({
-            error: errorMessage,
-            isAuthenticated: false,
-            isLoading: false,
-          });
-          throw error;
-        }
+    // Store token in Zustand state
+    set({
+      token,
+      adminInfo: {
+        id: adminData?.id || "",
+        name: adminData?.name || "",
+        email: adminData?.email || "",
+        role: adminData?.role || " super_admin || admin|| super admin",
+        permissions: adminData?.permissions || [],
+        profilePicture: adminData?.profilePicture || "",
+        isSuperAdmin:
+          adminData?.isSuperAdmin ||
+          adminData?.is_super_admin ||
+          adminData?.superAdmin ||
+          false,
+        createdAt: adminData?.createdAt || new Date().toISOString(),
+        address: adminData?.address,
+        gender: adminData?.gender,
+        phoneNumber: adminData?.phoneNumber || adminData?.phonenumber || "",
       },
+      isAuthenticated: true,
+      isLoading: false,
+    });
 
+    // Store token in localStorage
+    try {
+      localStorage.setItem("token", token);
+      console.log("💾 Token stored in localStorage");
+    } catch (storageError) {
+      console.error("Storage error:", storageError);
+    }
+
+    // Fetch full profile after login
+    try {
+      await get().fetchAdminProfile();
+    } catch (profileError) {
+      console.error("Profile fetch error after login:", profileError);
+      // Don't throw here, just log - login was still successful
+    }
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      "Login failed. Please check your credentials.";
+
+    console.error("❌ Login error:", errorMessage);
+
+    set({
+      error: errorMessage,
+      isAuthenticated: false,
+      isLoading: false,
+    });
+    throw error;
+  }
+},
       registerAdmin: async (adminData) => {
         set({ isLoading: true, error: null });
         try {
@@ -231,58 +241,89 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
-      fetchAdminProfile: async () => {
-        set({ isLoading: true });
-        try {
-          const token = get().token || localStorage.getItem("token");
+     fetchAdminProfile: async () => {
+  set({ isLoading: true, error: null }); // Clear previous errors
+  try {
+    const token = get().token || localStorage.getItem("token");
 
-          if (!token) {
-            throw new Error("user not login. Please log in again.");
-          }
+    // DEBUG: Log token info
+    console.log("🔍 fetchAdminProfile - Token:", {
+      hasToken: !!token,
+      tokenLength: token?.length,
+      tokenFirst20: token?.substring(0, 20) + "..."
+    });
 
-          const response = await adminAxios.get(
-            `/api/v1/admin/admin-profile`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          );
+    if (!token) {
+      throw new Error("User not logged in. Please log in again.");
+    }
 
-          const data = response.data.data || response.data;
-          set({
-            adminInfo: {
-              id: data.id,
-              name: data.name,
-              email: data.email,
-              role: data.role,
-              permissions: data.permissions,
-              profilePicture: data.profilePicture,
-              isSuperAdmin:
-                data.isSuperAdmin ||
-                data.is_super_admin ||
-                data.superAdmin ||
-                data.role === "super_admin" ||
-                data.role === "super-admin" ||
-                false,
-              createdAt: data.createdAt,
-              address: data.address,
-              gender: data.gender,
-              phoneNumber: data.phoneNumber || data.phonenumber || "",
-            },
-            isLoading: false,
-          });
-        } catch (error: any) {
-          set({
-            error: error.response?.data?.message,
-            isLoading: false,
-          });
-          if (error.response?.status === 401) {
-            get().logout();
-          }
-          throw error;
-        }
+    const response = await adminAxios.get(
+      `/api/v1/admin/admin-profile`,
+      {
+        // Authorization header is automatically added by interceptor
+        // But we can also explicitly set it for debugging
+        headers: {
+          Authorization: `Bearer ${token.trim()}`, // .trim() to remove any whitespace
+        },
       },
+    );
+
+    console.log("✅ Profile response:", response.data);
+
+    const data = response.data.data;
+    
+    if (!data) {
+      throw new Error("No profile data received from server");
+    }
+
+    set({
+      adminInfo: {
+        id: data.id || "",
+        name: data.name || "",
+        email: data.email || "",
+        role: data.role || "admin",
+        permissions: data.permissions || [],
+        profilePicture: data.profilePicture || data.profile_picture || "",
+        isSuperAdmin: 
+          data.isSuperAdmin ||
+          data.is_super_admin ||
+          data.superAdmin ||
+          data.role === "super_admin" ||
+          data.role === "super admin" ||
+          false,
+        createdAt: data.createdAt || new Date().toISOString(),
+        address: data.address || "",
+        gender: data.gender || "",
+        phoneNumber: data.phoneNumber || data.phonenumber || data.phone_number || "",
+      },
+      isLoading: false,
+    });
+  } catch (error: any) {
+    console.error("❌ Profile fetch error:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+      url: error.config?.url,
+      headers: error.config?.headers
+    });
+    
+    const errorMessage = 
+      error.response?.data?.message || 
+      error.response?.data?.error || 
+      error.message || 
+      "Failed to fetch admin profile";
+
+    set({
+      error: errorMessage,
+      isLoading: false,
+    });
+    
+    if (error.response?.status === 401) {
+      get().logout();
+    }
+    throw error;
+  }
+},
 
       updateAdminProfile: async (updatedData) => {
         set({ isLoading: true });

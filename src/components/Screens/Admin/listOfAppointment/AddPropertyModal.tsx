@@ -240,24 +240,24 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
           maxHeight: "90vh",
         },
       }}>
-      <DialogTitle
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          borderBottom: "1px solid",
-          borderColor: "divider",
-          pb: 2,
-          backgroundColor: "primary.main",
-          color: "white",
-        }}>
-        <Typography variant="h5" fontWeight="bold">
-          Add New Property
-        </Typography>
-        <IconButton onClick={handleClose} size="small" sx={{ color: "white" }}>
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
+     <DialogTitle
+  sx={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottom: "1px solid",
+    borderColor: "divider",
+    pb: 2,
+    backgroundColor: "primary.main",
+    color: "white",
+  }}>
+  <Typography component="span" variant="h5" fontWeight="bold">
+    Add New Property
+  </Typography>
+  <IconButton onClick={handleClose} size="small" sx={{ color: "white" }}>
+    <CloseIcon />
+  </IconButton>
+</DialogTitle>
 
       <DialogContent sx={{ pt: 3 }}>
         {submitError && (
