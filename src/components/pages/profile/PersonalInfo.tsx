@@ -25,6 +25,7 @@ import {
   FormControl,
   InputLabel,
   CardMedia,
+  InputAdornment,
 } from "@mui/material";
 import {
   Edit,
@@ -39,6 +40,8 @@ import {
   CloudUpload,
   Delete,
   CameraAlt,
+  Visibility,
+  VisibilityOff,
 } from "@mui/icons-material";
 import useAdminStore from "../../../stores/admin";
 
@@ -56,6 +59,8 @@ const AdminProfile = () => {
     password: "",
     confirmPassword: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState("");
@@ -138,6 +143,8 @@ const AdminProfile = () => {
         setProfileImage(null);
       }
       setPasswordError("");
+      setShowPassword(false);
+      setShowConfirmPassword(false);
     }
   };
 
@@ -204,6 +211,18 @@ const AdminProfile = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
+  };
+
+  const handleClickShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const handleClickShowConfirmPassword = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
+
+  const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
   };
 
   const hasPasswordMismatch = 
@@ -787,7 +806,7 @@ const AdminProfile = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   label="New Password"
                   name="password"
                   value={formData.password}
@@ -796,13 +815,28 @@ const AdminProfile = () => {
                   disabled={isUpdating}
                   helperText="Minimum 8 characters"
                   placeholder="Enter new password"
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={handleClickShowPassword}
+                          onMouseDown={handleMouseDownPassword}
+                          edge="end"
+                          disabled={isUpdating}
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
               </Grid>
 
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   label="Confirm Password"
                   name="confirmPassword"
                   value={formData.confirmPassword}
@@ -812,6 +846,21 @@ const AdminProfile = () => {
                   error={!!passwordError}
                   helperText={passwordError || "Re-enter new password"}
                   placeholder="Confirm new password"
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle confirm password visibility"
+                          onClick={handleClickShowConfirmPassword}
+                          onMouseDown={handleMouseDownPassword}
+                          edge="end"
+                          disabled={isUpdating}
+                        >
+                          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
               </Grid>
 

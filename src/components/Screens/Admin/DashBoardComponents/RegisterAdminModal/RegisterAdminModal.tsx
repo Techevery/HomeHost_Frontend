@@ -16,16 +16,15 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: '',
-    confirmPassword: '',
     address: '',
-    gender: ''
+    gender: '',
+    phone_number: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const { registerAdmin } = useAdminStore();
+  const { createAdmin } = useAdminStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,18 +32,8 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
     setSuccess('');
 
     // Validation
-    if (!formData.name || !formData.email || !formData.password) {
+    if (!formData.name || !formData.email || !formData.address || !formData.gender) {
       setError('Please fill in all required fields');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
       return;
     }
 
@@ -53,24 +42,31 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
       return;
     }
 
+    // Phone number validation (optional)
+    if (formData.phone_number && !/^\d{10,15}$/.test(formData.phone_number)) {
+      setError('Please enter a valid phone number (10-15 digits)');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await registerAdmin({
+      // Note: createAdmin endpoint auto-generates password and sends welcome email
+      // No password field needed in this form
+      await createAdmin({
         name: formData.name,
         email: formData.email,
-        password: formData.password,
-        address: formData.address || undefined,
-        gender: formData.gender || undefined
+        address: formData.address,
+        gender: formData.gender,
+        phone_number: formData.phone_number || ''
       });
       
-      setSuccess('Admin registered successfully!');
+      setSuccess('Admin created successfully! A welcome email with login credentials has been sent.');
       setFormData({
         name: '',
         email: '',
-        password: '',
-        confirmPassword: '',
         address: '',
-        gender: ''
+        gender: '',
+        phone_number: ''
       });
       
       // Call success callback if provided
@@ -81,10 +77,10 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
       // Auto close after success
       setTimeout(() => {
         onClose();
-      }, 2000);
+      }, 3000);
       
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Registration failed. Please try again.');
+      setError(err.response?.data?.message || err.message || 'Failed to create admin. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -101,10 +97,9 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
     setFormData({
       name: '',
       email: '',
-      password: '',
-      confirmPassword: '',
       address: '',
-      gender: ''
+      gender: '',
+      phone_number: ''
     });
     setError('');
     setSuccess('');
@@ -123,8 +118,8 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
               <AiOutlineUserAdd className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-800">Register New Admin</h2>
-              <p className="text-sm text-gray-500">Add a new administrator to the system</p>
+              <h2 className="text-xl font-semibold text-gray-800">Create New Admin</h2>
+              <p className="text-sm text-gray-500">Add a new administrator (password will be auto-generated)</p>
             </div>
           </div>
           <button
@@ -152,6 +147,12 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
                 {error}
               </div>
             )}
+
+            {/* Note about auto-generated password */}
+            <div className="bg-blue-50 border border-blue-200 text-blue-600 px-4 py-3 rounded-lg text-sm">
+              <p className="font-medium">ℹ️ Password Information:</p>
+              <p className="mt-1">A secure password will be auto-generated and sent to the admin's email address.</p>
+            </div>
 
             {/* Name Field */}
             <div>
@@ -187,20 +188,21 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
               />
             </div>
 
-            {/* Gender and Address Row */}
+            {/* Gender and Phone Number Row */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Gender
+                  Gender <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="gender"
                   value={formData.gender}
                   onChange={handleChange}
+                  required
                   disabled={isLoading}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">Select</option>
+                  <option value="">Select gender</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                   <option value="other">Other</option>
@@ -209,52 +211,35 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address
+                  Phone Number
                 </label>
                 <input
-                  type="text"
-                  name="address"
-                  value={formData.address}
+                  type="tel"
+                  name="phone_number"
+                  value={formData.phone_number}
                   onChange={handleChange}
                   disabled={isLoading}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                  placeholder="Enter address"
+                  placeholder="e.g., 08012345678"
+                  pattern="[0-9]{10,15}"
                 />
               </div>
             </div>
 
-            {/* Password Field */}
+            {/* Address Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password <span className="text-red-500">*</span>
+                Address <span className="text-red-500">*</span>
               </label>
               <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                disabled={isLoading}
-                minLength={6}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="Enter password (min. 6 characters)"
-              />
-            </div>
-
-            {/* Confirm Password Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm Password <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
+                type="text"
+                name="address"
+                value={formData.address}
                 onChange={handleChange}
                 required
                 disabled={isLoading}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="Confirm password"
+                placeholder="Enter complete address"
               />
             </div>
           </div>
@@ -277,10 +262,10 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
               {isLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Registering...
+                  Creating Admin...
                 </>
               ) : (
-                'Register Admin'
+                'Create Admin'
               )}
             </button>
           </div>

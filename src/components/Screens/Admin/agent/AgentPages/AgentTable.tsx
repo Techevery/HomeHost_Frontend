@@ -28,7 +28,6 @@ import {
   Avatar,
   Tabs,
   Tab,
-  Snackbar,
   Modal,
   Fade,
   Backdrop,
@@ -42,89 +41,70 @@ import {
   Link as LinkIcon,
   Badge,
   CheckCircle,
-  Fingerprint,
   Payment,
-  VerifiedUser,
   PersonPin,
   Close,
   AccountBalanceWallet,
   Home,
   ArrowUpward,
-  People,
-  AttachMoney,
-  Assessment,
+  Receipt,
+  TableChart,
 } from "@mui/icons-material";
 import useAdminStore from "../../../../../stores/admin";
 
-interface AgentData {
-  id: string;
-  account: string;
-  email: string;
-  front_id?: string;
-  front_id_status?: boolean;
-  back_id?: string;
-  back_id_status?: boolean;
-  profit?: string;
-  shopperData?: boolean;
-  userData?: { notificationID?: string };
-  createdAt: string;
-  name: string;
-  phone_number: string;
-  slug: string;
-  status: string;
-  gender?: string;
-  address?: string;
-  nextOfKinFullName?: string;
-  nextOfKinEmail?: string;
-  nextOfKinPhone?: string;
-  bankName?: string;
-  accountNumber?: string;
-  profile_picture?: string;
-  id_card?: string;
-  personalUrl?: string;
-  accountBalance?: number;
-  nextOfKinAddress?: string;
-  nextOfKinOccupation?: string;
-  nextOfKinStatus?: string;
-  nextOfKinName?: string;
-  bank_name?: string;
-  account_number?: string;
-  suspended?: boolean;
-  updatedAt?: string;
-  totals?: {
-    totalBalance: number;
-    totalPending: number;
-    totalEarning: number;
-    totalActiveProperties: number;
-  } | null;
+// Interface for the backend response structure
+interface AgentTotals {
+  totalBalance: number;
+  totalPending: number;
+  totalEarning: number;
+  totalActiveProperties: number;
 }
 
-interface PropertyData {
+interface BookingPeriod {
   id: string;
-  agent_id: string;
+  transaction_id: string;
   apartment_id: string;
-  base_price: number;
-  markedup_price: number;
-  price_changed_by: string | null;
-  price_changed_at: string;
-  updated_at: string;
-  agent_commission_percent: number;
-  apartment: {
-    id: string;
-    name: string;
-    address: string;
-    type: string;
-    servicing: string;
-    bedroom: string;
-    price: number;
-    images: string[];
-    video_link: string | null;
-    agentPercentage: number | null;
-    amenities: string;
-    isBooked: boolean;
-    createdAt: string;
-    updatedAt: string;
+  start_date: string;
+  end_date: string;
+  duration_days: number;
+  created_at: string;
+  isDeleted: boolean;
+  isEdited: boolean;
+  expired: boolean;
+  status: string;
+  newBookingDuration: string | null;
+}
+
+interface Transaction {
+  id: string;
+  email: string;
+  status: string;
+  amount: number;
+  channel: string | null;
+  charge: number | null;
+  metadata: {
+    bookingPeriods: Array<{
+      endDate: string;
+      startDate: string;
+      durationDays: number;
+    }>;
   };
+  reference: string;
+  date_paid: string;
+  apartment_id: string;
+  agent_id: string;
+  created_at: string;
+  updated_at: string;
+  booking_end_date: string;
+  booking_start_date: string;
+  duration_days: number;
+  phone_number: string;
+  payment_month: string | null;
+  payment_year: string | null;
+  credited: boolean;
+  agentPercentage: number;
+  mockupPrice: number;
+  bookingPeriods: BookingPeriod[];
 }
 
 interface PayoutData {
@@ -142,60 +122,70 @@ interface PayoutData {
   transactionId: string;
   reason: string | null;
   charges: number;
-  transaction?: {
-    id: string;
-    email: string;
-    status: string;
-    amount: number;
-    channel: string | null;
-    charge: number | null;
-    metadata: {
-      bookingPeriods: Array<{
-        endDate: string;
-        startDate: string;
-        durationDays: number;
-      }>;
-    };
-    reference: string;
-    date_paid: string;
-    apartment_id: string;
-    agent_id: string;
-    created_at: string;
-    updated_at: string;
-    booking_end_date: string;
-    booking_start_date: string;
-    duration_days: number;
-    phone_number: string;
-    payment_month: string | null;
-    payment_year: string | null;
-    credited: boolean;
-    agentPercentage: number;
-    mockupPrice: number;
-    bookingPeriods: Array<{
-      id: string;
-      transaction_id: string;
-      apartment_id: string;
-      start_date: string;
-      end_date: string;
-      duration_days: number;
-      created_at: string;
-      isDeleted: boolean;
-      isEdited: boolean;
-      expired: boolean;
-      status: string;
-      newBookingDuration: string | null;
-    }>;
-  };
+  transaction?: Transaction;
 }
 
-interface AgentProfileResponse {
-  totals?: {
-    totalBalance: number;
-    totalPending: number;
-    totalEarning: number;
-    totalActiveProperties: number;
-  } | null;
-  data: any[];
+interface PropertyApartment {
+  id: string;
+  name: string;
+  address: string;
+  type: string;
+  servicing: string;
+  bedroom: string;
+  price: number;
+  images: string[];
+  video_link: string | null;
+  agentPercentage: number | null;
+  amenities: string;
+  isBooked: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface PropertyData {
+  id: string;
+  agent_id: string;
+  apartment_id: string;
+  base_price: number;
+  markedup_price: number;
+  price_changed_by: string | null;
+  price_changed_at: string;
+  updated_at: string;
+  agent_commission_percent: number;
+  apartment: PropertyApartment;
+}
+
+interface AgentInfo {
+  id: string;
+  name: string;
+  email: string;
+  address: string;
+  phone_number: string;
+  bank_name: string;
+  account_number: string;
+  gender: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  profile_picture: string;
+  id_card: string;
+  slug: string;
+  personalUrl: string;
+  accountBalance: number;
+  nextOfKinAddress: string;
+  nextOfKinEmail: string;
+  nextOfKinName: string;
+  nextOfKinOccupation: string;
+  nextOfKinPhone: string;
+  nextOfKinStatus: string;
+  suspended: boolean;
+}
+
+interface AgentManagementData {
+  totals: AgentTotals;
+  info: AgentInfo;
+  payouts: PayoutData[];
+  properties: PropertyData[];
 }
 
 // Tab Panel Component
@@ -221,121 +211,55 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-const extractAgentData = (response: any): AgentProfileResponse => {
-  
-  if (!response) {
-    return { data: [], totals: null };
-  }
-
-  if (response.error || response.message?.toLowerCase().includes('error')) {
-    return { data: [], totals: null };
-  }
-
-  let totals = null;
-  let dataArray = [];
-
-  // The backend returns: { message, data: { totals, data: [...] } }
-  if (response.data && typeof response.data === 'object') {
-  
-    // Extract totals
-    totals = response.data.totals || null;
-
-    // Extract data array
-    if (Array.isArray(response.data.data)) {
-      dataArray = response.data.data;
-   
-    } 
-    // If data is an object (like for 'info' endpoint), wrap it in array
-    else if (response.data.data && typeof response.data.data === 'object') {
-      dataArray = [response.data.data];
-   
-    }
-    // Fallback: check if response.data itself has agent data
-    else if (response.data.id || response.data.email || response.data.name) {
-      dataArray = [response.data];
-     
-    }
-  }
-  // Fallback for direct array response
-  else if (Array.isArray(response)) {
-    dataArray = response;
-  
-  }
-  // Fallback for direct object with id/email
-  else if (response.id || response.agentId || response.email || response.name || response.reference) {
-    dataArray = [response];
-
-  }
-
-  return {
-    totals: totals,
-    data: dataArray
-  };
-};
-
-// Dashboard Component for Modal - UPDATED
-const AgentDashboard: React.FC<{ agent: AgentData | null }> = ({ agent }) => {
-  // Format number with commas (no currency symbol)
+// Dashboard Component for Modal
+const AgentDashboard: React.FC<{ 
+  agent: AgentInfo | null;
+  totals: AgentTotals | null;
+}> = ({ agent, totals }) => {
   const formatNumber = (amount: number) => {
     return new Intl.NumberFormat('en-NG').format(amount);
   };
 
-  // Get metrics from agent's totals - using your exact field names
-  const totalBalance = agent?.totals?.totalBalance || 0;
-  const totalPending = agent?.totals?.totalPending || 0;
-  const totalEarning = agent?.totals?.totalEarning || 0;
-  const totalActiveProperties = agent?.totals?.totalActiveProperties || 0;
-  
-  // Mock percentage changes (you can get these from your API)
-  const earningChange = 0; // +12.5%
-  const balanceChange = 0; // +18.2%
-  const pendingCount = 0; // 5 pending approvals
+  const totalBalance = totals?.totalBalance || 0;
+  const totalPending = totals?.totalPending || 0;
+  const totalEarning = totals?.totalEarning || 0;
+  const totalActiveProperties = totals?.totalActiveProperties || 0;
 
   const dashboardCards = [
     {
       title: "Total Earnings",
-      value: formatNumber(totalEarning),
-    
-      trend: "up",
+      value: `₦${formatNumber(totalEarning)}`,
       icon: <Payment sx={{ fontSize: 40, color: "primary.main" }} />,
-      color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      color: "linear-gradient(135deg, #667eea 0%, #746485 100%)",
       tooltip: "Total amount earned by this agent",
-      field: "totalEarning"
     },
     {
-      title: " Total Pending",
-      value: formatNumber(totalPending),
-      secondaryValue: `${totalPending} Pending`,
-      description: "Total pending approvals",
-      icon: <Assessment sx={{ fontSize: 40, color: "warning.main" }} />,
-      color: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-      tooltip: "Total pending approvals for this agent",
-      field: "totalPending"
+      title: "Total Pending",
+      value: `₦${formatNumber(totalPending)}`,
+      icon: <Receipt sx={{ fontSize: 40, color: "warning.main" }} />,
+      color: "linear-gradient(135deg, #f093fb 0%, #8a525a 100%)",
+      tooltip: "Total pending payouts",
     },
     {
-      title: " Active Properties",
+      title: "Active Properties",
       value: formatNumber(totalActiveProperties),
       icon: <Home sx={{ fontSize: 40, color: "success.main" }} />,
-      description: "Registered agents",
-      color: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+      color: "linear-gradient(135deg, #4facfe 0%, #73a6a8 100%)",
       tooltip: "Number of active properties managed by agent",
-      field: "totalActiveProperties"
     },
     {
       title: "Total Balance",
-      value: formatNumber(totalBalance),
-      change: `${balanceChange}%`,
-
-      color: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
+      value: `₦${formatNumber(totalBalance)}`,
+      icon: <AccountBalanceWallet sx={{ fontSize: 40, color: "info.main" }} />,
+      color: "linear-gradient(135deg, #43e97b 0%, #6eb9ac 100%)",
       tooltip: "Current available balance",
-      field: "totalBalance"
     },
   ];
 
   return (
     <Box>
       <Typography variant="h5" gutterBottom fontWeight="bold">
-        Agent Performance Dashboard
+       {agent?.name} Dashboard
       </Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
         Overview of {agent?.name}'s performance and earnings
@@ -374,30 +298,6 @@ const AgentDashboard: React.FC<{ agent: AgentData | null }> = ({ agent }) => {
                     <Typography variant="h4" fontWeight="bold" sx={{ mt: 1 }}>
                       {card.value}
                     </Typography>
-                    
-                    {card.change && (
-                      <Box display="flex" alignItems="center" sx={{ mt: 1 }}>
-                        <ArrowUpward sx={{ fontSize: 16, mr: 0.5 }} />
-                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                          {card.change}
-                        </Typography>
-                        <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }}>
-                          This month
-                        </Typography>
-                      </Box>
-                    )}
-                    
-                    {card.secondaryValue && (
-                      <Typography variant="h6" fontWeight="medium" sx={{ mt: 1 }}>
-                        {card.secondaryValue}
-                      </Typography>
-                    )}
-                    
-                    {card.description && (
-                      <Typography variant="caption" sx={{ opacity: 0.8, display: "block", mt: 1 }}>
-                        {card.description}
-                      </Typography>
-                    )}
                   </Box>
                   
                   <Tooltip title={card.tooltip}>
@@ -414,30 +314,6 @@ const AgentDashboard: React.FC<{ agent: AgentData | null }> = ({ agent }) => {
                     </IconButton>
                   </Tooltip>
                 </Box>
-                
-                {/* Progress indicator */}
-                {card.change && (
-                  <Box sx={{ mt: 2 }}>
-                    <Box
-                      sx={{
-                        width: "100%",
-                        height: 4,
-                        backgroundColor: "rgba(255, 255, 255, 0.2)",
-                        borderRadius: 2,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          width: card.trend === "up" ? "70%" : "30%",
-                          height: "100%",
-                          backgroundColor: "white",
-                          borderRadius: 2,
-                        }}
-                      />
-                    </Box>
-                  </Box>
-                )}
               </CardContent>
             </Card>
           </Grid>
@@ -445,104 +321,61 @@ const AgentDashboard: React.FC<{ agent: AgentData | null }> = ({ agent }) => {
       </Grid>
 
       {/* Detailed Statistics */}
-      <Grid container spacing={3} sx={{ mt: 2 }}>
-        <Grid item xs={12} md={8}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom fontWeight="bold">
-                Detailed Statistics
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={6} sm={3}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="primary" fontWeight="bold">
-                      {formatNumber(totalActiveProperties)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Active Properties
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.7 }}>
-                      totalActiveProperties
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="success" fontWeight="bold">
-                      {formatNumber(totalEarning)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Total Earnings
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.7 }}>
-                      totalEarning
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="warning" fontWeight="bold">
-                      {formatNumber(totalPending)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Pending Balance
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.7 }}>
-                      totalPending
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="info" fontWeight="bold">
-                      {formatNumber(totalBalance)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Current Balance
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.7 }}>
-                      totalBalance
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={12} md={4}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom fontWeight="bold">
-                Performance Trend
-              </Typography>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    This Month Growth
-                  </Typography>
-                  <Typography variant="h5" fontWeight="bold" color="success.main">
-                    +{earningChange}%
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Based on earnings
-                  </Typography>
-                </Box>
-                <ArrowUpward sx={{ fontSize: 48, color: "success.main" }} />
+      <Card sx={{ mt: 3, borderRadius: 2, boxShadow: 2 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom fontWeight="bold">
+            Detailed Statistics
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={6} sm={3}>
+              <Box textAlign="center">
+                <Typography variant="h4" color="primary" fontWeight="bold">
+                  {formatNumber(totalActiveProperties)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Active Properties
+                </Typography>
               </Box>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-                Earnings increased by {earningChange}% this month
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Box textAlign="center">
+                <Typography variant="h4" color="success" fontWeight="bold">
+                  ₦{formatNumber(totalEarning)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Total Earnings
+                </Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Box textAlign="center">
+                <Typography variant="h4" color="warning" fontWeight="bold">
+                  ₦{formatNumber(totalPending)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Pending Balance
+                </Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Box textAlign="center">
+                <Typography variant="h4" color="info" fontWeight="bold">
+                  ₦{formatNumber(totalBalance)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Current Balance
+                </Typography>
+              </Box>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       {/* Agent Info Summary */}
       <Card sx={{ mt: 3, borderRadius: 2, boxShadow: 2 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom fontWeight="bold">
-            Agent Information
+          {agent?.name} Information
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}>
@@ -596,28 +429,300 @@ const AgentDashboard: React.FC<{ agent: AgentData | null }> = ({ agent }) => {
           </Grid>
         </CardContent>
       </Card>
+    </Box>
+  );
+};
 
-      {/* Data Source Info */}
-      <Card sx={{ mt: 3, borderRadius: 2, boxShadow: 2, backgroundColor: "grey.50" }}>
-        <CardContent>
-          <Typography variant="body2" color="text.secondary">
-           Agent totals 
-          </Typography>
-          <Box sx={{ mt: 1, p: 1, backgroundColor: "white", borderRadius: 1, fontFamily: "monospace", fontSize: "0.8rem" }}>
-            totals: 
-            <br />
-            &nbsp;&nbsp;totalBalance: {totalBalance},
-            <br />
-            &nbsp;&nbsp;totalPending: {totalPending},
-            <br />
-            &nbsp;&nbsp;totalEarning: {totalEarning},
-            <br />
-            &nbsp;&nbsp;totalActiveProperties: {totalActiveProperties}
-            <br />
+// Properties Tab Component
+const AgentPropertiesTab: React.FC<{ properties: PropertyData[] }> = ({ properties }) => {
+  const formatNumber = (amount: number) => {
+    return new Intl.NumberFormat('en-NG').format(amount);
+  };
+
+  if (properties.length === 0) {
+    return (
+      <Box textAlign="center" py={4}>
+        <Home sx={{ fontSize: 60, color: "grey.400", mb: 2 }} />
+        <Typography variant="h6" color="text.secondary">
+          No properties found
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          This agent doesn't have any properties assigned yet.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Typography variant="h5" gutterBottom fontWeight="bold">
+        Managed Properties ({properties.length})
+      </Typography>
+      <Grid container spacing={3}>
+        {properties.map((property) => (
+          <Grid item xs={12} md={6} key={property.id}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                {/* Property Images */}
+                {property.apartment.images && property.apartment.images.length > 0 && (
+                  <Box sx={{ mb: 2, borderRadius: 1, overflow: 'hidden', height: 200 }}>
+                    <img
+                      src={property.apartment.images[0]}
+                      alt={property.apartment.name}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://via.placeholder.com/400x200?text=Property+Image';
+                      }}
+                    />
+                  </Box>
+                )}
+
+                <Typography variant="h6" gutterBottom>
+                  {property.apartment.name}
+                </Typography>
+
+                <Grid container spacing={1} sx={{ mb: 2 }}>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Type:
+                    </Typography>
+                    <Typography variant="body2" fontWeight="medium">
+                      {property.apartment.type}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Bedrooms:
+                    </Typography>
+                    <Typography variant="body2" fontWeight="medium">
+                      {property.apartment.bedroom}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Servicing:
+                    </Typography>
+                    <Typography variant="body2" fontWeight="medium">
+                      {property.apartment.servicing}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Status:
+                    </Typography>
+                    <Chip
+                      label={property.apartment.isBooked ? "Booked" : "Available"}
+                      color={property.apartment.isBooked ? "error" : "success"}
+                      size="small"
+                    />
+                  </Grid>
+                </Grid>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Base Price:
+                    </Typography>
+                    <Typography variant="h6" color="primary" fontWeight="bold">
+                      ₦{formatNumber(property.base_price)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Commission:
+                    </Typography>
+                    <Typography variant="h6" color="success" fontWeight="bold">
+                      {property.agent_commission_percent}%
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  Last updated: {new Date(property.updated_at).toLocaleDateString()}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+};
+
+// Payouts Tab Component
+const AgentPayoutsTab: React.FC<{ payouts: PayoutData[] }> = ({ payouts }) => {
+  const formatNumber = (amount: number) => {
+    return new Intl.NumberFormat('en-NG').format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-NG', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'success':
+      case 'completed':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'failed':
+      case 'rejected':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
+
+  if (payouts.length === 0) {
+    return (
+      <Box textAlign="center" py={4}>
+        <Receipt sx={{ fontSize: 60, color: "grey.400", mb: 2 }} />
+        <Typography variant="h6" color="text.secondary">
+          No payouts found
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          This agent doesn't have any payout history yet.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Typography variant="h5" gutterBottom fontWeight="bold">
+        Payout History ({payouts.length})
+      </Typography>
       
-          </Box>
-        </CardContent>
-      </Card>
+      <TableContainer component={Paper} sx={{ mt: 2 }}>
+        <Table>
+          <TableHead sx={{ backgroundColor: 'grey.50' }}>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 'bold' }}>Reference</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Amount</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Bank Details</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {payouts.map((payout) => (
+              <TableRow key={payout.id}>
+                <TableCell>
+                  <Typography variant="body2" fontWeight="medium">
+                    {payout.reference}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Transaction: {payout.transactionId}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body1" fontWeight="bold">
+                    ₦{formatNumber(payout.amount)}
+                  </Typography>
+                  {payout.charges > 0 && (
+                    <Typography variant="caption" color="text.secondary">
+                      Charges: ₦{formatNumber(payout.charges)}
+                    </Typography>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Box>
+                    <Typography variant="body2">
+                      {payout.bankName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {payout.accountNumber} • {payout.accountName}
+                    </Typography>
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={payout.status}
+                    color={getStatusColor(payout.status) as any}
+                    size="small"
+                  />
+                  {payout.reason && (
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                      {payout.reason}
+                    </Typography>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2">
+                    {formatDate(payout.createdAt)}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Summary Statistics */}
+      <Grid container spacing={2} sx={{ mt: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="body2" color="text.secondary">
+                Total Payouts
+              </Typography>
+              <Typography variant="h5" fontWeight="bold">
+                {payouts.length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+                <Typography variant="body2" color="text.secondary">
+                Total Successful
+                </Typography>
+                <Typography variant="h5" fontWeight="bold" color="success">
+                ₦{formatNumber(payouts.filter(p => p.status.toLowerCase() === 'success').reduce((sum, p) => sum + p.amount, 0))}
+                </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="body2" color="text.secondary">
+                Successful
+              </Typography>
+              <Typography variant="h5" fontWeight="bold" color="success">
+                {payouts.filter(p => p.status.toLowerCase() === 'success').length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="body2" color="text.secondary">
+                Pending
+              </Typography>
+              <Typography variant="h5" fontWeight="bold" color="warning">
+                {payouts.filter(p => p.status.toLowerCase() === 'pending').length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
     </Box>
   );
 };
@@ -625,7 +730,7 @@ const AgentDashboard: React.FC<{ agent: AgentData | null }> = ({ agent }) => {
 // Agent Profile Modal Component
 const AgentProfileModal: React.FC<{
   open: boolean;
-  agent: AgentData | null;
+  agent: any;
   onClose: () => void;
 }> = ({ open, agent, onClose }) => {
   const [activeTab, setActiveTab] = useState(0);
@@ -633,6 +738,11 @@ const AgentProfileModal: React.FC<{
     open: false,
     imageUrl: "",
   });
+  const [managementData, setManagementData] = useState<AgentManagementData | null>(null);
+  const [loadingManagement, setLoadingManagement] = useState(false);
+  const [managementError, setManagementError] = useState<string | null>(null);
+
+  const { getAgentManagement, debugToken } = useAdminStore();
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -650,6 +760,50 @@ const AgentProfileModal: React.FC<{
       open: false,
       imageUrl: "",
     });
+  };
+
+  // Fetch agent management data when modal opens
+  useEffect(() => {
+    if (open && agent?.id) {
+      fetchAgentManagementData();
+    } else {
+      // Reset data when modal closes
+      setManagementData(null);
+      setManagementError(null);
+    }
+  }, [open, agent?.id]);
+
+  const fetchAgentManagementData = async () => {
+    if (!agent?.id) return;
+
+    try {
+      setLoadingManagement(true);
+      setManagementError(null);
+
+      console.log('Fetching agent management data for:', agent.id);
+      
+      // Debug token before making request
+      debugToken();
+      
+      // Fetch agent management data
+      const response = await getAgentManagement(agent.id);
+      
+      console.log('Agent management response:', response);
+      
+      // Store the response data directly
+      setManagementData(response);
+    } catch (error: any) {
+      console.error('Error fetching agent management data:', error);
+      
+      // Check if it's an auth error
+      if (error.response?.status === 401) {
+        setManagementError('Authentication expired. Please log in again.');
+      } else {
+        setManagementError(error.message || 'Failed to fetch agent management data');
+      }
+    } finally {
+      setLoadingManagement(false);
+    }
   };
 
   // If modal is not open or no agent, don't render anything
@@ -696,487 +850,447 @@ const AgentProfileModal: React.FC<{
         </DialogTitle>
 
         <DialogContent sx={{ p: 0 }}>
-          {/* Tabs */}
-          <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}>
-            <Tabs value={activeTab} onChange={handleTabChange}>
-              <Tab
-                icon={<AccountBalanceWallet />}
-                label="Dashboard"
-                id="agent-tab-0"
-              />
-              <Tab
-                icon={<Payment />}
-                label="Payouts"
-                id="agent-tab-1"
-              />
-              <Tab 
-                icon={<Home />} 
-                label="Properties" 
-                id="agent-tab-2" 
-              />
-              <Tab 
-                icon={<Badge />} 
-                label="Personal Info" 
-                id="agent-tab-3" 
-              />
-            </Tabs>
-          </Box>
+          {/* Loading state for management data */}
+          {loadingManagement && (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <CircularProgress />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Loading agent management data...
+              </Typography>
+            </Box>
+          )}
 
-          {/* Tab Content */}
-          <Box sx={{ px: 3, overflow: 'auto', maxHeight: '60vh', minHeight: '300px', py: 3 }}>
-            <TabPanel value={activeTab} index={0}>
-              {/* Dashboard Tab - Now showing actual dashboard */}
-              <AgentDashboard agent={agent} />
-            </TabPanel>
+          {/* Error state */}
+          {managementError && !loadingManagement && (
+            <Alert severity="error" sx={{ m: 2 }}>
+              {managementError}
+            </Alert>
+          )}
 
-            <TabPanel value={activeTab} index={1}>
-              <Box>
-                <Typography variant="h5" gutterBottom fontWeight="bold">
-                  Payouts
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Loading payout history for {agent.name}...
-                </Typography>
-                <Box display="flex" justifyContent="center" py={4}>
-                  <CircularProgress />
-                </Box>
+          {/* Content when not loading */}
+          {!loadingManagement && managementData && (
+            <>
+              {/* Tabs */}
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}>
+                <Tabs value={activeTab} onChange={handleTabChange}>
+                  <Tab
+                    icon={<AccountBalanceWallet />}
+                    label="Dashboard"
+                    id="agent-tab-0"
+                  />
+                  <Tab
+                    icon={<Payment />}
+                    label="Payouts"
+                    id="agent-tab-1"
+                  />
+                  <Tab 
+                    icon={<Home />} 
+                    label="Properties" 
+                    id="agent-tab-2" 
+                  />
+                  <Tab 
+                    icon={<Badge />} 
+                    label="Personal Info" 
+                    id="agent-tab-3" 
+                  />
+                </Tabs>
               </Box>
-            </TabPanel>
 
-            <TabPanel value={activeTab} index={2}>
-              <Box>
-                <Typography variant="h5" gutterBottom fontWeight="bold">
-                  Properties
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Loading properties for {agent.name}...
-                </Typography>
-                <Box display="flex" justifyContent="center" py={4}>
-                  <CircularProgress />
-                </Box>
-              </Box>
-            </TabPanel>
+              {/* Tab Content */}
+              <Box sx={{ px: 3, overflow: 'auto', maxHeight: '60vh', minHeight: '300px', py: 3 }}>
+                <TabPanel value={activeTab} index={0}>
+                  {/* Dashboard Tab */}
+                  <AgentDashboard 
+                    agent={managementData.info} 
+                    totals={managementData.totals} 
+                  />
+                </TabPanel>
 
-            <TabPanel value={activeTab} index={3}>
-              {/* Personal Info Tab - Keep existing content */}
-              <Box>
-                <Typography variant="h5" gutterBottom fontWeight="bold">
-                  Personal Info
-                </Typography>
-                <Grid container spacing={3}>
-                  {/* Profile Header Card */}
-                  <Grid item xs={12}>
-                    <Card>
-                      <CardContent>
-                        <Box display="flex" alignItems="center" gap={3}>
-                          <Avatar
-                            sx={{ width: 80, height: 80, bgcolor: 'primary.main' }}
-                            src={agent.profile_picture || undefined}
-                          >
-                            <Person sx={{ fontSize: 40 }} />
-                          </Avatar>
-                          <Box flex={1}>
-                            <Typography variant="h5" fontWeight="bold">
-                              {agent.name || 'Unnamed Agent'}
-                            </Typography>
-                            <Typography variant="body1" color="text.secondary">
-                              Agent ID: {agent.id}
-                            </Typography>
-                            <Box display="flex" gap={1} mt={1}>
-                              <Chip
-                                label={agent.status || 'Unknown'}
-                                color={
-                                  agent.status?.toLowerCase() === 'active' || agent.status?.toLowerCase() === 'verified' 
-                                    ? 'success' 
-                                    : agent.status?.toLowerCase() === 'pending' 
-                                      ? 'warning' 
-                                      : 'error'
-                                }
-                                size="small"
-                              />
-                              {agent.suspended && (
-                                <Chip
-                                  label="Suspended"
-                                  color="error"
-                                  size="small"
-                                />
-                              )}
+                <TabPanel value={activeTab} index={1}>
+                  {/* Payouts Tab */}
+                  <AgentPayoutsTab payouts={managementData.payouts} />
+                </TabPanel>
+
+                <TabPanel value={activeTab} index={2}>
+                  {/* Properties Tab */}
+                  <AgentPropertiesTab properties={managementData.properties} />
+                </TabPanel>
+
+                <TabPanel value={activeTab} index={3}>
+                  {/* Personal Info Tab */}
+                  <Box>
+                    <Typography variant="h5" gutterBottom fontWeight="bold">
+                      Personal Info
+                    </Typography>
+                    <Grid container spacing={3}>
+                      {/* Profile Header Card */}
+                      <Grid item xs={12}>
+                        <Card>
+                          <CardContent>
+                            <Box display="flex" alignItems="center" gap={3}>
+                              <Avatar
+                                sx={{ width: 80, height: 80, bgcolor: 'primary.main' }}
+                                src={managementData.info.profile_picture || undefined}
+                              >
+                                <Person sx={{ fontSize: 40 }} />
+                              </Avatar>
+                              <Box flex={1}>
+                                <Typography variant="h5" fontWeight="bold">
+                                  {managementData.info.name || 'Unnamed Agent'}
+                                </Typography>
+                                <Typography variant="body1" color="text.secondary">
+                                  Agent ID: {managementData.info.id}
+                                </Typography>
+                                <Box display="flex" gap={1} mt={1}>
+                                  <Chip
+                                    label={managementData.info.status || 'Unknown'}
+                                    color={
+                                      managementData.info.status?.toLowerCase() === 'active' || managementData.info.status?.toLowerCase() === 'verified' 
+                                        ? 'success' 
+                                        : managementData.info.status?.toLowerCase() === 'pending' 
+                                          ? 'warning' 
+                                          : 'error'
+                                    }
+                                    size="small"
+                                  />
+                                  {managementData.info.suspended && (
+                                    <Chip
+                                      label="Suspended"
+                                      color="error"
+                                      size="small"
+                                    />
+                                  )}
+                                </Box>
+                              </Box>
                             </Box>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
+                          </CardContent>
+                        </Card>
+                      </Grid>
 
-                  {/* Contact Information */}
-                  <Grid item xs={12} md={6}>
-                    <Card>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom fontWeight="bold">
-                          <Email sx={{ fontSize: 18, mr: 1 }} />
-                          Contact Information
-                        </Typography>
-                        <Box display="flex" flexDirection="column" gap={2}>
-                          <Box display="flex" justifyContent="space-between">
-                            <Typography variant="body2" color="text.secondary">
-                              Email:
+                      {/* Contact Information */}
+                      <Grid item xs={12} md={6}>
+                        <Card>
+                          <CardContent>
+                            <Typography variant="h6" gutterBottom fontWeight="bold">
+                              <Email sx={{ fontSize: 18, mr: 1 }} />
+                              Contact Information
                             </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {agent.email || 'N/A'}
-                            </Typography>
-                          </Box>
-                          <Box display="flex" justifyContent="space-between">
-                            <Typography variant="body2" color="text.secondary">
-                              Phone:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {agent.phone_number || 'N/A'}
-                            </Typography>
-                          </Box>
-                          <Box display="flex" justifyContent="space-between">
-                            <Typography variant="body2" color="text.secondary">
-                              Gender:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {agent.gender ? agent.gender.charAt(0).toUpperCase() + agent.gender.slice(1) : 'N/A'}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-
-                  {/* Registration Info */}
-                  <Grid item xs={12} md={6}>
-                    <Card>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom fontWeight="bold">
-                          <CalendarToday sx={{ fontSize: 18, mr: 1 }} />
-                          Registration
-                        </Typography>
-                        <Box display="flex" flexDirection="column" gap={2}>
-                          <Box display="flex" justifyContent="space-between">
-                            <Typography variant="body2" color="text.secondary">
-                              Joined:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {agent.createdAt ? new Date(agent.createdAt).toLocaleDateString() : 'N/A'}
-                            </Typography>
-                          </Box>
-                          <Box display="flex" justifyContent="space-between">
-                            <Typography variant="body2" color="text.secondary">
-                              Last Updated:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {agent.updatedAt ? new Date(agent.updatedAt).toLocaleDateString() : 'N/A'}
-                            </Typography>
-                          </Box>
-                          <Box display="flex" justifyContent="space-between">
-                            <Typography variant="body2" color="text.secondary">
-                              Status:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {agent.status || 'N/A'}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-
-                  {/* Address Information */}
-                  <Grid item xs={12}>
-                    <Card>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom fontWeight="bold">
-                          <Home sx={{ fontSize: 18, mr: 1 }} />
-                          Address Information
-                        </Typography>
-                        <Box display="flex" flexDirection="column" gap={2}>
-                          <Box>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                              Residential Address:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {agent.address || 'N/A'}
-                            </Typography>
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                              Personal URL:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {agent.slug ? `https://homeyhost.ng/shortlet/${agent.slug}` : 'N/A'}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-
-                  {/* Bank Details */}
-                  <Grid item xs={12} md={6}>
-                    <Card>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom fontWeight="bold">
-                          <AccountBalanceWallet sx={{ fontSize: 18, mr: 1 }} />
-                          Bank Details
-                        </Typography>
-                        <Box display="flex" flexDirection="column" gap={2}>
-                          <Box display="flex" justifyContent="space-between">
-                            <Typography variant="body2" color="text.secondary">
-                              Bank Name:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {agent.bank_name || agent.bankName || 'N/A'}
-                            </Typography>
-                          </Box>
-                          <Box display="flex" justifyContent="space-between">
-                            <Typography variant="body2" color="text.secondary">
-                              Account Number:
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {agent.account_number || agent.accountNumber || 'N/A'}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-
-                  {/* Identification */}
-                  <Grid item xs={12} md={6}>
-                    <Card>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom fontWeight="bold">
-                          <Badge sx={{ fontSize: 18, mr: 1 }} />
-                          Identification & Verification
-                        </Typography>
-                        <Box display="flex" flexDirection="column" gap={2}>
-                          <Box>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                              ID Card Status:
-                            </Typography>
-                            <Box display="flex" alignItems="center" gap={1}>
-                              <Chip
-                                label={agent.id_card ? "Uploaded" : "Not Provided"}
-                                color={agent.id_card ? "success" : "default"}
-                                size="small"
-                                icon={agent.id_card ? <CheckCircle /> : undefined}
-                              />
-                              {agent.front_id_status && (
-                                <Chip
-                                  label="Front Verified"
-                                  color="success"
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              )}
-                              {agent.back_id_status && (
-                                <Chip
-                                  label="Back Verified"
-                                  color="success"
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              )}
+                            <Box display="flex" flexDirection="column" gap={2}>
+                              <Box display="flex" justifyContent="space-between">
+                                <Typography variant="body2" color="text.secondary">
+                                  Email:
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {managementData.info.email || 'N/A'}
+                                </Typography>
+                              </Box>
+                              <Box display="flex" justifyContent="space-between">
+                                <Typography variant="body2" color="text.secondary">
+                                  Phone:
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {managementData.info.phone_number || 'N/A'}
+                                </Typography>
+                              </Box>
+                              <Box display="flex" justifyContent="space-between">
+                                <Typography variant="body2" color="text.secondary">
+                                  Gender:
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {managementData.info.gender ? managementData.info.gender.charAt(0).toUpperCase() + managementData.info.gender.slice(1) : 'N/A'}
+                                </Typography>
+                              </Box>
                             </Box>
-                          </Box>
-                          
-                          {agent.id_card && (
-                            <>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+
+                      {/* Registration Info */}
+                      <Grid item xs={12} md={6}>
+                        <Card>
+                          <CardContent>
+                            <Typography variant="h6" gutterBottom fontWeight="bold">
+                              <CalendarToday sx={{ fontSize: 18, mr: 1 }} />
+                              Registration
+                            </Typography>
+                            <Box display="flex" flexDirection="column" gap={2}>
+                              <Box display="flex" justifyContent="space-between">
+                                <Typography variant="body2" color="text.secondary">
+                                  Joined:
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {managementData.info.createdAt ? new Date(managementData.info.createdAt).toLocaleDateString() : 'N/A'}
+                                </Typography>
+                              </Box>
+                              <Box display="flex" justifyContent="space-between">
+                                <Typography variant="body2" color="text.secondary">
+                                  Last Updated:
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {managementData.info.updatedAt ? new Date(managementData.info.updatedAt).toLocaleDateString() : 'N/A'}
+                                </Typography>
+                              </Box>
+                              <Box display="flex" justifyContent="space-between">
+                                <Typography variant="body2" color="text.secondary">
+                                  Status:
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {managementData.info.status || 'N/A'}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+
+                      {/* Address Information */}
+                      <Grid item xs={12}>
+                        <Card>
+                          <CardContent>
+                            <Typography variant="h6" gutterBottom fontWeight="bold">
+                              <Home sx={{ fontSize: 18, mr: 1 }} />
+                              Address Information
+                            </Typography>
+                            <Box display="flex" flexDirection="column" gap={2}>
                               <Box>
                                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                                  ID Card Preview:
+                                  Residential Address:
                                 </Typography>
-                                <Box
-                                  sx={{
-                                    width: '100%',
-                                    maxWidth: 300,
-                                    height: 180,
-                                    borderRadius: 1,
-                                    overflow: 'hidden',
-                                    position: 'relative',
-                                    cursor: 'pointer',
-                                    border: '1px solid',
-                                    borderColor: 'grey.300',
-                                    '&:hover': {
-                                      boxShadow: 4,
-                                      borderColor: 'primary.main',
-                                      '& .overlay': {
-                                        opacity: 1,
-                                      }
-                                    }
-                                  }}
-                                  onClick={() => handleOpenIdCardModal(agent.id_card!)}
-                                >
-                                  <img
-                                    src={agent.id_card}
-                                    alt="ID Card Preview"
-                                    style={{
-                                      width: '100%',
-                                      height: '100%',
-                                      objectFit: 'cover',
-                                    }}
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.src = 'https://via.placeholder.com/300x180?text=ID+Card';
-                                    }}
+                                <Typography variant="body2" fontWeight="medium">
+                                  {managementData.info.address || 'N/A'}
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                  Personal URL:
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {managementData.info.slug ? `https://homeyhost.ng/shortlet/${managementData.info.slug}` : 'N/A'}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+
+                      {/* Bank Details */}
+                      <Grid item xs={12} md={6}>
+                        <Card>
+                          <CardContent>
+                            <Typography variant="h6" gutterBottom fontWeight="bold">
+                              <AccountBalanceWallet sx={{ fontSize: 18, mr: 1 }} />
+                              Bank Details
+                            </Typography>
+                            <Box display="flex" flexDirection="column" gap={2}>
+                              <Box display="flex" justifyContent="space-between">
+                                <Typography variant="body2" color="text.secondary">
+                                  Bank Name:
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {managementData.info.bank_name || 'N/A'}
+                                </Typography>
+                              </Box>
+                              <Box display="flex" justifyContent="space-between">
+                                <Typography variant="body2" color="text.secondary">
+                                  Account Number:
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {managementData.info.account_number || 'N/A'}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+
+                      {/* Identification */}
+                      <Grid item xs={12} md={6}>
+                        <Card>
+                          <CardContent>
+                            <Typography variant="h6" gutterBottom fontWeight="bold">
+                              <Badge sx={{ fontSize: 18, mr: 1 }} />
+                              Identification & Verification
+                            </Typography>
+                            <Box display="flex" flexDirection="column" gap={2}>
+                              <Box>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                  ID Card Status:
+                                </Typography>
+                                <Box display="flex" alignItems="center" gap={1}>
+                                  <Chip
+                                    label={managementData.info.id_card ? "Uploaded" : "Not Provided"}
+                                    color={managementData.info.id_card ? "success" : "default"}
+                                    size="small"
+                                    icon={managementData.info.id_card ? <CheckCircle /> : undefined}
                                   />
-                                  <Box
-                                    className="overlay"
-                                    sx={{
-                                      position: 'absolute',
-                                      top: 0,
-                                      left: 0,
-                                      right: 0,
-                                      bottom: 0,
-                                      backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      opacity: 0,
-                                      transition: 'opacity 0.3s',
-                                    }}
-                                  >
-                                    <Box textAlign="center">
-                                      <Visibility sx={{ color: 'white', fontSize: 32, mb: 1 }} />
-                                      <Typography variant="body2" color="white" fontWeight="medium">
-                                        Click to View
-                                      </Typography>
-                                    </Box>
-                                  </Box>
                                 </Box>
                               </Box>
                               
-                              <Box display="flex" gap={1}>
-                                <Button
-                                  variant="outlined"
-                                  size="small"
-                                  startIcon={<Visibility />}
-                                  onClick={() => handleOpenIdCardModal(agent.id_card!)}
-                                  fullWidth
-                                >
-                                  View ID Card
-                                </Button>
-                              </Box>
-                            </>
-                          )}
-                          
-                          {agent.nextOfKinName && (
-                            <>
-                              <Divider />
-                              <Box>
-                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                  Next of Kin:
-                                </Typography>
-                                <Typography variant="body2" fontWeight="medium">
-                                  {agent.nextOfKinName}
-                                </Typography>
-                                {agent.nextOfKinPhone && (
-                                  <Typography variant="caption" color="text.secondary">
-                                    Phone: {agent.nextOfKinPhone}
-                                  </Typography>
-                                )}
-                              </Box>
-                            </>
-                          )}
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
+                              {managementData.info.id_card && (
+                                <>
+                                  <Box>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                      ID Card Preview:
+                                    </Typography>
+                                    <Box
+                                      sx={{
+                                        width: '100%',
+                                        maxWidth: 300,
+                                        height: 180,
+                                        borderRadius: 1,
+                                        overflow: 'hidden',
+                                        position: 'relative',
+                                        cursor: 'pointer',
+                                        border: '1px solid',
+                                        borderColor: 'grey.300',
+                                        '&:hover': {
+                                          boxShadow: 4,
+                                          borderColor: 'primary.main',
+                                          '& .overlay': {
+                                            opacity: 1,
+                                          }
+                                        }
+                                      }}
+                                      onClick={() => handleOpenIdCardModal(managementData.info.id_card)}
+                                    >
+                                      <img
+                                        src={managementData.info.id_card}
+                                        alt="ID Card Preview"
+                                        style={{
+                                          width: '100%',
+                                          height: '100%',
+                                          objectFit: 'cover',
+                                        }}
+                                        onError={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.src = 'https://via.placeholder.com/300x180?text=ID+Card';
+                                        }}
+                                      />
+                                      <Box
+                                        className="overlay"
+                                        sx={{
+                                          position: 'absolute',
+                                          top: 0,
+                                          left: 0,
+                                          right: 0,
+                                          bottom: 0,
+                                          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          opacity: 0,
+                                          transition: 'opacity 0.3s',
+                                        }}
+                                      >
+                                        <Box textAlign="center">
+                                          <Visibility sx={{ color: 'white', fontSize: 32, mb: 1 }} />
+                                          <Typography variant="body2" color="white" fontWeight="medium">
+                                            Click to View
+                                          </Typography>
+                                        </Box>
+                                      </Box>
+                                    </Box>
+                                  </Box>
+                                  
+                                  <Box display="flex" gap={1}>
+                                    <Button
+                                      variant="outlined"
+                                      size="small"
+                                      startIcon={<Visibility />}
+                                      onClick={() => handleOpenIdCardModal(managementData.info.id_card)}
+                                      fullWidth
+                                    >
+                                      View ID Card
+                                    </Button>
+                                  </Box>
+                                </>
+                              )}
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      </Grid>
 
-                  {/* Additional Information (if available) */}
-                  {(agent.nextOfKinFullName || agent.nextOfKinEmail || agent.nextOfKinAddress) && (
-                    <Grid item xs={12}>
-                      <Card>
-                        <CardContent>
-                          <Typography variant="h6" gutterBottom fontWeight="bold">
-                            <PersonPin sx={{ fontSize: 18, mr: 1 }} />
-                            Next of Kin Information
-                          </Typography>
-                          <Grid container spacing={2}>
-                            {agent.nextOfKinFullName && (
-                              <Grid item xs={12} md={4}>
-                                <Box>
-                                  <Typography variant="body2" color="text.secondary">
-                                    Full Name:
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight="medium">
-                                    {agent.nextOfKinFullName}
-                                  </Typography>
-                                </Box>
+                      {/* Next of Kin Information */}
+                      {managementData.info.nextOfKinName && (
+                        <Grid item xs={12}>
+                          <Card>
+                            <CardContent>
+                              <Typography variant="h6" gutterBottom fontWeight="bold">
+                                <PersonPin sx={{ fontSize: 18, mr: 1 }} />
+                                Next of Kin Information
+                              </Typography>
+                              <Grid container spacing={2}>
+                                <Grid item xs={12} md={4}>
+                                  <Box>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Full Name:
+                                    </Typography>
+                                    <Typography variant="body2" fontWeight="medium">
+                                      {managementData.info.nextOfKinName}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
+                                <Grid item xs={12} md={4}>
+                                  <Box>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Email:
+                                    </Typography>
+                                    <Typography variant="body2" fontWeight="medium">
+                                      {managementData.info.nextOfKinEmail}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
+                                <Grid item xs={12} md={4}>
+                                  <Box>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Phone:
+                                    </Typography>
+                                    <Typography variant="body2" fontWeight="medium">
+                                      {managementData.info.nextOfKinPhone}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
+                                <Grid item xs={12}>
+                                  <Box>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Address:
+                                    </Typography>
+                                    <Typography variant="body2" fontWeight="medium">
+                                      {managementData.info.nextOfKinAddress}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                  <Box>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Occupation:
+                                    </Typography>
+                                    <Typography variant="body2" fontWeight="medium">
+                                      {managementData.info.nextOfKinOccupation}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                  <Box>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Relationship:
+                                    </Typography>
+                                    <Typography variant="body2" fontWeight="medium">
+                                      {managementData.info.nextOfKinStatus}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
                               </Grid>
-                            )}
-                            {agent.nextOfKinEmail && (
-                              <Grid item xs={12} md={4}>
-                                <Box>
-                                  <Typography variant="body2" color="text.secondary">
-                                    Email:
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight="medium">
-                                    {agent.nextOfKinEmail}
-                                  </Typography>
-                                </Box>
-                              </Grid>
-                            )}
-                            {agent.nextOfKinPhone && (
-                              <Grid item xs={12} md={4}>
-                                <Box>
-                                  <Typography variant="body2" color="text.secondary">
-                                    Phone:
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight="medium">
-                                    {agent.nextOfKinPhone}
-                                  </Typography>
-                                </Box>
-                              </Grid>
-                            )}
-                            {agent.nextOfKinAddress && (
-                              <Grid item xs={12}>
-                                <Box>
-                                  <Typography variant="body2" color="text.secondary">
-                                    Address:
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight="medium">
-                                    {agent.nextOfKinAddress}
-                                  </Typography>
-                                </Box>
-                              </Grid>
-                            )}
-                            {agent.nextOfKinOccupation && (
-                              <Grid item xs={12} md={6}>
-                                <Box>
-                                  <Typography variant="body2" color="text.secondary">
-                                    Occupation:
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight="medium">
-                                    {agent.nextOfKinOccupation}
-                                  </Typography>
-                                </Box>
-                              </Grid>
-                            )}
-                            {agent.nextOfKinStatus && (
-                              <Grid item xs={12} md={6}>
-                                <Box>
-                                  <Typography variant="body2" color="text.secondary">
-                                    Relationship:
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight="medium">
-                                    {agent.nextOfKinStatus}
-                                  </Typography>
-                                </Box>
-                              </Grid>
-                            )}
-                          </Grid>
-                        </CardContent>
-                      </Card>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      )}
                     </Grid>
-                  )}
-                </Grid>
+                  </Box>
+                </TabPanel>
               </Box>
-            </TabPanel>
-          </Box>
+            </>
+          )}
         </DialogContent>
 
         <DialogActions sx={{ p: 2 }}>
@@ -1293,9 +1407,9 @@ const AgentProfileModal: React.FC<{
   );
 };
 
-// Main AgentTable Component (simplified - no dashboard at top)
+// Main AgentTable Component
 const AgentTable: React.FC = () => {
-  const [data, setData] = useState<AgentData[]>([]);
+  const [agents, setAgents] = useState<any[]>([]);
   const [totalAgents, setTotalAgents] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1305,38 +1419,30 @@ const AgentTable: React.FC = () => {
 
   const [agentDetailModal, setAgentDetailModal] = useState<{
     open: boolean;
-    agent: AgentData | null;
+    agent: any | null;
   }>({
     open: false,
     agent: null,
   });
 
   const {
-    token,
-    isLoading: storeLoading,
     listAgents,
     clearError,
   } = useAdminStore();
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!token) {
-        setError("Authentication required");
-        setLoading(false);
-        return;
-      }
-
       try {
         setLoading(true);
        
         const result = await listAgents(currentPage, itemsPerPage);
       
-        const agentsData = result?.data?.agents || result?.data?.data?.agents || [];
-        const pagination = result?.data?.pagination || result?.data?.data?.pagination || {};
+        const agentsData = result?.data?.agents || [];
+        const pagination = result?.data?.pagination || {};
 
-        setData(Array.isArray(agentsData) ? agentsData : []);
-        setTotalAgents(pagination.totalAgents || pagination.total || 0);
-        setTotalPages(pagination.totalPages || Math.ceil(totalAgents / itemsPerPage) || 1);
+        setAgents(Array.isArray(agentsData) ? agentsData : []);
+        setTotalAgents(pagination.totalAgents || 0);
+        setTotalPages(pagination.totalPages || 1);
         setCurrentPage(pagination.currentPage || currentPage);
         setItemsPerPage(pagination.itemsPerPage || itemsPerPage);
         setError(null);
@@ -1348,9 +1454,9 @@ const AgentTable: React.FC = () => {
     };
 
     fetchData();
-  }, [token, currentPage, itemsPerPage, listAgents]);
+  }, [currentPage, itemsPerPage, listAgents]);
 
-  const openAgentDetailModal = (agent: AgentData) => {
+  const openAgentDetailModal = (agent: any) => {
     setAgentDetailModal({
       open: true,
       agent,
@@ -1402,7 +1508,7 @@ const AgentTable: React.FC = () => {
     },
   });
 
-  if (loading || storeLoading) {
+  if (loading) {
     return (
       <Box
         display="flex"
@@ -1421,7 +1527,7 @@ const AgentTable: React.FC = () => {
   return (
     <ThemeProvider theme={defaultMaterialTheme}>
       <div className="p-6">
-        {/* Header (no dashboard at top) */}
+        {/* Header */}
         <Card sx={{ mb: 3, backgroundColor: "primary.main", color: "white" }}>
           <CardContent>
             <Box
@@ -1483,7 +1589,7 @@ const AgentTable: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {data.map((agent, index) => (
+                  {agents.map((agent, index) => (
                     <TableRow
                       key={agent.id || index}
                       sx={{
@@ -1614,7 +1720,7 @@ const AgentTable: React.FC = () => {
             </TableContainer>
 
             {/* Empty State */}
-            {data.length === 0 && !loading && (
+            {agents.length === 0 && !loading && (
               <Box
                 display="flex"
                 justifyContent="center"
@@ -1643,7 +1749,7 @@ const AgentTable: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Agent Profile Modal with Dashboard inside */}
+        {/* Agent Profile Modal */}
         <AgentProfileModal
           open={agentDetailModal.open}
           agent={agentDetailModal.agent}

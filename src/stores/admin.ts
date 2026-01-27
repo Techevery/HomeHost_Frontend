@@ -44,6 +44,7 @@ interface UpdateApartmentData {
   amenities?: string;
   agentPercentage?: number;
   imagesToDelete?: string[];
+  location?: string;
 }
 
 interface OfflineBookingData {
@@ -62,7 +63,152 @@ interface EditAdminProfileData {
   confirmPassword?: string;
 }
 
+interface CreateAdminData {
+  name: string;
+  email: string;
+  address: string;
+  gender: string;
+  phone_number: string;
+}
+
+// Agent Management Response Interfaces
+interface AgentTotals {
+  totalBalance: number;
+  totalPending: number;
+  totalEarning: number;
+  totalActiveProperties: number;
+}
+
+interface AgentInfo {
+  id: string;
+  name: string;
+  email: string;
+  address: string;
+  phone_number: string;
+  bank_name: string;
+  account_number: string;
+  gender: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  profile_picture: string;
+  id_card: string;
+  slug: string;
+  personalUrl: string;
+  accountBalance: number;
+  nextOfKinAddress: string;
+  nextOfKinEmail: string;
+  nextOfKinName: string;
+  nextOfKinOccupation: string;
+  nextOfKinPhone: string;
+  nextOfKinStatus: string;
+  suspended: boolean;
+}
+
+interface BookingPeriod {
+  id: string;
+  transaction_id: string;
+  apartment_id: string;
+  start_date: string;
+  end_date: string;
+  duration_days: number;
+  created_at: string;
+  isDeleted: boolean;
+  isEdited: boolean;
+  expired: boolean;
+  status: string;
+  newBookingDuration: string | null;
+}
+
+interface Transaction {
+  id: string;
+  email: string;
+  status: string;
+  amount: number;
+  channel: string | null;
+  charge: number | null;
+  metadata: {
+    bookingPeriods: Array<{
+      endDate: string;
+      startDate: string;
+      durationDays: number;
+    }>;
+  };
+  reference: string;
+  date_paid: string;
+  apartment_id: string;
+  agent_id: string;
+  created_at: string;
+  updated_at: string;
+  booking_end_date: string;
+  booking_start_date: string;
+  duration_days: number;
+  phone_number: string;
+  payment_month: string | null;
+  payment_year: string | null;
+  credited: boolean;
+  agentPercentage: number;
+  mockupPrice: number;
+  bookingPeriods: BookingPeriod[];
+}
+
+interface Payout {
+  id: string;
+  agentId: string;
+  accountNumber: string;
+  accountName: string;
+  bankName: string;
+  status: string;
+  createdAt: string;
+  amount: number;
+  proof: string | null;
+  reference: string;
+  remark: string | null;
+  transactionId: string;
+  reason: string | null;
+  charges: number;
+  transaction?: Transaction;
+}
+
+interface PropertyApartment {
+  id: string;
+  name: string;
+  address: string;
+  type: string;
+  servicing: string;
+  bedroom: string;
+  price: number;
+  images: string[];
+  video_link: string | null;
+  agentPercentage: number | null;
+  amenities: string;
+  isBooked: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Property {
+  id: string;
+  agent_id: string;
+  apartment_id: string;
+  base_price: number;
+  markedup_price: number;
+  price_changed_by: string | null;
+  price_changed_at: string;
+  updated_at: string;
+  agent_commission_percent: number;
+  apartment: PropertyApartment;
+}
+
+interface AgentManagementResponse {
+  totals: AgentTotals;
+  info: AgentInfo;
+  payouts: Payout[];
+  properties: Property[];
+}
+
 interface AdminActions {
+  // Authentication
   login: (email: string, password: string) => Promise<void>;
   registerAdmin: (adminData: {
     name: string;
@@ -77,33 +223,53 @@ interface AdminActions {
     updatedData: EditAdminProfileData | FormData,
   ) => Promise<any>;
   clearError: () => void;
+  
+  // Admin Management
+  createAdmin: (adminData: CreateAdminData) => Promise<any>;
+  
+  // Agent Management
   verifyAgent: (
     agentId: string,
     status: "VERIFIED" | "UNVERIFIED",
   ) => Promise<any>;
   suspendAgent: (agentId: string) => Promise<any>;
   rejectAgent: (agentId: string, reason: string) => Promise<any>;
-  listProperties: (page?: number, pageSize?: number) => Promise<any>;
   listAgents: (page?: number, pageSize?: number) => Promise<any>;
   getAgentProfile: (agentId: string, status?: "info" | "payout" | "properties") => Promise<any>;
-  getDashboardStats: () => Promise<any>;
-  getTransactionDetailsByYear: (year: number) => Promise<any>;
-  deleteApartment: (apartmentId: string) => Promise<any>;
-  searchApartment: (query: string) => Promise<any>;
+  getAgentManagement: (agentId: string) => Promise<AgentManagementResponse>;
+  
+  // Property Management
+  listProperties: (page?: number, pageSize?: number) => Promise<any>;
+  createApartment: (
+    apartmentData: ApartmentData,
+    files?: File[]
+  ) => Promise<any>;
   updateApartment: (
     apartmentId: string,
     updateData: UpdateApartmentData,
     files?: File[],
     deleteExistingImages?: boolean
   ) => Promise<any>;
-  createApartment: (
-    apartmentData: ApartmentData,
-    files?: File[]
-  ) => Promise<any>;
+  deleteApartment: (apartmentId: string) => Promise<any>;
+  searchApartment: (query: string) => Promise<any>;
+  
+  // Booking
   offlineBooking: (bookingData: OfflineBookingData) => Promise<any>;
   
+  // Dashboard & Reports
+  getDashboardStats: () => Promise<any>;
+  getTransactionDetailsByYear: (year: number) => Promise<any>;
+  
+  // Payouts
   getSuccessfulPayouts: (page?: number, pageSize?: number) => Promise<any>;
   getPayoutRequests: (page?: number, pageSize?: number) => Promise<any>;
+  
+  // Debug
+  debugToken: () => {
+    token: string | null;
+    hasLocalStorageToken: boolean;
+    localStorageTokenLength: number | null;
+  };
 }
 
 const initialState: AdminState = {
@@ -126,91 +292,112 @@ const adminAxios = axios.create({
   },
 });
 
+// Add request interceptor to automatically add token
+adminAxios.interceptors.request.use(
+  (config) => {
+    // Get token from localStorage (most reliable)
+    const token = localStorage.getItem("token");
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token.trim()}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    console.error("Request interceptor error:", error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for error handling
+adminAxios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle 401 Unauthorized globally
+    if (error.response?.status === 401) {
+      console.warn("401 Unauthorized - Token expired or invalid");
+      // Clear stored token
+      localStorage.removeItem("token");
+      localStorage.removeItem("admin-storage");
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
 const useAdminStore = create<AdminState & AdminActions>()(
   persist(
     (set, get) => ({
       ...initialState,
 
-    login: async (email, password) => {
-  set({ isLoading: true, error: null });
-  try {
-    const response = await adminAxios.post(
-      `/api/v1/auth/admin-login`,
-      { email, password },
-    );
+      login: async (email, password) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await adminAxios.post(
+            `/api/v1/auth/admin-login`,
+            { email, password },
+          );
 
-    const responseData = response.data;
-    
-    // CORRECTED: Extract token from the correct nested structure
-    const token = responseData.data?.token;
-    const adminData = responseData.data?.admin;
+          const responseData = response.data;
+          const token = responseData.data?.token;
+          const adminData = responseData.data?.admin;
 
-    console.log("✅ Login response:", {
-      hasToken: !!token,
-      tokenLength: token?.length,
-      adminData
-    });
+          if (!token) {
+            throw new Error("No access token received from server");
+          }
 
-    if (!token) {
-      throw new Error("No access token received from server");
-    }
+          // Store token in Zustand state
+          set({
+            token,
+            adminInfo: {
+              id: adminData?.id || "",
+              name: adminData?.name || "",
+              email: adminData?.email || "",
+              role: adminData?.role || "admin",
+              permissions: adminData?.permissions || [],
+              profilePicture: adminData?.profilePicture || "",
+              isSuperAdmin: 
+                adminData?.isSuperAdmin ||
+                adminData?.is_super_admin ||
+                adminData?.superAdmin ||
+                adminData?.role === "super_admin" ||
+                adminData?.role === "super admin" ||
+                false,
+              createdAt: adminData?.createdAt || new Date().toISOString(),
+              address: adminData?.address,
+              gender: adminData?.gender,
+              phoneNumber: adminData?.phoneNumber || adminData?.phonenumber || "",
+            },
+            isAuthenticated: true,
+            isLoading: false,
+          });
 
-    // Store token in Zustand state
-    set({
-      token,
-      adminInfo: {
-        id: adminData?.id || "",
-        name: adminData?.name || "",
-        email: adminData?.email || "",
-        role: adminData?.role || " super_admin || admin|| super admin",
-        permissions: adminData?.permissions || [],
-        profilePicture: adminData?.profilePicture || "",
-        isSuperAdmin:
-          adminData?.isSuperAdmin ||
-          adminData?.is_super_admin ||
-          adminData?.superAdmin ||
-          false,
-        createdAt: adminData?.createdAt || new Date().toISOString(),
-        address: adminData?.address,
-        gender: adminData?.gender,
-        phoneNumber: adminData?.phoneNumber || adminData?.phonenumber || "",
+          // Store token in localStorage
+          localStorage.setItem("token", token);
+
+          // Fetch full profile after login
+          try {
+            await get().fetchAdminProfile();
+          } catch (profileError) {
+            console.error("Profile fetch error after login:", profileError);
+          }
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            "Login failed. Please check your credentials.";
+
+          set({
+            error: errorMessage,
+            isAuthenticated: false,
+            isLoading: false,
+          });
+          throw error;
+        }
       },
-      isAuthenticated: true,
-      isLoading: false,
-    });
 
-    // Store token in localStorage
-    try {
-      localStorage.setItem("token", token);
-      console.log("💾 Token stored in localStorage");
-    } catch (storageError) {
-      console.error("Storage error:", storageError);
-    }
-
-    // Fetch full profile after login
-    try {
-      await get().fetchAdminProfile();
-    } catch (profileError) {
-      console.error("Profile fetch error after login:", profileError);
-      // Don't throw here, just log - login was still successful
-    }
-  } catch (error: any) {
-    const errorMessage =
-      error.response?.data?.message ||
-      error.response?.data?.error ||
-      error.message ||
-      "Login failed. Please check your credentials.";
-
-    console.error("❌ Login error:", errorMessage);
-
-    set({
-      error: errorMessage,
-      isAuthenticated: false,
-      isLoading: false,
-    });
-    throw error;
-  }
-},
       registerAdmin: async (adminData) => {
         set({ isLoading: true, error: null });
         try {
@@ -231,6 +418,31 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
+      createAdmin: async (adminData: CreateAdminData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await adminAxios.post(
+            `/api/v1/admin/create-admin`,
+            adminData,
+          );
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to create admin. Please try again.";
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
       logout: () => {
         set(initialState);
         try {
@@ -241,126 +453,81 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
-     fetchAdminProfile: async () => {
-  set({ isLoading: true, error: null }); // Clear previous errors
-  try {
-    const token = get().token || localStorage.getItem("token");
+      fetchAdminProfile: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await adminAxios.get(
+            `/api/v1/admin/admin-profile`,
+          );
 
-    // DEBUG: Log token info
-    console.log("🔍 fetchAdminProfile - Token:", {
-      hasToken: !!token,
-      tokenLength: token?.length,
-      tokenFirst20: token?.substring(0, 20) + "..."
-    });
+          const data = response.data.data;
+          
+          if (!data) {
+            throw new Error("No profile data received from server");
+          }
 
-    if (!token) {
-      throw new Error("User not logged in. Please log in again.");
-    }
+          set({
+            adminInfo: {
+              id: data.id || "",
+              name: data.name || "",
+              email: data.email || "",
+              role: data.role || "admin",
+              permissions: data.permissions || [],
+              profilePicture: data.profilePicture || data.profile_picture || "",
+              isSuperAdmin: 
+                data.isSuperAdmin ||
+                data.is_super_admin ||
+                data.superAdmin ||
+                data.role === "super_admin" ||
+                data.role === "super admin" ||
+                false,
+              createdAt: data.createdAt || new Date().toISOString(),
+              address: data.address || "",
+              gender: data.gender || "",
+              phoneNumber: data.phoneNumber || data.phonenumber || data.phone_number || "",
+            },
+            isLoading: false,
+          });
+        } catch (error: any) {
+          const errorMessage = 
+            error.response?.data?.message || 
+            error.response?.data?.error || 
+            error.message || 
+            "Failed to fetch admin profile";
 
-    const response = await adminAxios.get(
-      `/api/v1/admin/admin-profile`,
-      {
-        // Authorization header is automatically added by interceptor
-        // But we can also explicitly set it for debugging
-        headers: {
-          Authorization: `Bearer ${token.trim()}`, // .trim() to remove any whitespace
-        },
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          
+          if (error.response?.status === 401) {
+            get().logout();
+          }
+          throw error;
+        }
       },
-    );
-
-    console.log("✅ Profile response:", response.data);
-
-    const data = response.data.data;
-    
-    if (!data) {
-      throw new Error("No profile data received from server");
-    }
-
-    set({
-      adminInfo: {
-        id: data.id || "",
-        name: data.name || "",
-        email: data.email || "",
-        role: data.role || "admin",
-        permissions: data.permissions || [],
-        profilePicture: data.profilePicture || data.profile_picture || "",
-        isSuperAdmin: 
-          data.isSuperAdmin ||
-          data.is_super_admin ||
-          data.superAdmin ||
-          data.role === "super_admin" ||
-          data.role === "super admin" ||
-          false,
-        createdAt: data.createdAt || new Date().toISOString(),
-        address: data.address || "",
-        gender: data.gender || "",
-        phoneNumber: data.phoneNumber || data.phonenumber || data.phone_number || "",
-      },
-      isLoading: false,
-    });
-  } catch (error: any) {
-    console.error("❌ Profile fetch error:", {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-      url: error.config?.url,
-      headers: error.config?.headers
-    });
-    
-    const errorMessage = 
-      error.response?.data?.message || 
-      error.response?.data?.error || 
-      error.message || 
-      "Failed to fetch admin profile";
-
-    set({
-      error: errorMessage,
-      isLoading: false,
-    });
-    
-    if (error.response?.status === 401) {
-      get().logout();
-    }
-    throw error;
-  }
-},
 
       updateAdminProfile: async (updatedData) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login. Please log in again.");
-          }
-
-          // Check if it's FormData (for file upload) or regular JSON
           const isFormData = updatedData instanceof FormData;
           let config;
           let dataToSend;
 
           if (isFormData) {
-            // For FormData, don't set Content-Type header - browser will set it with boundary
-            config = {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            };
+            config = {};
             dataToSend = updatedData;
           } else {
-            // For regular JSON data
             config = {
               headers: {
-                Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               },
             };
             
-            // Prepare the data according to backend expectations
             const { name, address, password, confirmPassword } = updatedData as EditAdminProfileData;
             dataToSend = { name, address, password, confirmPassword };
           }
 
-         
           const response = await adminAxios.patch(
             `/api/v1/admin/edit-profile`,
             dataToSend,
@@ -369,7 +536,6 @@ const useAdminStore = create<AdminState & AdminActions>()(
 
           const data = response.data.data || response.data;
           
-          // Update the admin info in store
           set((state) => ({
             adminInfo: state.adminInfo ? {
               ...state.adminInfo,
@@ -379,11 +545,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             error: null,
           }));
 
-        
           return response.data;
         } catch (error: any) {
-         
-          
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||
@@ -401,20 +564,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
       verifyAgent: async (agentId, status) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login. Please log in again.");
-          }
-
           const response = await adminAxios.put(
             `/api/v1/admin/verify-agent`,
             { agentId, status },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            },
           );
 
           set({ isLoading: false });
@@ -431,20 +583,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
       suspendAgent: async (agentId) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login. Please log in again.");
-          }
-
           const response = await adminAxios.patch(
             `/api/v1/admin/suspend-agent`,
             { agentId },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            },
           );
 
           set({ isLoading: false });
@@ -461,19 +602,10 @@ const useAdminStore = create<AdminState & AdminActions>()(
       rejectAgent: async (agentId, reason) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login. Please log in again.");
-          }
-
           const response = await adminAxios.delete(
             `/api/v1/admin/reject/${agentId}`,
             {
               data: { reason },
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
             },
           );
 
@@ -493,24 +625,80 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
+      getAgentManagement: async (agentId: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          console.log(`Fetching agent management data for: ${agentId}`);
+          
+          const response = await adminAxios.get(
+            `/api/v1/admin/agent-management/${agentId}`,
+          );
+
+          console.log('Agent Management Response:', response.data);
+
+          // Extract the data from response
+          const responseData = response.data.data || response.data;
+          
+          // Ensure we have the expected structure
+          if (!responseData) {
+            throw new Error("No data received from server");
+          }
+
+          // Transform to match our interface
+          const agentManagementData: AgentManagementResponse = {
+            totals: responseData.totals || {
+              totalBalance: 0,
+              totalPending: 0,
+              totalEarning: 0,
+              totalActiveProperties: 0
+            },
+            info: responseData.info,
+            payouts: responseData.payouts || [],
+            properties: responseData.properties || []
+          };
+
+          set({ isLoading: false });
+          
+          return agentManagementData;
+
+        } catch (error: any) {
+          console.error('Agent Management Error:', error);
+          
+          let errorMessage = "Failed to fetch agent management data";
+          
+          if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+            errorMessage = "Request timeout. Please try again.";
+          } else if (error.response?.status === 401) {
+            errorMessage = "Authentication expired. Please log in again.";
+            get().logout();
+          } else if (error.response?.status === 403) {
+            errorMessage = "Access denied. You don't have permission to access this resource.";
+          } else if (error.response?.status === 404) {
+            errorMessage = "Agent not found.";
+          } else if (error.response?.status === 500) {
+            errorMessage = "Server error. Please try again later.";
+          } else if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          
+          throw new Error(errorMessage);
+        }
+      },
+
       listProperties: async (page = 1, pageSize = 10) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-
-          if (!token) {
-            throw new Error(
-              "user not login. Please log in again.",
-            );
-          }
-
           const response = await adminAxios.get(
             `/api/v1/admin/list-apartments`,
             {
               params: { page, pageSize },
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
             },
           );
 
@@ -533,18 +721,10 @@ const useAdminStore = create<AdminState & AdminActions>()(
       listAgents: async (page = 1, pageSize = 10) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login, please login again");
-          }
-
           const response = await adminAxios.get(
             `/api/v1/admin/list-agents`,
             {
               params: { page, pageSize },
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
             },
           );
 
@@ -559,95 +739,50 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
-
-getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties" = "info") => {
-  set({ isLoading: true, error: null });
-  
-  try {
-    const token = get().token || localStorage.getItem("token");
-    if (!token) {
-      throw new Error("Authentication token not found. Please log in again.");
-    }
-
-    // CORRECTED: Always include status parameter, even for 'info'
-    const url = `/api/v1/admin/agent-profile/${agentId}`;
-    
-    const params: any = {};
-    // Always include the status parameter
-    if (status) {
-      params.status = status;
-    }
-    
-    console.log('🔍 [FRONTEND] Fetching agent profile:', {
-      url,
-      params,
-      agentId,
-      status,
-      fullUrl: `${url}?status=${status}`
-    });
-
-    const response = await adminAxios.get(url, {
-      params,  // This will add ?status=info/payout/properties
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-      },
-      timeout: 20000,
-    });
-
-    console.log('✅ [FRONTEND] Agent Profile Response:', {
-      status: response.status,
-      data: response.data,
-      hasData: !!response.data?.data,
-      message: response.data?.message
-    });
-
-    set({ isLoading: false });
-    
-    // Return the entire response for extractAgentData to process
-    return response.data;
-
-  } catch (error: any) {
-    console.error('❌ [FRONTEND] Agent Profile Error:', error);
-    
-    let errorMessage = "Failed to fetch agent profile";
-    
-    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      errorMessage = "Request timeout. The server is taking too long to respond.";
-    } else if (error.response?.status === 401) {
-      errorMessage = "Authentication expired. Please log in again.";
-    } else if (error.response?.status === 404) {
-      errorMessage = "Agent not found.";
-    } else if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    }
-
-    set({
-      error: errorMessage,
-      isLoading: false,
-    });
-    
-    throw new Error(errorMessage);
-  }
-},
-      getDashboardStats: async () => {
-        set({ isLoading: true });
+      getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties" = "info") => {
+        set({ isLoading: true, error: null });
+        
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("User not logged in. Please log in again.");
-          }
-
           const response = await adminAxios.get(
-            `/api/v1/admin/stats`,
+            `/api/v1/admin/agent-profile/${agentId}`,
             {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
+              params: { status },
             },
           );
 
-          console.log("Dashboard Stats Response:", response.data);
+          set({ isLoading: false });
+          
+          return response.data;
+
+        } catch (error: any) {
+          let errorMessage = "Failed to fetch agent profile";
+          
+          if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+            errorMessage = "Request timeout. Please try again.";
+          } else if (error.response?.status === 401) {
+            errorMessage = "Authentication expired. Please log in again.";
+          } else if (error.response?.status === 404) {
+            errorMessage = "Agent not found.";
+          } else if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+          }
+
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          
+          throw new Error(errorMessage);
+        }
+      },
+
+      getDashboardStats: async () => {
+        set({ isLoading: true });
+        try {
+          const response = await adminAxios.get(
+            `/api/v1/admin/stats`,
+          );
+
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
@@ -667,20 +802,9 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
       getTransactionDetailsByYear: async (year) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login, please login again");
-          }
-
           const response = await adminAxios.post(
             `/api/v1/admin/get-transaction-details`,
             { year },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            },
           );
 
           set({ isLoading: false });
@@ -697,18 +821,8 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
       deleteApartment: async (apartmentId) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login, please login again");
-          }
-
           const response = await adminAxios.delete(
             `/api/v1/admin/${apartmentId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            },
           );
 
           set({ isLoading: false });
@@ -725,18 +839,10 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
       searchApartment: async (query) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login, please login again");
-          }
-
           const response = await adminAxios.get(
             `/api/v1/admin/search-apartment`,
             {
               params: { query },
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
             },
           );
 
@@ -758,11 +864,6 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
       ) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login, please login again");
-          }
-
           const formData = new FormData();
           
           Object.entries(updateData).forEach(([key, value]) => {
@@ -781,36 +882,20 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
             });
           }
 
-          console.log('🔄 Sending update request with:', {
-            apartmentId,
-            updateData,
-            filesCount: files?.length || 0,
-            imagesToDelete: updateData.imagesToDelete,
-            formDataEntries: Array.from(formData.entries())
-          });
-
           const response = await adminAxios.patch(
             `/api/v1/admin/update-apartment/${apartmentId}`,
             formData,
             {
               headers: {
-                Authorization: `Bearer ${token}`,
                 'Content-Type': 'multipart/form-data',
               },
               timeout: 30000,
             },
           );
 
-          console.log('✅ Update response:', response);
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          console.error('❌ Update error details:', {
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message,
-          });
-          
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||
@@ -828,11 +913,6 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
       createApartment: async (apartmentData, files) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("user not login, please login again");
-          }
-
           const formData = new FormData();
           
           Object.entries(apartmentData).forEach(([key, value]) => {
@@ -850,7 +930,6 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
             formData,
             {
               headers: {
-                Authorization: `Bearer ${token}`,
                 'Content-Type': 'multipart/form-data',
               },
             },
@@ -870,13 +949,6 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
       offlineBooking: async (bookingData: OfflineBookingData) => {
         set({ isLoading: true, error: null });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("User not logged in. Please log in again.");
-          }
-
-          console.log("📤 Sending offline booking request:", bookingData);
-
           const requestData: any = {
             apartmentId: bookingData.apartmentId,
             startDate: bookingData.startDates,
@@ -885,7 +957,6 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
             email: bookingData.email,
           };
 
-          // Add phone if provided
           if (bookingData.phone) {
             requestData.phone = bookingData.phone;
           }
@@ -894,24 +965,13 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
             `/api/v1/admin/book`, 
             requestData,
             {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
               timeout: 30000, 
             },
           );
 
-          console.log("✅ Offline booking response:", response.data);
           set({ isLoading: false });
           return response.data;
         } catch (error: any) {
-          console.error("❌ Offline booking error:", {
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message,
-          });
-          
           const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.error ||
@@ -929,18 +989,10 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
       getSuccessfulPayouts: async (page = 1, pageSize = 10) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("Authentication token not found");
-          }
-
           const response = await adminAxios.get(
             `/api/v1/wallet/successful-payout`,
             {
               params: { page, pageSize },
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
             },
           );
 
@@ -963,18 +1015,10 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
       getPayoutRequests: async (page = 1, pageSize = 10) => {
         set({ isLoading: true });
         try {
-          const token = get().token || localStorage.getItem("token");
-          if (!token) {
-            throw new Error("Authentication token not found");
-          }
-
           const response = await adminAxios.get(
             `/api/v1/wallet`,
             {
               params: { page, pageSize },
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
             },
           );
 
@@ -996,6 +1040,22 @@ getAgentProfile: async (agentId: string, status: "info" | "payout" | "properties
 
       clearError: () => {
         set({ error: null });
+      },
+
+      debugToken: () => {
+        const storeToken = get().token;
+        const localStorageToken = localStorage.getItem("token");
+        
+        const debugInfo = {
+          token: storeToken,
+          hasLocalStorageToken: !!localStorageToken,
+          localStorageTokenLength: localStorageToken?.length || null,
+          localStorageTokenFirst20: localStorageToken?.substring(0, 20) + "...",
+          hasAdminStorage: !!localStorage.getItem("admin-storage")
+        };
+        
+        console.log('Token Debug Info:', debugInfo);
+        return debugInfo;
       },
     }),
     {
