@@ -2,16 +2,24 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
 
+// 添加角色常量
+const ROLES = {
+  SUPER_ADMIN: 'super_admin',
+  ADMIN: 'admin',
+} as const;
+
+type Role = typeof ROLES[keyof typeof ROLES];
+
 interface AdminState {
   token: string | null;
   adminInfo: {
     id: string;
     name: string;
     email: string;
-    role: string;
+    role: Role; // 使用明确的角色类型
     permissions: string[];
     profilePicture: string;
-    isSuperAdmin: boolean;
+    isSuperAdmin: boolean; // 保持向后兼容
     createdAt: string;
     address?: string;
     gender?: string;
@@ -264,6 +272,11 @@ interface AdminActions {
   getSuccessfulPayouts: (page?: number, pageSize?: number) => Promise<any>;
   getPayoutRequests: (page?: number, pageSize?: number) => Promise<any>;
   
+  // Role Helpers
+  isSuperAdmin: () => boolean;
+  isAdmin: () => boolean;
+  getUserRole: () => Role | null;
+  
   // Debug
   debugToken: () => {
     token: string | null;
@@ -326,6 +339,22 @@ adminAxios.interceptors.response.use(
   }
 );
 
+// Helper function to determine role from various possible field names
+const determineRole = (adminData: any): Role => {
+  // Check role field first
+  if (adminData?.role === ROLES.SUPER_ADMIN) {
+    return ROLES.SUPER_ADMIN;
+  }
+  
+  // Check isSuperAdmin field for backward compatibility
+  if (adminData?.isSuperAdmin === true || adminData?.is_super_admin === true) {
+    return ROLES.SUPER_ADMIN;
+  }
+  
+  // Default to admin role
+  return ROLES.ADMIN;
+};
+
 const useAdminStore = create<AdminState & AdminActions>()(
   persist(
     (set, get) => ({
@@ -347,6 +376,10 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("No access token received from server");
           }
 
+          // Determine role based on data
+          const role = determineRole(adminData);
+          const isSuperAdmin = role === ROLES.SUPER_ADMIN;
+
           // Store token in Zustand state
           set({
             token,
@@ -354,16 +387,10 @@ const useAdminStore = create<AdminState & AdminActions>()(
               id: adminData?.id || "",
               name: adminData?.name || "",
               email: adminData?.email || "",
-              role: adminData?.role || "admin",
+              role: role,
               permissions: adminData?.permissions || [],
               profilePicture: adminData?.profilePicture || "",
-              isSuperAdmin: 
-                adminData?.isSuperAdmin ||
-                adminData?.is_super_admin ||
-                adminData?.superAdmin ||
-                adminData?.role === "super_admin" ||
-                adminData?.role === "super admin" ||
-                false,
+              isSuperAdmin: isSuperAdmin, // For backward compatibility
               createdAt: adminData?.createdAt || new Date().toISOString(),
               address: adminData?.address,
               gender: adminData?.gender,
@@ -421,6 +448,17 @@ const useAdminStore = create<AdminState & AdminActions>()(
       createAdmin: async (adminData: CreateAdminData) => {
         set({ isLoading: true, error: null });
         try {
+          // Check if current user is super admin
+          const currentAdmin = get().adminInfo;
+          if (currentAdmin?.role !== ROLES.SUPER_ADMIN) {
+            const errorMessage = "Insufficient permissions: Only super admins can create new admins";
+            set({
+              error: errorMessage,
+              isLoading: false,
+            });
+            throw new Error(errorMessage);
+          }
+
           const response = await adminAxios.post(
             `/api/v1/admin/create-admin`,
             adminData,
@@ -466,21 +504,19 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("No profile data received from server");
           }
 
+          // Determine role based on data
+          const role = determineRole(data);
+          const isSuperAdmin = role === ROLES.SUPER_ADMIN;
+
           set({
             adminInfo: {
               id: data.id || "",
               name: data.name || "",
               email: data.email || "",
-              role: data.role || "admin",
+              role: role,
               permissions: data.permissions || [],
               profilePicture: data.profilePicture || data.profile_picture || "",
-              isSuperAdmin: 
-                data.isSuperAdmin ||
-                data.is_super_admin ||
-                data.superAdmin ||
-                data.role === "super_admin" ||
-                data.role === "super admin" ||
-                false,
+              isSuperAdmin: isSuperAdmin,
               createdAt: data.createdAt || new Date().toISOString(),
               address: data.address || "",
               gender: data.gender || "",
@@ -536,10 +572,16 @@ const useAdminStore = create<AdminState & AdminActions>()(
 
           const data = response.data.data || response.data;
           
+          // Update role information if present
+          const updatedRole = determineRole(data);
+          const updatedIsSuperAdmin = updatedRole === ROLES.SUPER_ADMIN;
+          
           set((state) => ({
             adminInfo: state.adminInfo ? {
               ...state.adminInfo,
               ...data,
+              role: updatedRole,
+              isSuperAdmin: updatedIsSuperAdmin,
             } : null,
             isLoading: false,
             error: null,
@@ -1042,6 +1084,21 @@ const useAdminStore = create<AdminState & AdminActions>()(
         set({ error: null });
       },
 
+      // Role helper functions
+      isSuperAdmin: () => {
+        const adminInfo = get().adminInfo;
+        return adminInfo?.role === ROLES.SUPER_ADMIN || adminInfo?.isSuperAdmin === true;
+      },
+
+      isAdmin: () => {
+        const adminInfo = get().adminInfo;
+        return adminInfo?.role === ROLES.ADMIN || !adminInfo?.isSuperAdmin;
+      },
+
+      getUserRole: () => {
+        return get().adminInfo?.role || null;
+      },
+
       debugToken: () => {
         const storeToken = get().token;
         const localStorageToken = localStorage.getItem("token");
@@ -1069,5 +1126,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
     },
   ),
 );
+
+// Export the ROLES constant for use in other files
+export { ROLES };
+export type { Role };
 
 export default useAdminStore;
