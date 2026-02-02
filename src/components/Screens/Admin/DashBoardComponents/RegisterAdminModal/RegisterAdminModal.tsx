@@ -24,28 +24,12 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const { createAdmin, isSuperAdmin } = useAdminStore();
-
-  // Early return if user is not super admin
-  const userIsSuperAdmin = isSuperAdmin();
-  
-  // If modal is open but user is not super admin, close it
-  React.useEffect(() => {
-    if (isOpen && !userIsSuperAdmin) {
-      onClose();
-    }
-  }, [isOpen, userIsSuperAdmin, onClose]);
+  const { createAdmin } = useAdminStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-
-    // Check if user is super admin before proceeding
-    if (!userIsSuperAdmin) {
-      setError('Permission denied: Only super admins can create new admins');
-      return;
-    }
 
     // Validation
     if (!formData.name || !formData.email || !formData.address || !formData.gender) {
@@ -122,8 +106,8 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
     onClose();
   };
 
-  // Don't render if not open or not super admin
-  if (!isOpen || !userIsSuperAdmin) return null;
+  // Don't render if not open
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] p-4">
@@ -146,14 +130,6 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
           >
             <AiOutlineClose size={20} />
           </button>
-        </div>
-
-        {/* Super Admin Badge */}
-        <div className="px-6 pt-4">
-          <div className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-            <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-1.5"></span>
-            Super Admin Access
-          </div>
         </div>
 
         {/* Form */}
