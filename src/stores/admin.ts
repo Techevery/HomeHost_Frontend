@@ -2,24 +2,16 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
 
-
-const ROLES = {
-  SUPER_ADMIN: 'super_admin',
-  ADMIN: 'admin',
-} as const;
-
-type Role = typeof ROLES[keyof typeof ROLES];
-
 interface AdminState {
   token: string | null;
   adminInfo: {
     id: string;
     name: string;
     email: string;
-    role: Role;
+    role: string;
     permissions: string[];
     profilePicture: string;
-    isSuperAdmin: boolean; 
+    isSuperAdmin: boolean;
     createdAt: string;
     address?: string;
     gender?: string;
@@ -272,12 +264,6 @@ interface AdminActions {
   getSuccessfulPayouts: (page?: number, pageSize?: number) => Promise<any>;
   getPayoutRequests: (page?: number, pageSize?: number) => Promise<any>;
   
-  // Role Helpers
-  isSuperAdmin: () => boolean;
-  isAdmin: () => boolean;
-  getUserRole: () => Role | null;
-  hasPermission: (permission: string) => boolean;
-  
   // Debug
   debugToken: () => {
     token: string | null;
@@ -340,33 +326,6 @@ adminAxios.interceptors.response.use(
   }
 );
 
-// Helper function to normalize role data from server
-const normalizeRoleData = (adminData: any) => {
-  if (!adminData) return null;
-  
-  // Check for role in various possible locations
-  let role: Role = ROLES.ADMIN;
-  let isSuperAdmin = false;
-  
-  // Priority 1: role field
-  if (adminData.role === 'super_admin' || adminData.role === ROLES.SUPER_ADMIN) {
-    role = ROLES.SUPER_ADMIN;
-    isSuperAdmin = true;
-  } 
-  // Priority 2: isSuperAdmin field (backend compatibility)
-  else if (adminData.isSuperAdmin === true || adminData.is_super_admin === true) {
-    role = ROLES.SUPER_ADMIN;
-    isSuperAdmin = true;
-  }
-  // Priority 3: role string
-  else if (adminData.role === 'admin' || adminData.role === ROLES.ADMIN) {
-    role = ROLES.ADMIN;
-    isSuperAdmin = false;
-  }
-  
-  return { role, isSuperAdmin };
-};
-
 const useAdminStore = create<AdminState & AdminActions>()(
   persist(
     (set, get) => ({
@@ -382,34 +341,33 @@ const useAdminStore = create<AdminState & AdminActions>()(
 
           const responseData = response.data;
           const token = responseData.data?.token;
-          const adminData = responseData.data?.admin || responseData.data;
+          const adminData = responseData.data?.admin;
 
           if (!token) {
             throw new Error("No access token received from server");
-          }
-
-          // Normalize role data
-          const roleData = normalizeRoleData(adminData);
-          
-          if (!roleData) {
-            throw new Error("Invalid admin data received");
           }
 
           // Store token in Zustand state
           set({
             token,
             adminInfo: {
-              id: adminData?.id || adminData?._id || "",
+              id: adminData?.id || "",
               name: adminData?.name || "",
               email: adminData?.email || "",
-              role: roleData.role,
+              role: adminData?.role || "admin",
               permissions: adminData?.permissions || [],
-              profilePicture: adminData?.profilePicture || adminData?.profile_picture || "",
-              isSuperAdmin: roleData.isSuperAdmin,
+              profilePicture: adminData?.profilePicture || "",
+              isSuperAdmin: 
+                adminData?.isSuperAdmin ||
+                adminData?.is_super_admin ||
+                adminData?.superAdmin ||
+                adminData?.role === "super_admin" ||
+                adminData?.role === "super admin" ||
+                false,
               createdAt: adminData?.createdAt || new Date().toISOString(),
               address: adminData?.address,
               gender: adminData?.gender,
-              phoneNumber: adminData?.phoneNumber || adminData?.phonenumber || adminData?.phone_number || "",
+              phoneNumber: adminData?.phoneNumber || adminData?.phonenumber || "",
             },
             isAuthenticated: true,
             isLoading: false,
@@ -463,17 +421,6 @@ const useAdminStore = create<AdminState & AdminActions>()(
       createAdmin: async (adminData: CreateAdminData) => {
         set({ isLoading: true, error: null });
         try {
-          // Check if current user is super admin
-          const currentAdmin = get().adminInfo;
-          if (currentAdmin?.role !== ROLES.SUPER_ADMIN) {
-            const errorMessage = "Insufficient permissions: Only super admins can create new admins";
-            set({
-              error: errorMessage,
-              isLoading: false,
-            });
-            throw new Error(errorMessage);
-          }
-
           const response = await adminAxios.post(
             `/api/v1/admin/create-admin`,
             adminData,
@@ -519,22 +466,21 @@ const useAdminStore = create<AdminState & AdminActions>()(
             throw new Error("No profile data received from server");
           }
 
-          // Normalize role data
-          const roleData = normalizeRoleData(data);
-          
-          if (!roleData) {
-            throw new Error("Invalid role data in profile");
-          }
-
           set({
             adminInfo: {
-              id: data.id || data._id || "",
+              id: data.id || "",
               name: data.name || "",
               email: data.email || "",
-              role: roleData.role,
+              role: data.role || "admin",
               permissions: data.permissions || [],
               profilePicture: data.profilePicture || data.profile_picture || "",
-              isSuperAdmin: roleData.isSuperAdmin,
+              isSuperAdmin: 
+                data.isSuperAdmin ||
+                data.is_super_admin ||
+                data.superAdmin ||
+                data.role === "super_admin" ||
+                data.role === "super admin" ||
+                false,
               createdAt: data.createdAt || new Date().toISOString(),
               address: data.address || "",
               gender: data.gender || "",
@@ -590,19 +536,10 @@ const useAdminStore = create<AdminState & AdminActions>()(
 
           const data = response.data.data || response.data;
           
-          // Normalize role data
-          const roleData = normalizeRoleData(data);
-          
-          if (!roleData) {
-            throw new Error("Invalid role data in updated profile");
-          }
-          
           set((state) => ({
             adminInfo: state.adminInfo ? {
               ...state.adminInfo,
               ...data,
-              role: roleData.role,
-              isSuperAdmin: roleData.isSuperAdmin,
             } : null,
             isLoading: false,
             error: null,
@@ -1105,32 +1042,6 @@ const useAdminStore = create<AdminState & AdminActions>()(
         set({ error: null });
       },
 
-      // Role helper functions
-      isSuperAdmin: () => {
-        const adminInfo = get().adminInfo;
-        return adminInfo?.role === ROLES.SUPER_ADMIN || adminInfo?.isSuperAdmin === true;
-      },
-
-      isAdmin: () => {
-        const adminInfo = get().adminInfo;
-        return adminInfo?.role === ROLES.ADMIN || !adminInfo?.isSuperAdmin;
-      },
-
-      getUserRole: () => {
-        return get().adminInfo?.role || null;
-      },
-
-      hasPermission: (permission: string) => {
-        const adminInfo = get().adminInfo;
-        if (!adminInfo) return false;
-        
-        // Super admins have all permissions
-        if (adminInfo.role === ROLES.SUPER_ADMIN) return true;
-        
-        // Check specific permissions
-        return adminInfo.permissions?.includes(permission) || false;
-      },
-
       debugToken: () => {
         const storeToken = get().token;
         const localStorageToken = localStorage.getItem("token");
@@ -1154,13 +1065,9 @@ const useAdminStore = create<AdminState & AdminActions>()(
         adminInfo: state.adminInfo,
         isAuthenticated: state.isAuthenticated,
       }),
-      version: 2, // Increment version to clear old storage format
+      version: 1,
     },
   ),
 );
-
-// Export the ROLES constant for use in other files
-export { ROLES };
-export type { Role };
 
 export default useAdminStore;

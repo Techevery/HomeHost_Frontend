@@ -276,4 +276,4 @@ const RegisterAdminModal: React.FC<RegisterAdminModalProps> = ({
   );
 };
 
-export default RegisterAdminModal;
+export default RegisterAdminModal; 
