@@ -755,7 +755,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
           return response.data;
 
         } catch (error: any) {
-          let errorMessage = "Failed to fetch agent profile";
+          let errorMessage = "Failed to fetch agent profile, Please logout and login again.";
           
           if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
             errorMessage = "Request timeout. Please try again.";
@@ -763,7 +763,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
             errorMessage = "Authentication expired. Please log in again.";
           } else if (error.response?.status === 404) {
             errorMessage = "Agent not found.";
-            } else if (error.response?.status === 413) {
+          } else if (error.response?.status === 413) {
             errorMessage = "Payload too large. Please reduce the size of your request.";
           } else if (error.response?.data?.message) {
             errorMessage = error.response.data.message;
