@@ -77,7 +77,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         try {
           const token = localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("Please login to continue");
           }
 
           const response = await axios.get(
@@ -143,7 +143,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         try {
           const token = localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("Please login to continue");
           }
 
           const response = await axios.get(
@@ -193,7 +193,7 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
         try {
           const token = localStorage.getItem("token");
           if (!token) {
-            throw new Error("Authentication token not found");
+            throw new Error("Please login to continue");
           }
 
         
@@ -249,9 +249,13 @@ const usePropertyStore = create<PropertyState & PropertyActions>()(
           return processedProperty;
         } catch (error: any) {
           const errorMessage =
+            error.response?.data?.message === 413
+              ? "Payload too large. Please reduce the size of your request."
+               :
             error.response?.data?.message ||
             error.response?.data?.error ||
             "Failed to create property";
+          
           set({ error: errorMessage });
           toast.error(errorMessage);
           throw error;
