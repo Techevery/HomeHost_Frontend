@@ -763,6 +763,8 @@ const useAdminStore = create<AdminState & AdminActions>()(
             errorMessage = "Authentication expired. Please log in again.";
           } else if (error.response?.status === 404) {
             errorMessage = "Agent not found.";
+            } else if (error.response?.status === 413) {
+            errorMessage = "Payload too large. Please reduce the size of your request.";
           } else if (error.response?.data?.message) {
             errorMessage = error.response.data.message;
           }

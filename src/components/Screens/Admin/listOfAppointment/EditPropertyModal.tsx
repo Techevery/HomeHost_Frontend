@@ -128,7 +128,7 @@ const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       if (totalImagesAfterUpload > 10) {
         setErrors((prev) => ({ ...prev, images: "Maximum 10 images allowed" }));
         return;
-      }
+      } 
 
       // Validate file sizes
       const oversizedFiles = newImages.filter(
