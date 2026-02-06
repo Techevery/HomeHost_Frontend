@@ -57,6 +57,15 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string>("");
 
+  // Constants for validation
+  const MAX_TOTAL_SIZE_MB = 20; // Max total size for all images
+  const MAX_INDIVIDUAL_SIZE_MB = 5; // Max size per image
+  const MAX_IMAGES = 10;
+
+  const calculateTotalSizeMB = (files: File[]): number => {
+    return files.reduce((total, file) => total + file.size, 0) / (1024 * 1024);
+  };
+
   const handleInputChange =
     (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
       setFormData((prev) => ({
@@ -78,49 +87,63 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
 
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (files) {
-      const newImages = Array.from(files);
+    if (!files) return;
 
-      // Validate total images count (max 10 as per backend)
-      if (images.length + newImages.length > 10) {
-        setErrors((prev) => ({ ...prev, images: "Maximum 10 images allowed" }));
-        return;
-      }
+    const newImages = Array.from(files);
+    const currentTotalSizeMB = calculateTotalSizeMB(images);
+    
+    // Validate total images count
+    if (images.length + newImages.length > MAX_IMAGES) {
+      setErrors((prev) => ({ 
+        ...prev, 
+        images: `Maximum ${MAX_IMAGES} images allowed` 
+      }));
+      return;
+    }
 
-      // Validate file sizes
-      const oversizedFiles = newImages.filter(
-        (file) => file.size > 1024 * 1024 * 5,
-      );
-      if (oversizedFiles.length > 0) {
-        setErrors((prev) => ({
-          ...prev,
-          images: "One or more images exceed the 5MB size limit",
-        }));
-        return;
-      }
+    // Validate individual file sizes
+    const oversizedFiles = newImages.filter(
+      (file) => file.size > MAX_INDIVIDUAL_SIZE_MB * 1024 * 1024
+    );
+    if (oversizedFiles.length > 0) {
+      setErrors((prev) => ({
+        ...prev,
+        images: `One or more images exceed the ${MAX_INDIVIDUAL_SIZE_MB}MB size limit`,
+      }));
+      return;
+    }
 
-      // Validate file types
-      const invalidFiles = newImages.filter(
-        (file) => !file.type.startsWith("image/"),
-      );
-      if (invalidFiles.length > 0) {
-        setErrors((prev) => ({
-          ...prev,
-          images: "Please select only image files (JPG, PNG, WebP, etc.)",
-        }));
-        return;
-      }
+    // Validate total size
+    const newTotalSizeMB = currentTotalSizeMB + calculateTotalSizeMB(newImages);
+    if (newTotalSizeMB > MAX_TOTAL_SIZE_MB) {
+      setErrors((prev) => ({
+        ...prev,
+        images: `Total size exceeds ${MAX_TOTAL_SIZE_MB}MB. Current: ${newTotalSizeMB.toFixed(2)}MB`,
+      }));
+      return;
+    }
 
-      setImages((prev) => [...prev, ...newImages]);
+    // Validate file types
+    const invalidFiles = newImages.filter(
+      (file) => !file.type.startsWith("image/")
+    );
+    if (invalidFiles.length > 0) {
+      setErrors((prev) => ({
+        ...prev,
+        images: "Please select only image files (JPG, PNG, WebP, etc.)",
+      }));
+      return;
+    }
 
-      // Create preview URLs
-      const newPreviews = newImages.map((file) => URL.createObjectURL(file));
-      setImagePreviews((prev) => [...prev, ...newPreviews]);
+    setImages((prev) => [...prev, ...newImages]);
 
-      // Clear image error
-      if (errors.images) {
-        setErrors((prev) => ({ ...prev, images: "" }));
-      }
+    // Create preview URLs
+    const newPreviews = newImages.map((file) => URL.createObjectURL(file));
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
+
+    // Clear image error
+    if (errors.images) {
+      setErrors((prev) => ({ ...prev, images: "" }));
     }
   };
 
@@ -130,6 +153,11 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
 
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
     setImages((prev) => prev.filter((_, i) => i !== index));
+    
+    // Clear error if removing image fixes validation
+    if (errors.images && images.length - 1 > 0) {
+      setErrors((prev) => ({ ...prev, images: "" }));
+    }
   };
 
   const validateForm = (): boolean => {
@@ -190,6 +218,17 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
         submitFormData.append("images", image);
       });
 
+      // Calculate and log total payload size for debugging
+      let totalSize = 0;
+      submitFormData.forEach((value) => {
+        if (value instanceof File) {
+          totalSize += value.size;
+        } else if (typeof value === 'string') {
+          totalSize += new Blob([value]).size;
+        }
+      });
+      console.log(`Total payload size: ${(totalSize / (1024 * 1024)).toFixed(2)}MB`);
+
       // Create property using the store
       await createProperty(submitFormData);
 
@@ -200,9 +239,17 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
       handleClose();
     } catch (error: any) {
       console.error("Add property error:", error);
-      setSubmitError(
-        error.message || "Failed to create property. Please try again.",
-      );
+      
+      // Handle specific error cases
+      if (error.response?.status === 413) {
+        setSubmitError("Payload too large. Please reduce image sizes or upload fewer images.");
+      } else if (error.message?.includes("Payload too large")) {
+        setSubmitError("Payload too large. Please reduce image sizes or upload fewer images.");
+      } else {
+        setSubmitError(
+          error.message || "Failed to create property. Please try again."
+        );
+      }
     }
   };
 
@@ -228,6 +275,8 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
     onClose();
   };
 
+  const totalSizeMB = calculateTotalSizeMB(images);
+
   return (
     <Dialog
       open={open}
@@ -240,29 +289,52 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
           maxHeight: "90vh",
         },
       }}>
-     <DialogTitle
-  sx={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderBottom: "1px solid",
-    borderColor: "divider",
-    pb: 2,
-    backgroundColor: "primary.main",
-    color: "white",
-  }}>
-  <Typography component="span" variant="h5" fontWeight="bold">
-    Add New Property
-  </Typography>
-  <IconButton onClick={handleClose} size="small" sx={{ color: "white" }}>
-    <CloseIcon />
-  </IconButton>
-</DialogTitle>
+      <DialogTitle
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          pb: 2,
+          backgroundColor: "primary.main",
+          color: "white",
+        }}>
+        <Typography component="span" variant="h5" fontWeight="bold">
+          Add New Property
+        </Typography>
+        <IconButton onClick={handleClose} size="small" sx={{ color: "white" }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
 
       <DialogContent sx={{ pt: 3 }}>
         {submitError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert 
+            severity="error" 
+            sx={{ mb: 2 }}
+            action={
+              submitError.includes("Payload too large") ? (
+                <Button 
+                  color="inherit" 
+                  size="small"
+                  onClick={() => {
+                    setImages([]);
+                    setImagePreviews([]);
+                    setSubmitError("");
+                  }}
+                >
+                  Clear Images
+                </Button>
+              ) : null
+            }
+          >
             {submitError}
+            {submitError.includes("Payload too large") && (
+              <Typography variant="caption" component="div" sx={{ mt: 1 }}>
+                Tip: Try reducing image resolution or using fewer images.
+              </Typography>
+            )}
           </Alert>
         )}
 
@@ -290,7 +362,7 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             />
           </Grid>
 
-           <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={6}>
             <TextField
               fullWidth
               label="Location/Area *"
@@ -339,8 +411,6 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
                 <MenuItem value="House">House</MenuItem>
                 <MenuItem value="Villa">Villa</MenuItem>
                 <MenuItem value="Apartment">Apartment</MenuItem>
-                {/* <MenuItem value="Condo">Condo</MenuItem>
-                <MenuItem value="Studio">Studio</MenuItem> */}
               </Select>
               {errors.type && (
                 <Typography
@@ -352,20 +422,6 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
               )}
             </FormControl>
           </Grid>
-
-          {/* <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={formData.status}
-                label="Status"
-                onChange={handleSelectChange("status")}>
-                <MenuItem value="available">Available</MenuItem>
-                <MenuItem value="rented">Rented</MenuItem>
-                <MenuItem value="maintenance">Maintenance</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid> */}
 
           <Grid item xs={12} md={6}>
             <TextField
@@ -471,10 +527,20 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
                   component="span"
                   startIcon={<UploadIcon />}
                   sx={{ mb: 2 }}
-                  disabled={images.length >= 10}>
-                  Upload Images ({images.length}/10)
+                  disabled={images.length >= MAX_IMAGES}>
+                  Upload Images ({images.length}/{MAX_IMAGES})
                 </Button>
               </label>
+              
+              {/* Size indicator */}
+              <Typography
+                variant="caption"
+                color={totalSizeMB > MAX_TOTAL_SIZE_MB ? "error" : "text.secondary"}
+                sx={{ display: "block", mt: 1 }}
+              >
+                Total size: {totalSizeMB.toFixed(2)}MB / {MAX_TOTAL_SIZE_MB}MB
+              </Typography>
+              
               {errors.images && (
                 <Typography
                   variant="caption"
@@ -483,12 +549,13 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
                   {errors.images}
                 </Typography>
               )}
+              
               <Typography
                 variant="caption"
                 color="text.secondary"
                 sx={{ display: "block", mt: 1 }}>
-                Upload at least one image. Maximum 10 images allowed. Each image
-                should be less than 5MB. Supported formats: JPG, PNG, WebP, GIF
+                Upload at least one image. Maximum {MAX_IMAGES} images allowed. Each image
+                should be less than {MAX_INDIVIDUAL_SIZE_MB}MB. Supported formats: JPG, PNG, WebP, GIF
               </Typography>
             </Box>
 
@@ -533,6 +600,21 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
                           fontSize: "0.7rem",
                         }}
                       />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          position: "absolute",
+                          bottom: 2,
+                          left: 2,
+                          backgroundColor: "rgba(0,0,0,0.7)",
+                          color: "white",
+                          px: 0.5,
+                          borderRadius: 0.5,
+                          fontSize: "0.6rem",
+                        }}
+                      >
+                        {(images[index].size / (1024 * 1024)).toFixed(1)}MB
+                      </Typography>
                       <IconButton
                         size="small"
                         onClick={() => removeImage(index)}
@@ -566,14 +648,27 @@ const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
                 variant="caption"
                 color="text.secondary"
                 component="div">
-                • Minimum 1 image, maximum 10 images
+                • Minimum 1 image, maximum {MAX_IMAGES} images
                 <br />
-                • Each image should be less than 5MB
+                • Each image should be less than {MAX_INDIVIDUAL_SIZE_MB}MB
+                <br />
+                • Total upload should be less than {MAX_TOTAL_SIZE_MB}MB
                 <br />
                 • Supported formats: JPG, PNG, WebP, GIF
                 <br />
                 • Recommended aspect ratio: 4:3 or 16:9
                 <br />• Clear, well-lit photos work best
+                <br />
+                <br />
+                <Typography variant="caption" color="error" fontWeight="bold">
+                  💡 Tip: For large images, consider:
+                </Typography>
+                <br />
+                • Resize images to 1920x1080 pixels max
+                <br />
+                • Use image compression tools before uploading
+                <br />
+                • Avoid uploading RAW or uncompressed images
               </Typography>
             </Box>
           </Grid>

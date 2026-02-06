@@ -357,13 +357,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
               role: adminData?.role || "admin",
               permissions: adminData?.permissions || [],
               profilePicture: adminData?.profilePicture || "",
-              isSuperAdmin: 
-                adminData?.isSuperAdmin ||
-                adminData?.is_super_admin ||
-                adminData?.superAdmin ||
-                adminData?.role === "super_admin" ||
-                adminData?.role === "super admin" ||
-                false,
+              isSuperAdmin: adminData?.role === "SUPER_ADMIN" || false, // Check role for super admin
               createdAt: adminData?.createdAt || new Date().toISOString(),
               address: adminData?.address,
               gender: adminData?.gender,
@@ -474,13 +468,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
               role: data.role || "admin",
               permissions: data.permissions || [],
               profilePicture: data.profilePicture || data.profile_picture || "",
-              isSuperAdmin: 
-                data.isSuperAdmin ||
-                data.is_super_admin ||
-                data.superAdmin ||
-                data.role === "super_admin" ||
-                data.role === "super admin" ||
-                false,
+              isSuperAdmin: data.role === "SUPER_ADMIN" || false, // Check role for super admin
               createdAt: data.createdAt || new Date().toISOString(),
               address: data.address || "",
               gender: data.gender || "",
@@ -540,6 +528,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
             adminInfo: state.adminInfo ? {
               ...state.adminInfo,
               ...data,
+              isSuperAdmin: data.role === "SUPER_ADMIN" || state.adminInfo.isSuperAdmin, // Update isSuperAdmin based on role
             } : null,
             isLoading: false,
             error: null,
