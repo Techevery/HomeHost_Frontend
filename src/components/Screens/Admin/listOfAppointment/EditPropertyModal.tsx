@@ -36,7 +36,7 @@ interface EditPropertyModalProps {
 }
 
 // Define all possible property types to match backend
-const PROPERTY_TYPES = ['Flat', 'House', 'Apartment', 'Penthouse', 'Studio', 'Villa'] as const;
+const PROPERTY_TYPES = ['Flat', 'House', 'Apartment', 'Villa'] as const;
 
 const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
   open,
