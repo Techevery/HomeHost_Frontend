@@ -20,6 +20,8 @@ interface AdminState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  // Store agent suspension states locally as backup
+  agentSuspensionStates: Record<string, boolean>;
 }
 
 // Apartment data interface
@@ -232,7 +234,10 @@ interface AdminActions {
     agentId: string,
     status: "VERIFIED" | "UNVERIFIED",
   ) => Promise<any>;
-  suspendAgent: (agentId: string) => Promise<any>;
+  suspendAgent: (agentId: string) => Promise<{
+    message: string;
+    data: { suspended: boolean };
+  }>;
   rejectAgent: (agentId: string, reason: string) => Promise<any>;
   listAgents: (page?: number, pageSize?: number) => Promise<any>;
   getAgentProfile: (agentId: string, status?: "info" | "payout" | "properties") => Promise<any>;
@@ -264,6 +269,9 @@ interface AdminActions {
   getSuccessfulPayouts: (page?: number, pageSize?: number) => Promise<any>;
   getPayoutRequests: (page?: number, pageSize?: number) => Promise<any>;
   
+  // Local State Management
+  updateAgentSuspensionState: (agentId: string, suspended: boolean) => void;
+  
   // Debug
   debugToken: () => {
     token: string | null;
@@ -278,6 +286,7 @@ const initialState: AdminState = {
   isAuthenticated: false,
   isLoading: false,
   error: null,
+  agentSuspensionStates: {},
 };
 
 const API_BASE_URL =
@@ -357,7 +366,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
               role: adminData?.role || "admin",
               permissions: adminData?.permissions || [],
               profilePicture: adminData?.profilePicture || "",
-              isSuperAdmin: adminData?.role === "SUPER_ADMIN" || false, // Check role for super admin
+              isSuperAdmin: adminData?.role === "SUPER_ADMIN" || false,
               createdAt: adminData?.createdAt || new Date().toISOString(),
               address: adminData?.address,
               gender: adminData?.gender,
@@ -438,7 +447,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
       },
 
       logout: () => {
-        set(initialState);
+        set({ ...initialState, agentSuspensionStates: {} });
         try {
           localStorage.removeItem("token");
           localStorage.removeItem("admin-storage");
@@ -468,7 +477,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
               role: data.role || "admin",
               permissions: data.permissions || [],
               profilePicture: data.profilePicture || data.profile_picture || "",
-              isSuperAdmin: data.role === "SUPER_ADMIN" || false, // Check role for super admin
+              isSuperAdmin: data.role === "SUPER_ADMIN" || false,
               createdAt: data.createdAt || new Date().toISOString(),
               address: data.address || "",
               gender: data.gender || "",
@@ -528,7 +537,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
             adminInfo: state.adminInfo ? {
               ...state.adminInfo,
               ...data,
-              isSuperAdmin: data.role === "SUPER_ADMIN" || state.adminInfo.isSuperAdmin, // Update isSuperAdmin based on role
+              isSuperAdmin: data.role === "SUPER_ADMIN" || state.adminInfo.isSuperAdmin,
             } : null,
             isLoading: false,
             error: null,
@@ -569,6 +578,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
+      // ✅ FIXED: Properly handle the backend response
       suspendAgent: async (agentId) => {
         set({ isLoading: true });
         try {
@@ -578,7 +588,19 @@ const useAdminStore = create<AdminState & AdminActions>()(
           );
 
           set({ isLoading: false });
-          return response.data;
+          
+          // Extract the suspended status from response.data.data
+          const suspendedStatus = response.data?.data?.suspended;
+          
+          // Update local suspension state store
+          if (typeof suspendedStatus === 'boolean') {
+            get().updateAgentSuspensionState(agentId, suspendedStatus);
+          }
+          
+          return {
+            message: response.data.message,
+            data: response.data.data // { suspended: boolean }
+          };
         } catch (error: any) {
           set({
             error: error.response?.data?.message,
@@ -586,6 +608,16 @@ const useAdminStore = create<AdminState & AdminActions>()(
           });
           throw error;
         }
+      },
+
+      // ✅ NEW: Update local suspension state
+      updateAgentSuspensionState: (agentId: string, suspended: boolean) => {
+        set((state) => ({
+          agentSuspensionStates: {
+            ...state.agentSuspensionStates,
+            [agentId]: suspended
+          }
+        }));
       },
 
       rejectAgent: async (agentId, reason) => {
@@ -628,7 +660,6 @@ const useAdminStore = create<AdminState & AdminActions>()(
           // Extract the data from response
           const responseData = response.data.data || response.data;
           
-          // Ensure we have the expected structure
           if (!responseData) {
             throw new Error("No data received from server");
           }
@@ -647,6 +678,11 @@ const useAdminStore = create<AdminState & AdminActions>()(
           };
 
           set({ isLoading: false });
+          
+          // Update local suspension state from agent management data
+          if (responseData.info?.suspended !== undefined) {
+            get().updateAgentSuspensionState(agentId, responseData.info.suspended);
+          }
           
           return agentManagementData;
 
@@ -707,15 +743,25 @@ const useAdminStore = create<AdminState & AdminActions>()(
         }
       },
 
+      // ✅ FIXED: Use suspended field from backend response
       listAgents: async (page = 1, pageSize = 10) => {
         set({ isLoading: true });
         try {
           const response = await adminAxios.get(
             `/api/v1/admin/list-agents`,
-            {
-              params: { page, pageSize },
-            },
+            { params: { page, pageSize } }
           );
+
+          // Update local suspension states from backend response
+          if (response.data?.data?.agents) {
+            const { updateAgentSuspensionState } = get();
+            
+            response.data.data.agents.forEach((agent: any) => {
+              if (agent.suspended !== undefined) {
+                updateAgentSuspensionState(agent.id, agent.suspended);
+              }
+            });
+          }
 
           set({ isLoading: false });
           return response.data;
@@ -740,6 +786,12 @@ const useAdminStore = create<AdminState & AdminActions>()(
           );
 
           set({ isLoading: false });
+          
+          // Update local suspension state from agent profile
+          const agentData = response.data?.data?.data?.[0];
+          if (agentData?.suspended !== undefined) {
+            get().updateAgentSuspensionState(agentId, agentData.suspended);
+          }
           
           return response.data;
 
@@ -1055,6 +1107,7 @@ const useAdminStore = create<AdminState & AdminActions>()(
         token: state.token,
         adminInfo: state.adminInfo,
         isAuthenticated: state.isAuthenticated,
+        agentSuspensionStates: state.agentSuspensionStates, // ✅ Persist suspension states
       }),
       version: 1,
     },

@@ -6,29 +6,67 @@ import useAdminStore from "../../../../../stores/admin";
 import { toast } from "react-toastify";
 
 const BanAgentTable = () => {
-  const { listAgents, suspendAgent, isLoading } = useAdminStore();
+  const { listAgents, getAgentManagement, suspendAgent, isLoading, agentSuspensionStates, updateAgentSuspensionState } = useAdminStore();
   const [agents, setAgents] = useState<any[]>([]);
   const [verifiedAgents, setVerifiedAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAgents();
+    fetchVerifiedAgentsWithManagement();
   }, []);
 
   useEffect(() => {
-    const verified = agents.filter(agent => agent.status === 'VERIFIED');
+ 
+    const agentsWithPersistedState = agents.map(agent => ({
+      ...agent,
+   
+      suspended: agentSuspensionStates[agent.id] !== undefined 
+        ? agentSuspensionStates[agent.id] 
+        : agent.suspended || false
+    }));
+    
+    const verified = agentsWithPersistedState.filter(agent => agent.status === 'VERIFIED');
     setVerifiedAgents(verified);
-  }, [agents]);
+  }, [agents, agentSuspensionStates]);
 
-  const fetchAgents = async () => {
+  const fetchVerifiedAgentsWithManagement = async () => {
     try {
       setLoading(true);
-      const response = await listAgents(1, 100); 
-      if (response?.data?.agents) {
-        setAgents(response.data.agents);
+      
+      
+      const listResponse = await listAgents(1, 100);
+      const allAgents = listResponse?.data?.agents || [];
+      
+     
+      const verifiedAgentIds = allAgents
+        .filter((agent: any) => agent.status === 'VERIFIED')
+        .map((agent: any) => agent.id);
+
+      if (verifiedAgentIds.length === 0) {
+        setAgents([]);
+        setLoading(false);
+        return;
       }
+
+      const agentPromises = verifiedAgentIds.map(async (id: string) => {
+        try {
+          const managementData = await getAgentManagement(id);
+      
+          return managementData?.info || null;
+        } catch (error) {
+          console.error(`Failed to fetch management data for agent ${id}:`, error);
+          return null;
+        }
+      });
+
+      const agentResults = await Promise.all(agentPromises);
+      
+    
+      const validAgents = agentResults.filter(agent => agent !== null);
+      setAgents(validAgents);
+      
     } catch (error) {
-      console.error("Error fetching agents:", error);
+      console.error("Error fetching verified agents:", error);
       toast.error("Failed to load agents");
     } finally {
       setLoading(false);
@@ -38,13 +76,35 @@ const BanAgentTable = () => {
   const handleSuspendAgent = async (agentId: string, currentSuspendedStatus: boolean) => {
     try {
       const response = await suspendAgent(agentId);
-      if (response?.message) {
+
+      const newSuspendedStatus = response?.data?.suspended;
+      
+      if (typeof newSuspendedStatus === 'boolean') {
         toast.success(response.message);
         
+     
+        updateAgentSuspensionState(agentId, newSuspendedStatus);
+        
+      
         setAgents(prevAgents => 
           prevAgents.map(agent => 
             agent.id === agentId 
-              ? { ...agent, suspended: !currentSuspendedStatus }
+              ? { ...agent, suspended: newSuspendedStatus }
+              : agent
+          )
+        );
+      } else {
+  
+        const isSuspended = !currentSuspendedStatus;
+        toast.success(response?.message || (isSuspended ? "Agent suspended" : "Agent unsuspended"));
+        
+        updateAgentSuspensionState(agentId, isSuspended);
+        
+  
+        setAgents(prevAgents => 
+          prevAgents.map(agent => 
+            agent.id === agentId 
+              ? { ...agent, suspended: isSuspended }
               : agent
           )
         );
@@ -53,49 +113,6 @@ const BanAgentTable = () => {
       console.error("Error suspending agent:", error);
       toast.error(error.response?.data?.message || "Failed to suspend agent");
     }
-  };
-
-  const handleCustomerComplaintToggle = async (agentId: string, hasComplaint: boolean) => {
-    const action = hasComplaint ? "removed from" : "added to";
-    toast.info(`Agent ${action} customer complaints list`);
-    
-    
-    setAgents(prevAgents => 
-      prevAgents.map(agent => 
-        agent.id === agentId 
-          ? { ...agent, hasCustomerComplaint: !hasComplaint }
-          : agent
-      )
-    );
-  };
-
-  const handleAvailabilityToggle = async (agentId: string, isAvailable: boolean) => {
-
-    const status = isAvailable ? "marked as unavailable" : "marked as available";
-    toast.info(`Agent ${status}`);
-    
-    setAgents(prevAgents => 
-      prevAgents.map(agent => 
-        agent.id === agentId 
-          ? { ...agent, isAvailable: !isAvailable }
-          : agent
-      )
-    );
-  };
-
-  const handleStrikeToggle = async (agentId: string, hasStrike: boolean) => {
-  
-    const action = hasStrike ? "removed from" : "added to";
-    toast.info(`Agent ${action} strike list`);
-    
-
-    setAgents(prevAgents => 
-      prevAgents.map(agent => 
-        agent.id === agentId 
-          ? { ...agent, hasStrike: !hasStrike }
-          : agent
-      )
-    );
   };
 
   const COLUMNS = [
@@ -142,50 +159,6 @@ const BanAgentTable = () => {
       ),
     },
     {
-      title: "Customer Complains",
-      field: "customer_complaints",
-      cellStyle: { paddingLeft: "2%" },
-      render: (rowData: any) => (
-        <div className="flex justify-center">
-          <input
-            type="checkbox"
-            checked={rowData.hasCustomerComplaint || false}
-            onChange={() => handleCustomerComplaintToggle(rowData.id, rowData.hasCustomerComplaint || false)}
-            className="w-4 h-4 text-white checked:bg-primary bg-gray-100 border-gray-300 rounded focus:ring-primary"
-          />
-        </div>
-      ),
-    },
-    {
-      title: "Not Always Available",
-      field: "availability",
-      cellStyle: { minWidth: "260px" },
-      render: (rowData: any) => (
-        <div className="flex whitespace-nowrap justify-center">
-          <input
-            type="checkbox"
-            checked={!rowData.isAvailable || false}
-            onChange={() => handleAvailabilityToggle(rowData.id, !rowData.isAvailable || false)}
-            className="w-4 h-4 text-white checked:bg-primary bg-gray-100 border-gray-300 rounded focus:ring-primary"
-          />
-        </div>
-      ),
-    },
-    {
-      title: "Strikes",
-      field: "strikes",
-      render: (rowData: any) => (
-        <div className="flex justify-center">
-          <input
-            type="checkbox"
-            checked={rowData.hasStrike || false}
-            onChange={() => handleStrikeToggle(rowData.id, rowData.hasStrike || false)}
-            className="w-4 h-4 text-white checked:bg-primary bg-gray-100 border-gray-300 rounded focus:ring-primary"
-          />
-        </div>
-      ),
-    },
-    {
       title: "Suspend Agent",
       field: "suspended",
       cellStyle: { borderBottom: 0, paddingLeft: "2%" },
@@ -199,13 +172,16 @@ const BanAgentTable = () => {
                 onChange={() => handleSuspendAgent(rowData.id, rowData.suspended || false)}
                 className="hidden"
               />
-              <div className={`toggle__line w-12 h-6 rounded-full shadow-inner ${
+              <div className={`toggle__line w-12 h-6 rounded-full shadow-inner transition-colors duration-300 ${
                 rowData.suspended ? 'bg-red-500' : 'bg-gray-300'
               }`}></div>
-              <div className={`toggle__dot absolute w-6 h-6 bg-white rounded-full shadow inset-y-0 ${
+              <div className={`toggle__dot absolute w-6 h-6 bg-white rounded-full shadow inset-y-0 transition-all duration-300 ${
                 rowData.suspended ? 'left-6' : 'left-0'
               }`}></div>
             </div>
+            <span className="ml-2 text-sm">
+              {rowData.suspended ? 'Suspended' : 'Active'}
+            </span>
           </label>
         </div>
       ),
@@ -220,10 +196,16 @@ const BanAgentTable = () => {
 
   return (
     <div className="overflow-hidden">
-      <div className="py-[10px]">
+      <div className="py-[10px] flex justify-between items-center">
         <p className="text-sm text-gray-500 mt-1">
           Showing {verifiedAgents.length} verified agent(s)
         </p>
+        <button
+          onClick={fetchVerifiedAgentsWithManagement}
+          className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+        >
+          Refresh
+        </button>
       </div>
       
       <ThemeProvider theme={defaultMaterialTheme}>
@@ -238,7 +220,7 @@ const BanAgentTable = () => {
               Container: (props) => <Paper {...props} elevation={0} />,
             }}
             columns={COLUMNS}
-            data={verifiedAgents} 
+            data={verifiedAgents}
             isLoading={loading || isLoading}
             title="Verified Agent Management"
             options={{
